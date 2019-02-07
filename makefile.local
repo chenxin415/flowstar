@@ -1,0 +1,2 @@
+GMP_HOME= /usr/local/include
+GMP_LIB_HOME = /usr/local/lib
