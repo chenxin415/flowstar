@@ -8368,11 +8368,6 @@ void Continuous_Reachability::prepareForTMOutput()
 {
 	result_of_reachability.tmv_flowpipes.clear();
 
-	if(bPrint)
-	{
-		printf("Preparing for plotting and TM output...\n");
-	}
-
 	if(type_of_dynamics == LINEAR_TIME_INVARIANT || type_of_dynamics == LINEAR_TIME_VARYING)
 	{
 		Interval intStep(0, p_tm_setting->step_max), intUnit(-1,1);
@@ -8428,38 +8423,7 @@ void Continuous_Reachability::prepareForTMOutput()
 	}
 	else
 	{
-		unsigned int prog = 0, total_size = result_of_reachability.nonlinear_flowpipes.size();
-
-		std::list<Flowpipe>::const_iterator fpIter = result_of_reachability.nonlinear_flowpipes.begin();
-		std::list<unsigned int>::const_iterator orderIter = result_of_reachability.orders_of_flowpipes.begin();
-
-		for(; fpIter != result_of_reachability.nonlinear_flowpipes.end(); ++fpIter, ++orderIter)
-		{
-			TaylorModelVec<Real> tmvTmp;
-
-			fpIter->compose(tmvTmp, *orderIter, p_tm_setting->cutoff_threshold);
-
-			result_of_reachability.tmv_flowpipes.push_back(tmvTmp);
-
-			if(bPrint)
-			{
-				++prog;
-				printf("\b\b\b");
-				printf(BOLD_FONT "%%" RESET_COLOR);
-				printf(BOLD_FONT "%2d" RESET_COLOR, (int)(prog*100/total_size));
-				fflush(stdout);
-			}
-		}
-
-		if(bPrint)
-		{
-			printf("\n");
-		}
-	}
-
-	if(bPrint)
-	{
-		printf("Done.\n");
+		result_of_reachability.transformToTaylorModels(*p_tm_setting, bPrint);
 	}
 }
 

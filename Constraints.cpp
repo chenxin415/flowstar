@@ -117,6 +117,20 @@ Constraint::Constraint(const Expression_AST<Real> & exp, const Real & b)
 	bound		= b;
 }
 
+Constraint::Constraint(const std::string & strExpression)
+{
+	expression_ast_setting.clear();
+
+	std::string prefix(str_prefix_expression_ast);
+	std::string suffix(str_suffix);
+
+	expression_ast_setting.strExpression = prefix + strExpression + suffix;
+
+	parseExpression();
+
+	expression_ast_setting.result.toReal(expression);
+}
+
 Constraint::Constraint(const Constraint & constraint)
 {
 	expression	= constraint.expression;

@@ -59,6 +59,7 @@ public:
 public:
 	Constraint();
 	Constraint(const Expression_AST<Real> & exp, const Real & b);
+	Constraint(const std::string & strExpression);
 	Constraint(const Constraint & constraint);
 	~Constraint();
 
