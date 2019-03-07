@@ -1,4 +1,4 @@
-CXX = g++
+CXX = g++-8
 include makefile.local
 LIBS = -lmpfr -lgmp -lgsl -lgslcblas -lm -lglpk
 CFLAGS = -I . -I $(GMP_HOME) -g -O3 -std=c++11
