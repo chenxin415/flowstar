@@ -199,7 +199,11 @@ void Computational_Setting::printOff()
 
 void Computational_Setting::prepare()
 {
-	g_setting.prepareForReachability(tm_setting.order_min > tm_setting.order_max ? tm_setting.order_min : tm_setting.order_max);
+	unsigned int maxOrder = tm_setting.order_min > tm_setting.order_max ? tm_setting.order_min : tm_setting.order_max;
+
+	maxOrder = tm_setting.order > maxOrder ? tm_setting.order : maxOrder;
+
+	g_setting.prepareForReachability(maxOrder);
 }
 
 Computational_Setting & Computational_Setting::operator = (const Computational_Setting & setting)
@@ -5228,6 +5232,8 @@ int Deterministic_Continuous_Dynamics::reach_symbolic_remainder_adaptive_stepsiz
 	{
 		Flowpipe newFlowpipe, currentFlowpipe = initialSets[m];
 
+		tm_setting.setStepsize(tm_setting.step_max, tm_setting.order);
+
 		Symbolic_Remainder symbolic_remainder(currentFlowpipe);
 
 		for(double t=THRESHOLD_HIGH; t < time;)
@@ -8136,7 +8142,16 @@ unsigned long Continuous_Reachability::run()
 			}
 		}
 	}
+/*
+	Flowpipe fpTmp = result_of_reachability.nonlinear_flowpipes.back();
+	result_of_reachability.fp_end_of_time = fpTmp;
 
+	fpTmp.tmvPre.evaluate_time(result_of_reachability.fp_end_of_time.tmvPre, p_tm_setting->step_end_exp_table);
+
+	std::vector<Interval> range;
+	result_of_reachability.fp_end_of_time.intEvalNormal(range, p_tm_setting->step_exp_table, p_tm_setting->order_min, p_tm_setting->cutoff_threshold);
+	std::cout << range[3].width() << std::endl;
+*/
 	return result;
 }
 

@@ -178,6 +178,38 @@ public:
 
 
 
+
+class Result_of_Reachability
+{
+public:
+	int status;
+	unsigned long num_of_flowpipes;
+	Flowpipe fp_end_of_time;
+
+	std::list<Flowpipe> nonlinear_flowpipes;
+	std::list<TaylorModelVec<Real> > tmv_flowpipes;
+	std::list<unsigned int> orders_of_flowpipes;
+	std::list<int> safety_of_flowpipes;
+
+public:
+	Result_of_Reachability();
+	Result_of_Reachability(const Result_of_Reachability & result);
+	~Result_of_Reachability();
+
+	void clear();
+	void transformToTaylorModels(const Taylor_Model_Computation_Setting & tm_setting, const bool bPrint);
+	void transformToTaylorModels(const Computational_Setting & c_setting);
+
+	Result_of_Reachability & operator = (const Result_of_Reachability & result);
+};
+
+
+
+
+
+
+
+
 // base class for continuous dynamics
 class Dynamics
 {
@@ -235,30 +267,6 @@ public:
 
 
 
-
-class Result_of_Reachability
-{
-public:
-	int status;
-	unsigned long num_of_flowpipes;
-	Flowpipe fp_end_of_time;
-
-	std::list<Flowpipe> nonlinear_flowpipes;
-	std::list<TaylorModelVec<Real> > tmv_flowpipes;
-	std::list<unsigned int> orders_of_flowpipes;
-	std::list<int> safety_of_flowpipes;
-
-public:
-	Result_of_Reachability();
-	Result_of_Reachability(const Result_of_Reachability & result);
-	~Result_of_Reachability();
-
-	void clear();
-	void transformToTaylorModels(const Taylor_Model_Computation_Setting & tm_setting, const bool bPrint);
-	void transformToTaylorModels(const Computational_Setting & c_setting);
-
-	Result_of_Reachability & operator = (const Result_of_Reachability & result);
-};
 
 
 
