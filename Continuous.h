@@ -186,6 +186,7 @@ public:
 	unsigned long num_of_flowpipes;
 	Flowpipe fp_end_of_time;
 
+	std::list<LinearFlowpipe> linear_flowpipes;
 	std::list<Flowpipe> nonlinear_flowpipes;
 	std::list<TaylorModelVec<Real> > tmv_flowpipes;
 	std::list<unsigned int> orders_of_flowpipes;
@@ -197,8 +198,12 @@ public:
 	~Result_of_Reachability();
 
 	void clear();
+
 	void transformToTaylorModels(const Taylor_Model_Computation_Setting & tm_setting, const bool bPrint);
 	void transformToTaylorModels(const Computational_Setting & c_setting);
+
+	void transformToTaylorModels(const Taylor_Model_Computation_Setting & tm_setting, const bool bPrint, const Flowpipe & initialSet);
+	void transformToTaylorModels(const Computational_Setting & c_setting, const Flowpipe & initialSet);
 
 	Result_of_Reachability & operator = (const Result_of_Reachability & result);
 };
@@ -292,6 +297,8 @@ public:
 			unsigned long & num_of_flowpipes, const double time, const std::vector<Flowpipe> & initialSets, const Taylor_Model_Computation_Setting & tm_setting,
 			const Global_Computation_Setting & g_setting, const bool bPrint, const std::vector<Constraint> & unsafeSet, const bool bSafetyChecking,
 			const bool bPlot, const bool bTMOutput);
+
+	void reach(Result_of_Reachability & result, Computational_Setting & setting, const Flowpipe & initialSet, const std::vector<Constraint> & unsafeSet);
 
 	virtual int reach_LTV(std::list<LinearFlowpipe> & flowpipes, std::list<unsigned int> & flowpipe_orders, std::list<int> & flowpipes_safety,
 			unsigned long & num_of_flowpipes, const double time, const std::vector<Flowpipe> & initialSets, const Taylor_Model_Computation_Setting & tm_setting,
@@ -519,6 +526,7 @@ public:
 	unsigned int num_of_pieces;
 	bool bProjected;
 	bool bPrint;
+	bool bDiscrete;
 
 public:
 	Plot_Setting();
@@ -535,6 +543,9 @@ public:
 
 	void printOn();
 	void printOff();
+
+	void discreteOutput();
+	void continuousOutput();
 
 	void plot_2D(const std::string & fileName, const Result_of_Reachability & result) const;
 

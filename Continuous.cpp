@@ -3995,6 +3995,7 @@ Result_of_Reachability::Result_of_Reachability(const Result_of_Reachability & re
 	status				= result.status;
 	num_of_flowpipes	= result.num_of_flowpipes;
 	fp_end_of_time		= result.fp_end_of_time;
+	linear_flowpipes	= result.linear_flowpipes;
 	nonlinear_flowpipes	= result.nonlinear_flowpipes;
 	orders_of_flowpipes	= result.orders_of_flowpipes;
 	safety_of_flowpipes	= result.safety_of_flowpipes;
@@ -4009,6 +4010,7 @@ void Result_of_Reachability::clear()
 	status = -1;
 	num_of_flowpipes = 0;
 
+	linear_flowpipes.clear();
 	nonlinear_flowpipes.clear();
 	tmv_flowpipes.clear();
 	orders_of_flowpipes.clear();
@@ -4056,6 +4058,64 @@ void Result_of_Reachability::transformToTaylorModels(const Computational_Setting
 	transformToTaylorModels(c_setting.tm_setting, c_setting.bPrint);
 }
 
+void Result_of_Reachability::transformToTaylorModels(const Taylor_Model_Computation_Setting & tm_setting, const bool bPrint, const Flowpipe & initialSet)
+{
+	unsigned int prog = 0, total_size = linear_flowpipes.size();
+
+	if(bPrint)
+	{
+		printf("Translating the flowpipes...\n");
+	}
+
+	std::vector<Interval> newDomain = initialSet.domain;
+	newDomain[0] = tm_setting.step_exp_table[1];
+
+	std::vector<Interval> polyRangeX0;
+	initialSet.tmvPre.polyRange(polyRangeX0, initialSet.domain);
+
+	unsigned int rangeDim = initialSet.tmvPre.tms.size();
+	std::vector<Interval> range_of_X0(rangeDim);
+
+	for(int k=0; k<rangeDim; ++k)
+	{
+		range_of_X0[k] = polyRangeX0[k] + initialSet.tmvPre.tms[k].remainder;
+	}
+
+	std::list<LinearFlowpipe>::iterator iter;
+
+	for(iter = linear_flowpipes.begin(); iter != linear_flowpipes.end(); ++iter)
+	{
+		TaylorModelVec<Real> tmvTmp;
+
+		iter->evaluate(tmvTmp, initialSet.tmvPre, polyRangeX0, range_of_X0, newDomain, tm_setting);
+
+		tmv_flowpipes.push_back(tmvTmp);
+
+		Flowpipe flowpipe;
+		flowpipe.domain = newDomain;
+		nonlinear_flowpipes.push_back(flowpipe);
+
+		if(bPrint)
+		{
+			++prog;
+			printf("\b\b\b");
+			printf(BOLD_FONT "%%" RESET_COLOR);
+			printf(BOLD_FONT "%2d" RESET_COLOR, (int)(prog*100/total_size));
+			fflush(stdout);
+		}
+	}
+
+	if(bPrint)
+	{
+		printf("\nDone.\n");
+	}
+}
+
+void Result_of_Reachability::transformToTaylorModels(const Computational_Setting & c_setting, const Flowpipe & initialSet)
+{
+	transformToTaylorModels(c_setting.tm_setting, c_setting.bPrint, initialSet);
+}
+
 Result_of_Reachability & Result_of_Reachability::operator = (const Result_of_Reachability & result)
 {
 	if(this == &result)
@@ -4064,6 +4124,7 @@ Result_of_Reachability & Result_of_Reachability::operator = (const Result_of_Rea
 	status				= result.status;
 	num_of_flowpipes	= result.num_of_flowpipes;
 	fp_end_of_time		= result.fp_end_of_time;
+	linear_flowpipes	= result.linear_flowpipes;
 	nonlinear_flowpipes	= result.nonlinear_flowpipes;
 	orders_of_flowpipes	= result.orders_of_flowpipes;
 	safety_of_flowpipes	= result.safety_of_flowpipes;
@@ -4146,8 +4207,8 @@ int Linear_Time_Invariant_Dynamics::reach_LTI(std::list<LinearFlowpipe> & flowpi
 	// find a proper parameter r = 2^n such that |A*delta/r| < 0.1
 	Real A_max = rm_dyn_A.max_norm();
 	Real threshold = 0.1;
-	double step = tm_setting.step_max;
-	Real rStep = tm_setting.step_max;
+	double step = tm_setting.step_exp_table[1].sup();
+	Real rStep = step;
 
 	unsigned int r = 1, n = 0;
 	while(A_max >= threshold)
@@ -4417,6 +4478,23 @@ int Linear_Time_Invariant_Dynamics::reach_LTI(std::list<LinearFlowpipe> & flowpi
 	return checking_result;
 }
 
+void Linear_Time_Invariant_Dynamics::reach(Result_of_Reachability & result, Computational_Setting & setting, const Flowpipe & initialSet, const std::vector<Constraint> & unsafeSet)
+{
+	std::vector<Flowpipe> initialSets;
+	initialSets.push_back(initialSet);
+
+	bool bSafetyChecking = false;
+
+	if(unsafeSet.size() > 0)
+	{
+		bSafetyChecking = true;
+	}
+
+	reach_LTI(result.linear_flowpipes, result.orders_of_flowpipes, result.safety_of_flowpipes,
+			result.num_of_flowpipes, setting.time, initialSets, setting.tm_setting,
+			setting.g_setting, setting.bPrint, unsafeSet, bSafetyChecking, true, true);
+}
+
 int Linear_Time_Invariant_Dynamics::reach_LTV(std::list<LinearFlowpipe> & flowpipes, std::list<unsigned int> & flowpipe_orders, std::list<int> & flowpipes_safety,
 		unsigned long & num_of_flowpipes, const double time, const std::vector<Flowpipe> & initialSets, const Taylor_Model_Computation_Setting & tm_setting,
 		const Global_Computation_Setting & g_setting, const bool bPrint, const std::vector<Constraint> & unsafeSet, const bool bSafetyChecking,
@@ -4559,8 +4637,8 @@ int Linear_Time_Varying_Dynamics::reach_LTV(std::list<LinearFlowpipe> & flowpipe
 		const Global_Computation_Setting & g_setting, const bool bPrint, const std::vector<Constraint> & unsafeSet, const bool bSafetyChecking,
 		const bool bPlot, const bool bTMOutput)
 {
-	double step = tm_setting.step_max;
-	Real rStep = tm_setting.step_max;
+	double step = tm_setting.step_exp_table[1].sup();
+	Real rStep = step;
 	const int rangeDim = upm_dyn_A.rows();
 	Interval intStep(0, step);
 
@@ -5533,10 +5611,13 @@ void Deterministic_Continuous_Dynamics::reach(Result_of_Reachability & result, C
 		}
 	}
 
-	Flowpipe fpTmp = result.nonlinear_flowpipes.back();
-	result.fp_end_of_time = fpTmp;
+	if(result.nonlinear_flowpipes.size() > 0)
+	{
+		Flowpipe fpTmp = result.nonlinear_flowpipes.back();
+		result.fp_end_of_time = fpTmp;
 
-	fpTmp.tmvPre.evaluate_time(result.fp_end_of_time.tmvPre, setting.tm_setting.step_end_exp_table);
+		fpTmp.tmvPre.evaluate_time(result.fp_end_of_time.tmvPre, setting.tm_setting.step_end_exp_table);
+	}
 }
 
 
@@ -6280,10 +6361,13 @@ void Nondeterministic_Continuous_Dynamics::reach(Result_of_Reachability & result
 		}
 	}
 
-	Flowpipe fpTmp = result.nonlinear_flowpipes.back();
-	result.fp_end_of_time = fpTmp;
+	if(result.nonlinear_flowpipes.size() > 0)
+	{
+		Flowpipe fpTmp = result.nonlinear_flowpipes.back();
+		result.fp_end_of_time = fpTmp;
 
-	fpTmp.tmvPre.evaluate_time(result.fp_end_of_time.tmvPre, setting.tm_setting.step_end_exp_table);
+		fpTmp.tmvPre.evaluate_time(result.fp_end_of_time.tmvPre, setting.tm_setting.step_end_exp_table);
+	}
 }
 
 
@@ -6299,6 +6383,7 @@ Plot_Setting::Plot_Setting()
 	num_of_pieces	= 0;
 	bProjected		= false;
 	bPrint			= true;
+	bDiscrete		= false;
 }
 
 Plot_Setting::Plot_Setting(const Plot_Setting & setting)
@@ -6309,6 +6394,7 @@ Plot_Setting::Plot_Setting(const Plot_Setting & setting)
 	num_of_pieces	= setting.num_of_pieces;
 	bProjected		= setting.bProjected;
 	bPrint			= setting.bPrint;
+	bDiscrete		= setting.bDiscrete;
 }
 
 Plot_Setting::~Plot_Setting()
@@ -6365,6 +6451,16 @@ void Plot_Setting::printOn()
 void Plot_Setting::printOff()
 {
 	bPrint = false;
+}
+
+void Plot_Setting::discreteOutput()
+{
+	bDiscrete = true;
+}
+
+void Plot_Setting::continuousOutput()
+{
+	bDiscrete = false;
 }
 
 void Plot_Setting::plot_2D(const std::string & fileName, const Result_of_Reachability & result) const
@@ -6437,7 +6533,17 @@ void Plot_Setting::plot_2D_interval_MATLAB(const std::string & fileName, const R
 		for(; safetyIter != result.safety_of_flowpipes.end() ; ++tmvIter, ++fpIter, ++safetyIter)
 		{
 			std::vector<Interval> box;
-			tmvIter->intEval(box, fpIter->domain, varIDs);
+
+			if(bDiscrete)
+			{
+				std::vector<Interval> newDomain = fpIter->domain;
+				newDomain[0] = fpIter->domain[0].sup();
+				tmvIter->intEval(box, newDomain, varIDs);
+			}
+			else
+			{
+				tmvIter->intEval(box, fpIter->domain, varIDs);
+			}
 
 			Interval X = box[0], Y = box[1];
 
@@ -6480,7 +6586,17 @@ void Plot_Setting::plot_2D_interval_MATLAB(const std::string & fileName, const R
 		for(; tmvIter != result.tmv_flowpipes.end() ; ++tmvIter, ++fpIter)
 		{
 			std::vector<Interval> box;
-			tmvIter->intEval(box, fpIter->domain, varIDs);
+
+			if(bDiscrete)
+			{
+				std::vector<Interval> newDomain = fpIter->domain;
+				newDomain[0] = fpIter->domain[0].sup();
+				tmvIter->intEval(box, newDomain, varIDs);
+			}
+			else
+			{
+				tmvIter->intEval(box, fpIter->domain, varIDs);
+			}
 
 			Interval X = box[0], Y = box[1];
 
@@ -6635,7 +6751,14 @@ void Plot_Setting::plot_2D_octagon_MATLAB(const std::string & fileName, const Re
 	{
 		for(; safetyIter != result.safety_of_flowpipes.end(); ++tmvIter, ++fpIter, ++safetyIter)
 		{
-			Polyhedron polyTemplate(sortedTemplate, *tmvIter, fpIter->domain);
+			std::vector<Interval> newDomain = fpIter->domain;
+
+			if(bDiscrete)
+			{
+				newDomain[0] = fpIter->domain[0].sup();
+			}
+
+			Polyhedron polyTemplate(sortedTemplate, *tmvIter, newDomain);
 
 			double f1, f2;
 
@@ -6748,7 +6871,14 @@ void Plot_Setting::plot_2D_octagon_MATLAB(const std::string & fileName, const Re
 
 		for(; tmvIter != result.tmv_flowpipes.end(); ++tmvIter, ++fpIter)
 		{
-			Polyhedron polyTemplate(sortedTemplate, *tmvIter, fpIter->domain);
+			std::vector<Interval> newDomain = fpIter->domain;
+
+			if(bDiscrete)
+			{
+				newDomain[0] = fpIter->domain[0].sup();
+			}
+
+			Polyhedron polyTemplate(sortedTemplate, *tmvIter, newDomain);
 
 			double f1, f2;
 
@@ -6896,7 +7026,16 @@ void Plot_Setting::plot_2D_grids_MATLAB(const std::string & fileName, const unsi
 			// decompose the domain
 			std::list<std::vector<Interval> > grids;
 
-			gridBox(grids, fpIter->domain, num);
+			if(bDiscrete)
+			{
+				std::vector<Interval> newDomain = fpIter->domain;
+				newDomain[0] = fpIter->domain[0].sup();
+				gridBox(grids, newDomain, num);
+			}
+			else
+			{
+				gridBox(grids, fpIter->domain, num);
+			}
 
 			// we only consider the output dimensions
 			HornerForm<Real> hfOutputX;
@@ -6971,7 +7110,17 @@ void Plot_Setting::plot_2D_grids_MATLAB(const std::string & fileName, const unsi
 			// decompose the domain
 			std::list<std::vector<Interval> > grids;
 
-			gridBox(grids, fpIter->domain, num);
+			if(bDiscrete)
+			{
+				std::vector<Interval> newDomain = fpIter->domain;
+				newDomain[0] = fpIter->domain[0].sup();
+				gridBox(grids, newDomain, num);
+			}
+			else
+			{
+				gridBox(grids, fpIter->domain, num);
+			}
+
 
 			// we only consider the output dimensions
 			HornerForm<Real> hfOutputX;
@@ -7100,7 +7249,18 @@ void Plot_Setting::plot_2D_interval_GNUPLOT(const std::string & fileName, const 
 		for(; safetyIter != result.safety_of_flowpipes.end(); ++tmvIter, ++fpIter, ++safetyIter)
 		{
 			std::vector<Interval> box;
-			tmvIter->intEval(box, fpIter->domain, varIDs);
+
+			if(bDiscrete)
+			{
+				std::vector<Interval> newDomain = fpIter->domain;
+				newDomain[0] = fpIter->domain[0].sup();
+				tmvIter->intEval(box, newDomain, varIDs);
+			}
+			else
+			{
+				tmvIter->intEval(box, fpIter->domain, varIDs);
+			}
+
 
 			// output the vertices
 			fprintf(plotFile, "%e %e\n", box[0].inf(), box[1].inf());
@@ -7140,7 +7300,18 @@ void Plot_Setting::plot_2D_interval_GNUPLOT(const std::string & fileName, const 
 		for(; tmvIter != result.tmv_flowpipes.end(); ++tmvIter, ++fpIter)
 		{
 			std::vector<Interval> box;
-			tmvIter->intEval(box, fpIter->domain, varIDs);
+
+			if(bDiscrete)
+			{
+				std::vector<Interval> newDomain = fpIter->domain;
+				newDomain[0] = fpIter->domain[0].sup();
+				tmvIter->intEval(box, newDomain, varIDs);
+			}
+			else
+			{
+				tmvIter->intEval(box, fpIter->domain, varIDs);
+			}
+
 
 			// output the vertices
 			fprintf(plotFile, "%e %e\n", box[0].inf(), box[1].inf());
@@ -7314,7 +7485,14 @@ void Plot_Setting::plot_2D_octagon_GNUPLOT(const std::string & fileName, const R
 	{
 		for(; safetyIter != result.safety_of_flowpipes.end(); ++tmvIter, ++fpIter, ++safetyIter)
 		{
-			Polyhedron polyTemplate(sortedTemplate, *tmvIter, fpIter->domain);
+			std::vector<Interval> newDomain = fpIter->domain;
+
+			if(bDiscrete)
+			{
+				newDomain[0] = fpIter->domain[0].sup();
+			}
+
+			Polyhedron polyTemplate(sortedTemplate, *tmvIter, newDomain);
 
 			double f1, f2;
 
@@ -7396,7 +7574,14 @@ void Plot_Setting::plot_2D_octagon_GNUPLOT(const std::string & fileName, const R
 
 		for(; tmvIter != result.tmv_flowpipes.end(); ++tmvIter, ++fpIter)
 		{
-			Polyhedron polyTemplate(sortedTemplate, *tmvIter, fpIter->domain);
+			std::vector<Interval> newDomain = fpIter->domain;
+
+			if(bDiscrete)
+			{
+				newDomain[0] = fpIter->domain[0].sup();
+			}
+
+			Polyhedron polyTemplate(sortedTemplate, *tmvIter, newDomain);
 
 			double f1, f2;
 
@@ -7543,7 +7728,17 @@ void Plot_Setting::plot_2D_grids_GNUPLOT(const std::string & fileName, const uns
 			// decompose the domain
 			std::list<std::vector<Interval> > grids;
 
-			gridBox(grids, fpIter->domain, num);
+			if(bDiscrete)
+			{
+				std::vector<Interval> newDomain = fpIter->domain;
+				newDomain[0] = fpIter->domain[0].sup();
+				gridBox(grids, newDomain, num);
+			}
+			else
+			{
+				gridBox(grids, fpIter->domain, num);
+			}
+
 
 			// we only consider the output dimensions
 			HornerForm<Real> hfOutputX;
@@ -7608,7 +7803,17 @@ void Plot_Setting::plot_2D_grids_GNUPLOT(const std::string & fileName, const uns
 			// decompose the domain
 			std::list<std::vector<Interval> > grids;
 
-			gridBox(grids, fpIter->domain, num);
+			if(bDiscrete)
+			{
+				std::vector<Interval> newDomain = fpIter->domain;
+				newDomain[0] = fpIter->domain[0].sup();
+				gridBox(grids, newDomain, num);
+			}
+			else
+			{
+				gridBox(grids, fpIter->domain, num);
+			}
+
 
 			// we only consider the output dimensions
 			HornerForm<Real> hfOutputX;
