@@ -202,8 +202,13 @@ public:
 	void transformToTaylorModels(const Taylor_Model_Computation_Setting & tm_setting, const bool bPrint);
 	void transformToTaylorModels(const Computational_Setting & c_setting);
 
+	void computeBoxOverapproximations(std::list<std::vector<Interval> > & boxes, const Taylor_Model_Computation_Setting & tm_setting, const bool bPrint);
+	void computeBoxOverapproximations(std::list<std::vector<Interval> > & boxes, const Computational_Setting & c_setting);
+
+
 	void transformToTaylorModels(const Taylor_Model_Computation_Setting & tm_setting, const bool bPrint, const Flowpipe & initialSet);
 	void transformToTaylorModels(const Computational_Setting & c_setting, const Flowpipe & initialSet);
+
 
 	Result_of_Reachability & operator = (const Result_of_Reachability & result);
 };

@@ -4058,6 +4058,46 @@ void Result_of_Reachability::transformToTaylorModels(const Computational_Setting
 	transformToTaylorModels(c_setting.tm_setting, c_setting.bPrint);
 }
 
+void Result_of_Reachability::computeBoxOverapproximations(std::list<std::vector<Interval> > & boxes, const Taylor_Model_Computation_Setting & tm_setting, const bool bPrint)
+{
+	unsigned int prog = 0, total_size = nonlinear_flowpipes.size();
+
+	if(bPrint)
+	{
+		printf("Computing box overapproximations...\n");
+	}
+
+	std::list<TaylorModelVec<Real> >::const_iterator tmvIter = tmv_flowpipes.begin();
+	std::list<Flowpipe>::const_iterator fpIter = nonlinear_flowpipes.begin();
+
+	for(; tmvIter != tmv_flowpipes.end(); ++tmvIter, ++fpIter)
+	{
+		std::vector<Interval> box;
+		tmvIter->intEval(box, fpIter->domain);
+
+		boxes.push_back(box);
+
+		if(bPrint)
+		{
+			++prog;
+			printf("\b\b\b");
+			printf(BOLD_FONT "%%" RESET_COLOR);
+			printf(BOLD_FONT "%2d" RESET_COLOR, (int)(prog*100/total_size));
+			fflush(stdout);
+		}
+	}
+
+	if(bPrint)
+	{
+		printf("\nDone.\n");
+	}
+}
+
+void Result_of_Reachability::computeBoxOverapproximations(std::list<std::vector<Interval> > & boxes, const Computational_Setting & c_setting)
+{
+	computeBoxOverapproximations(boxes, c_setting.tm_setting, c_setting.bPrint);
+}
+
 void Result_of_Reachability::transformToTaylorModels(const Taylor_Model_Computation_Setting & tm_setting, const bool bPrint, const Flowpipe & initialSet)
 {
 	unsigned int prog = 0, total_size = linear_flowpipes.size();
