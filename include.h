@@ -84,6 +84,10 @@ const int high_precision	=	256;
 #define UNCOMPLETED_UNKNOWN		6
 
 
+#define SAFE_REACHABLE			100
+#define UNKNOWN_REACHABLE		101
+
+
 #define PLOT_GNUPLOT	0
 #define PLOT_MATLAB		1
 

@@ -105,6 +105,8 @@ public:
 
 	int safetyChecking(const std::vector<Constraint> & unsafeSet, const Taylor_Model_Computation_Setting & tm_setting, const Global_Computation_Setting & g_setting) const;
 
+	bool isInTarget(const std::vector<Constraint> & targetSet, const Taylor_Model_Computation_Setting & tm_setting, const Global_Computation_Setting & g_setting) const;
+
 	Flowpipe & operator = (const Flowpipe & flowpipe);
 
 
@@ -458,8 +460,17 @@ public:
 			const bool bPlot, const bool bTMOutput) const;
 
 	void reach(Result_of_Reachability & result, Computational_Setting & setting, const std::vector<Flowpipe> & initialSets, const std::vector<Constraint> & unsafeSet) const;
-
 	void reach(Result_of_Reachability & result, Computational_Setting & setting, const Flowpipe & initialSet, const std::vector<Constraint> & unsafeSet) const;
+
+
+	// reach-while-avoid functions
+	virtual int reach_while_avoid_symbolic_remainder(std::list<Flowpipe> & flowpipes, std::list<unsigned int> & flowpipe_orders, std::list<int> & flowpipes_safety,
+			unsigned long & num_of_flowpipes, const double time, const std::vector<Flowpipe> & initialSets, const Taylor_Model_Computation_Setting & tm_setting,
+			const Global_Computation_Setting & g_setting, const bool bPrint, const std::vector<Constraint> & unsafeSet, const bool bSafetyChecking,
+			const std::vector<Constraint> & targetSet, const bool bPlot, const bool bTMOutput) const;
+
+	void reach_while_avoid(Result_of_Reachability & result, Computational_Setting & setting, const std::vector<Flowpipe> & initialSets, const std::vector<Constraint> & unsafeSet, const std::vector<Constraint> & targetSet) const;
+	void reach_while_avoid(Result_of_Reachability & result, Computational_Setting & setting, const Flowpipe & initialSet, const std::vector<Constraint> & unsafeSet, const std::vector<Constraint> & targetSet) const;
 };
 
 
@@ -517,7 +528,6 @@ public:
 			const bool bPlot, const bool bTMOutput) const;
 
 	void reach(Result_of_Reachability & result, Computational_Setting & setting, const std::vector<Flowpipe> & initialSets, const std::vector<Constraint> & unsafeSet) const;
-
 	void reach(Result_of_Reachability & result, Computational_Setting & setting, const Flowpipe & initialSet, const std::vector<Constraint> & unsafeSet) const;
 };
 

@@ -499,6 +499,31 @@ int Flowpipe::safetyChecking(const std::vector<Constraint> & unsafeSet, const Ta
 	}
 }
 
+bool Flowpipe::isInTarget(const std::vector<Constraint> & targetSet, const Taylor_Model_Computation_Setting & tm_setting, const Global_Computation_Setting & g_setting) const
+{
+	unsigned int rangeDim = tmvPre.tms.size();
+
+	std::vector<Interval> tmvRange;
+	tmvPre.intEvalNormal(tmvRange, tm_setting.step_exp_table);
+
+	for(unsigned int i=0; i<targetSet.size(); ++i)
+	{
+		Interval I;
+
+		// interval evaluation on the constraint
+		targetSet[i].expression.evaluate(I, tmvRange);
+
+		if(!(targetSet[i].bound >= I.sup()))
+		{
+			// not entirely contained in the target set
+			return false;
+		}
+	}
+
+	return true;
+}
+
+
 Flowpipe & Flowpipe::operator = (const Flowpipe & flowpipe)
 {
 	if(this == &flowpipe)
@@ -5704,7 +5729,237 @@ void Deterministic_Continuous_Dynamics::reach(Result_of_Reachability & result, C
 	}
 }
 
+int Deterministic_Continuous_Dynamics::reach_while_avoid_symbolic_remainder(std::list<Flowpipe> & flowpipes, std::list<unsigned int> & flowpipe_orders, std::list<int> & flowpipes_safety,
+		unsigned long & num_of_flowpipes, const double time, const std::vector<Flowpipe> & initialSets, const Taylor_Model_Computation_Setting & tm_setting,
+		const Global_Computation_Setting & g_setting, const bool bPrint, const std::vector<Constraint> & unsafeSet, const bool bSafetyChecking,
+		const std::vector<Constraint> & targetSet, const bool bPlot, const bool bTMOutput) const
+{
+	std::vector<Constraint> dummy_invariant;
 
+	std::vector<Real> initial_scalars(expressions.size(), 1);
+
+	double step = tm_setting.step_exp_table[1].sup();
+
+	int checking_result = COMPLETED_SAFE;
+
+	for(int m=0; m<initialSets.size(); ++m)
+	{
+		Flowpipe newFlowpipe, currentFlowpipe = initialSets[m];
+
+		Symbolic_Remainder symbolic_remainder(currentFlowpipe);
+
+		for(double t=THRESHOLD_HIGH; t < time;)
+		{
+			int res = currentFlowpipe.advance_deterministic(newFlowpipe, expressions, tm_setting, dummy_invariant, g_setting, symbolic_remainder);
+
+			if(res == 1)
+			{
+				++num_of_flowpipes;
+				flowpipe_orders.push_back(tm_setting.order);
+
+				if(bSafetyChecking)
+				{
+					int safety = newFlowpipe.safetyChecking(unsafeSet, tm_setting, g_setting);
+
+					if(bTMOutput || bPlot)
+					{
+						flowpipes.push_back(newFlowpipe);
+						flowpipes_safety.push_back(safety);
+					}
+
+					if(safety == UNSAFE)
+					{
+						return COMPLETED_UNSAFE;
+					}
+					else if(safety == UNKNOWN && checking_result == COMPLETED_SAFE)
+					{
+						checking_result = COMPLETED_UNKNOWN;
+					}
+				}
+				else
+				{
+					if(bTMOutput || bPlot)
+					{
+						flowpipes.push_back(newFlowpipe);
+						flowpipes_safety.push_back(SAFE);
+					}
+				}
+
+				// check whether it is entirely in the target set
+				if(newFlowpipe.safetyChecking(targetSet, tm_setting, g_setting))
+				{
+					if(checking_result == COMPLETED_SAFE)
+					{
+						return SAFE_REACHABLE;
+					}
+					else
+					{
+						return UNKNOWN_REACHABLE;
+					}
+				}
+
+				currentFlowpipe = newFlowpipe;
+
+				t += step;
+
+				if(bPrint)
+				{
+					printf("time = %f,\t", t);
+					printf("step = %f,\t", step);
+					printf("order = %d\n", tm_setting.order);
+				}
+
+				if(symbolic_remainder.J.size() >= tm_setting.queue_size)
+				{
+					symbolic_remainder.reset(currentFlowpipe);
+				}
+			}
+			else
+			{
+				switch(checking_result)
+				{
+				case COMPLETED_SAFE:
+					return UNCOMPLETED_SAFE;
+				case COMPLETED_UNSAFE:
+					return UNCOMPLETED_UNSAFE;
+				case COMPLETED_UNKNOWN:
+					return UNCOMPLETED_UNKNOWN;
+				}
+			}
+		}
+	}
+
+	return checking_result;
+}
+
+void Deterministic_Continuous_Dynamics::reach_while_avoid(Result_of_Reachability & result, Computational_Setting & setting, const std::vector<Flowpipe> & initialSets, const std::vector<Constraint> & unsafeSet, const std::vector<Constraint> & targetSet) const
+{
+	bool bSafetyChecking = false;
+
+	if(unsafeSet.size() > 0)
+	{
+		bSafetyChecking = true;
+	}
+
+	if(setting.tm_setting.queue_size > 0)
+	{
+		// symbolic remainder
+
+		if(setting.tm_setting.step_min > 0)
+		{
+			// adaptive stepsizes
+//			result.status = reach_symbolic_remainder_adaptive_stepsize(result.nonlinear_flowpipes, result.orders_of_flowpipes, result.safety_of_flowpipes, result.num_of_flowpipes,
+//					setting.time, initialSets, setting.tm_setting, setting.g_setting, setting.bPrint, unsafeSet, bSafetyChecking, true, true);
+		}
+		else if(setting.tm_setting.order_max > 0)
+		{
+			// adaptive orders
+//			result.status = reach_symbolic_remainder_adaptive_order(result.nonlinear_flowpipes, result.orders_of_flowpipes, result.safety_of_flowpipes, result.num_of_flowpipes,
+//					setting.time, initialSets, setting.tm_setting, setting.g_setting, setting.bPrint, unsafeSet, bSafetyChecking, true, true);
+		}
+		else
+		{
+			// fixed stepsizes and orders
+			result.status = reach_while_avoid_symbolic_remainder(result.nonlinear_flowpipes, result.orders_of_flowpipes, result.safety_of_flowpipes, result.num_of_flowpipes,
+					setting.time, initialSets, setting.tm_setting, setting.g_setting, setting.bPrint, unsafeSet, bSafetyChecking, targetSet, true, true);
+		}
+	}
+	else
+	{
+		if(setting.tm_setting.step_min > 0)
+		{
+			// adaptive stepsizes
+//			result.status = reach_adaptive_stepsize(result.nonlinear_flowpipes, result.orders_of_flowpipes, result.safety_of_flowpipes, result.num_of_flowpipes,
+//					setting.time, initialSets, setting.tm_setting, setting.g_setting, setting.bPrint, unsafeSet, bSafetyChecking, true, true);
+		}
+		else if(setting.tm_setting.order_max > 0)
+		{
+			// adaptive orders
+//			result.status = reach_adaptive_order(result.nonlinear_flowpipes, result.orders_of_flowpipes, result.safety_of_flowpipes, result.num_of_flowpipes,
+//					setting.time, initialSets, setting.tm_setting, setting.g_setting, setting.bPrint, unsafeSet, bSafetyChecking, true, true);
+		}
+		else
+		{
+			// fixed stepsizes and orders
+//			result.status = reach(result.nonlinear_flowpipes, result.orders_of_flowpipes, result.safety_of_flowpipes, result.num_of_flowpipes,
+//					setting.time, initialSets, setting.tm_setting, setting.g_setting, setting.bPrint, unsafeSet, bSafetyChecking, true, true);
+		}
+	}
+
+	if(result.nonlinear_flowpipes.size() > 0)
+	{
+		Flowpipe fpTmp = result.nonlinear_flowpipes.back();
+		result.fp_end_of_time = fpTmp;
+
+		fpTmp.tmvPre.evaluate_time(result.fp_end_of_time.tmvPre, setting.tm_setting.step_end_exp_table);
+	}
+}
+
+void Deterministic_Continuous_Dynamics::reach_while_avoid(Result_of_Reachability & result, Computational_Setting & setting, const Flowpipe & initialSet, const std::vector<Constraint> & unsafeSet, const std::vector<Constraint> & targetSet) const
+{
+	bool bSafetyChecking = false;
+
+	if(unsafeSet.size() > 0)
+	{
+		bSafetyChecking = true;
+	}
+
+	std::vector<Flowpipe> initialSets;
+	initialSets.push_back(initialSet);
+
+	if(setting.tm_setting.queue_size > 0)
+	{
+		// symbolic remainder
+
+		if(setting.tm_setting.step_min > 0)
+		{
+			// adaptive stepsizes
+//			result.status = reach_symbolic_remainder_adaptive_stepsize(result.nonlinear_flowpipes, result.orders_of_flowpipes, result.safety_of_flowpipes, result.num_of_flowpipes,
+//					setting.time, initialSets, setting.tm_setting, setting.g_setting, setting.bPrint, unsafeSet, bSafetyChecking, true, true);
+		}
+		else if(setting.tm_setting.order_max > 0)
+		{
+			// adaptive orders
+//			result.status = reach_symbolic_remainder_adaptive_order(result.nonlinear_flowpipes, result.orders_of_flowpipes, result.safety_of_flowpipes, result.num_of_flowpipes,
+//					setting.time, initialSets, setting.tm_setting, setting.g_setting, setting.bPrint, unsafeSet, bSafetyChecking, true, true);
+		}
+		else
+		{
+			// fixed stepsizes and orders
+			result.status = reach_while_avoid_symbolic_remainder(result.nonlinear_flowpipes, result.orders_of_flowpipes, result.safety_of_flowpipes, result.num_of_flowpipes,
+					setting.time, initialSets, setting.tm_setting, setting.g_setting, setting.bPrint, unsafeSet, bSafetyChecking, targetSet, true, true);
+		}
+	}
+	else
+	{
+		if(setting.tm_setting.step_min > 0)
+		{
+			// adaptive stepsizes
+//			result.status = reach_adaptive_stepsize(result.nonlinear_flowpipes, result.orders_of_flowpipes, result.safety_of_flowpipes, result.num_of_flowpipes,
+//					setting.time, initialSets, setting.tm_setting, setting.g_setting, setting.bPrint, unsafeSet, bSafetyChecking, true, true);
+		}
+		else if(setting.tm_setting.order_max > 0)
+		{
+			// adaptive orders
+//			result.status = reach_adaptive_order(result.nonlinear_flowpipes, result.orders_of_flowpipes, result.safety_of_flowpipes, result.num_of_flowpipes,
+//					setting.time, initialSets, setting.tm_setting, setting.g_setting, setting.bPrint, unsafeSet, bSafetyChecking, true, true);
+		}
+		else
+		{
+			// fixed stepsizes and orders
+//			result.status = reach(result.nonlinear_flowpipes, result.orders_of_flowpipes, result.safety_of_flowpipes, result.num_of_flowpipes,
+//					setting.time, initialSets, setting.tm_setting, setting.g_setting, setting.bPrint, unsafeSet, bSafetyChecking, true, true);
+		}
+	}
+
+	if(result.nonlinear_flowpipes.size() > 0)
+	{
+		Flowpipe fpTmp = result.nonlinear_flowpipes.back();
+		result.fp_end_of_time = fpTmp;
+
+		fpTmp.tmvPre.evaluate_time(result.fp_end_of_time.tmvPre, setting.tm_setting.step_end_exp_table);
+	}
+}
 
 
 
