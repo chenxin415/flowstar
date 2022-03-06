@@ -1,8 +1,5 @@
 /*---
-  Flow*: A Verification Tool for Cyber-Physical Systems.
-  Authors: Xin Chen, Sriram Sankaranarayanan, and Erika Abraham.
   Email: Xin Chen <chenxin415@gmail.com> if you have questions or comments.
-  
   The code is released as is under the GNU General Public License (GPL).
 ---*/
 
@@ -511,24 +508,7 @@ Zonotope::Zonotope(Matrix<Interval> & box)
 		generators.push_back(rm_generator);
 	}
 }
-/*
-Zonotope::Zonotope(iMatrix2 & box)
-{
-	int d = box.rows();
-	iMatrix2 im2_center(d,1);
-	center = im2_center;
 
-	for(int i=0; i<d; ++i)
-	{
-		center.center[i][0] = box.center[i][0];
-
-		iMatrix2 im2_generator(d,1);
-		im2_generator.center[i][0] = box.radius[i][0];
-
-		generators.push_back(im2_generator);
-	}
-}
-*/
 Zonotope::Zonotope(const unsigned int d)
 {
 	Matrix<Real> rm_zero(d, 1);
@@ -559,27 +539,92 @@ unsigned int Zonotope::numOfGen() const
 
 void Zonotope::simplify()
 {
-	std::list<Matrix<Real> > result;
+	if(center.cols() < 1)
+		return;
 
-	int d = center.rows();
-	Matrix<Real> vecZero(d, 1);
+	std::list<Matrix<Real> > result1;
 
-	for(int i=0; i<d; ++i)
+	int n = center.rows();
+	int m = 10*n;		// we will select m generators
+
+	if(generators.size() < m)
+		return;
+
+/*
+	std::cout << "Before elimination:" << std::endl;
+	std::list<Matrix<Real> >::iterator iter_test = generators.begin();
+	for(; iter_test != generators.end(); ++iter_test)
 	{
-		result.push_back(vecZero);
+		for(int i=0; i<n; ++i)
+		{
+			std::cout << (*iter_test)[i][0] << ",\t";
+		}
+
+		std::cout << std::endl;
+	}
+*/
+
+
+	for(unsigned int i=0; i<m; ++i)
+	{
+		std::list<Matrix<Real> >::iterator iter = generators.begin();
+		std::list<Matrix<Real> >::iterator iter_max = iter;
+		++iter;
+
+		Real max = iter_max->norm(1) - iter_max->norm(0);
+
+		for(; iter != generators.end(); ++iter)
+		{
+			Real norm = iter->norm(1) - iter->norm(0);
+
+			if(max < norm)
+			{
+				max = norm;
+				iter_max = iter;
+			}
+		}
+
+		result1.push_back(*iter_max);
+		generators.erase(iter_max);
+	}
+
+
+
+/*
+	std::cout << "After elimination:" << std::endl;
+	iter_test = generators.begin();
+	for(; iter_test != generators.end(); ++iter_test)
+	{
+		for(int i=0; i<n; ++i)
+		{
+			std::cout << (*iter_test)[i][0] << ",\t";
+		}
+
+		std::cout << std::endl;
+	}
+*/
+
+	std::list<Matrix<Real> > result2;
+	Matrix<Real> vecZero(n, 1);
+
+	for(unsigned int i=0; i<n; ++i)
+	{
+		result2.push_back(vecZero);
 	}
 
 	std::list<Matrix<Real> >::iterator iter = generators.begin();
 	for(; iter != generators.end(); ++iter)
 	{
-		std::list<Matrix<Real> >::iterator iter2 = result.begin();
-		for(int j=0; iter2 != result.end(); ++iter2, ++j)
+		std::list<Matrix<Real> >::iterator iter2 = result2.begin();
+		for(int j=0; iter2 != result2.end(); ++iter2, ++j)
 		{
-			(*iter2)[j][0] += (*iter)[j][0];
+			(*iter2)[j][0] += (*iter)[j][0].abs();
 		}
 	}
 
-	generators = result;
+	result1.splice(result1.end(), result2);
+	generators = result1;
+
 }
 
 void Zonotope::intEval(Matrix<Interval> & range)
@@ -597,101 +642,30 @@ void Zonotope::intEval(Matrix<Interval> & range)
 		}
 	}
 }
-/*
-void Zonotope::output(FILE *fp) const
-{
-	fprintf(fp, "Center:\n");
-
-	center.output(fp);
-	fprintf(fp, "\nGenerators:\n");
-
-	std::list<iMatrix>::const_iterator iter = generators.begin();
-	for(; iter != generators.end(); ++iter)
-	{
-		(*iter).output(fp);
-		fprintf(fp,"\n");
-	}
-}
-*/
-
 
 Zonotope & Zonotope::operator += (const Zonotope & Z)
 {
-	center += Z.center;
-
-	std::list<Matrix<Real> >::const_iterator iter = Z.generators.begin();
-
-	for(; iter != Z.generators.end(); ++iter)
+	if(Z.isEmpty())
+		return *this;
+	else if(this->isEmpty())
 	{
-		generators.push_back(*iter);
+		*this = Z;
+		return *this;
 	}
-
-	return *this;
-}
-
-
-
-
-
-
-
-
-
-
-/*
-void Zonotope::linearTrans(Zonotope & result, const iMatrix & map) const
-{
-	result.center = map * center;
-
-	result.generators.clear();
-
-	std::list<iMatrix>::const_iterator iter = generators.begin();
-	for(; iter != generators.end(); ++iter)
+	else
 	{
-		iMatrix im_tmp = map * (*iter);
-		result.generators.push_back(im_tmp);
+		center += Z.center;
+
+		std::list<Matrix<Real> >::const_iterator iter = Z.generators.begin();
+
+		for(; iter != Z.generators.end(); ++iter)
+		{
+			generators.push_back(*iter);
+		}
+
+		return *this;
 	}
 }
-
-void Zonotope::linearTrans_assign(const iMatrix & map)
-{
-	center = map * center;
-
-	std::list<iMatrix>::iterator iter = generators.begin();
-	for(; iter != generators.end(); ++iter)
-	{
-		iMatrix im_tmp = map * (*iter);
-		(*iter) = im_tmp;
-	}
-}
-
-void Zonotope::MinSum(Zonotope & result, const Zonotope & zonotope) const
-{
-	result.center = center + zonotope.center;
-	result.generators = generators;
-
-	std::list<iMatrix>::const_iterator iter = zonotope.generators.begin();
-
-	for(; iter != zonotope.generators.end(); ++iter)
-	{
-		result.generators.push_back(*iter);
-	}
-}
-
-void Zonotope::MinSum_assign(const Zonotope & zonotope)
-{
-	center += zonotope.center;
-
-	std::list<iMatrix>::const_iterator iter = zonotope.generators.begin();
-
-	for(; iter != zonotope.generators.end(); ++iter)
-	{
-		generators.push_back(*iter);
-	}
-}
-*/
-
-
 
 Zonotope & Zonotope::operator = (const Zonotope & zonotope)
 {
@@ -742,28 +716,6 @@ Zonotope & Zonotope::operator = (Matrix<Interval> & box)
 	return *this;
 }
 
-/*
-Zonotope & Zonotope::operator = (iMatrix2 & box)
-{
-	int d = box.rows();
-
-	iMatrix2 im2_center(d,1);
-
-	for(int i=0; i<d; ++i)
-	{
-		im2_center.center[i][0] = box.center[i][0];
-
-		iMatrix2 im2_generator(d,1);
-		im2_generator.center[i][0] = box.radius[i][0];
-		generators.push_back(im2_generator);
-	}
-
-	center = im2_center;
-
-	return *this;
-}
-*/
-
 void Zonotope::toPolynomial(std::vector<Polynomial<Real> > & result)
 {
 	int rangeDim = center.rows();
@@ -791,300 +743,7 @@ void Zonotope::toPolynomial(std::vector<Polynomial<Real> > & result)
 	}
 }
 
-/*
-bool Zonotope::belongsto(const std::vector<double> & x)
-{
-	int d = generators.size();
-	int n = x.size();
-	int size = n*d;
 
-	int *rowInd = new int[ 1 + size ];
-	int *colInd = new int[ 1 + size ];
-	double *coes = new double [ 1 + size ];
-
-	glp_term_out(GLP_OFF);
-
-	glp_prob *lp;
-	lp = glp_create_prob();
-	glp_set_obj_dir(lp, GLP_MAX);
-
-	glp_add_rows(lp, n);
-
-	for(int i=1; i<=n; ++i)
-	{
-		double tmp = x[i-1] - center[i-1][0].midpoint();
-		glp_set_row_bnds(lp, i, GLP_FX, tmp, 0.0);
-	}
-
-	glp_add_cols(lp, d);
-	for(int i=1; i<=d; ++i)
-	{
-		glp_set_col_bnds(lp, i, GLP_DB, -1.0, 1.0);
-		glp_set_obj_coef(lp, i, 1.0);
-	}
-
-	for(int i=1; i<=n; ++i)
-	{
-		std::list<iMatrix>::iterator iter = generators.begin();
-		for(int j=1; j<=d; ++j)
-		{
-			int pos = j + (i-1)*d;
-			rowInd[pos] = i;
-			colInd[pos] = j;
-			coes[pos] = (*iter)[i-1][0].midpoint();
-			++iter;
-		}
-	}
-
-	glp_load_matrix(lp, size, rowInd, colInd, coes);
-	glp_simplex(lp, NULL);
-
-	int status = glp_get_status(lp);
-
-	glp_delete_prob(lp);
-	delete[] rowInd;
-	delete[] colInd;
-	delete[] coes;
-
-	if(status == GLP_OPT || status == GLP_FEAS)
-	{
-		return true;
-	}
-	else
-	{
-		return false;
-	}
-}
-
-int Zonotope::contract(const LinearConstraint & constraint)
-{
-	int rangeDim = center.rows();
-	int domainDim = generators.size();
-
-	std::vector<Polynomial> polynomials;
-	toPolynomial(polynomials);
-
-	std::vector<Interval> domain;
-	Interval intUnit(-1,1);
-	for(int i=0; i<domainDim; ++i)
-	{
-		domain.push_back(intUnit);
-	}
-
-	Polynomial obj;
-	for(int i=0; i<constraint.A.size(); ++i)
-	{
-		Polynomial polyTemp = polynomials[i];
-		polyTemp.mul_assign(constraint.A[i]);
-		obj += polyTemp;
-	}
-
-	HornerForm obj_hf;
-	obj.toHornerForm(obj_hf);
-
-
-	bool bvalid = true;
-	bool bcontinue = true;
-	Interval W;
-	Interval intZero;
-
-	for(; bcontinue; )
-	{
-		std::vector<Interval> oldDomain = domain;
-
-		// contract the domain
-		for(int i=0; i<domainDim; ++i)
-		{
-			Interval newInt = domain[i];
-
-			newInt.width(W);
-
-			// search an approximation for the lower bound
-			for(; W.greaterThan(DC_THRESHOLD_SEARCH);)
-			{
-				Interval intLeft;
-				Interval intRight;
-				newInt.split(intLeft, intRight);
-
-				std::vector<Interval> newDomain = domain;
-				newDomain[i] = intLeft;
-
-				Interval intTemp;
-				obj_hf.intEval(intTemp, newDomain);
-
-				if(intTemp.greaterThan(constraint.B))
-				{
-					// no intersection on the left half
-					newInt = intRight;
-					newInt.width(W);
-					break;
-				}
-				else if(intTemp.smallereq(constraint.B))
-				{
-					// do not need to apply domain contraction w.r.t. the current constraint
-					newInt = intLeft;
-					newInt.width(W);
-				}
-				else
-				{
-					// refine the interval
-					newInt = intLeft;
-					newInt.width(W);
-				}
-			}
-
-
-			// set the lower bound
-			Interval Inf;
-			newInt.inf(Inf);
-			domain[i].setInf(Inf);
-
-			newInt = domain[i];
-
-			newInt.width(W);
-
-			// search an approximation for the upper bound
-			for(; W.greaterThan(DC_THRESHOLD_SEARCH);)
-			{
-				Interval intLeft;
-				Interval intRight;
-				newInt.split(intLeft, intRight);
-
-				std::vector<Interval> newDomain = domain;
-				newDomain[i] = intRight;
-
-				Interval intTemp;
-				obj_hf.intEval(intTemp, newDomain);
-
-				if(intTemp.greaterThan(constraint.B))
-				{
-					// no intersection on the right half
-					newInt = intLeft;
-					newInt.width(W);
-					break;
-				}
-				else if(intTemp.smallereq(constraint.B))
-				{
-					// do not need to apply domain contraction w.r.t. the current constraint
-					newInt = intRight;
-					newInt.width(W);
-				}
-				else
-				{
-					// refine the interval
-					newInt = intRight;
-					newInt.width(W);
-				}
-			}
-
-			Interval Sup;
-			newInt.sup(Sup);
-			domain[i].setSup(Sup);	// set the upper bound
-
-			if(!domain[i].valid())
-			{
-				bvalid = false;
-				break;
-			}
-		}
-
-		if(!bvalid)
-		{
-			break;
-		}
-
-		bcontinue = false;
-		for(int i=0; i<domainDim; ++i)
-		{
-			if(oldDomain[i].widthRatio(domain[i]) <= DC_THRESHOLD_IMPROV)
-			{
-				bcontinue = true;
-				break;
-			}
-		}
-	}
-
-	if(!bvalid)
-	{
-		return -1;
-	}
-	else
-	{
-		// compute the contracted zonotope
-
-		for(int i=0; i<rangeDim; ++i)
-		{
-			std::list<iMatrix>::iterator iter = generators.begin();
-			for(int j=0; j<domain.size(); ++j)
-			{
-				Interval M;
-				domain[j].remove_midpoint(M);
-
-				center[i][0] += (*iter)[i][0] * M;
-
-				(*iter)[i][0] *= domain[j].sup();
-
-				++iter;
-			}
-		}
-
-		return 1;
-	}
-}
-
-
-
-void Zonotope::to2DBox(iMatrix & box, const int x, const int y)
-{
-	std::list<iMatrix>::iterator iter = generators.begin();
-
-	double radius_x = 0, radius_y = 0;
-
-	for(; iter != generators.end(); ++iter)
-	{
-		radius_x += (*iter)[x][0].mag();
-		radius_y += (*iter)[y][0].mag();
-	}
-
-	double center_x = center[x][0].midpoint();
-	double center_y = center[y][0].midpoint();
-
-	Interval int_x(center_x - radius_x, center_x + radius_x);
-	box[0][0] = int_x;
-
-	Interval int_y(center_y - radius_y, center_y + radius_y);
-	box[1][0] = int_y;
-}
-
-void Zonotope::intervalRange(Interval & range, const int x)
-{
-	double c = center[x][0].midpoint();
-	double r = 0;
-
-	std::list<iMatrix>::iterator iter = generators.begin();
-	for(; iter != generators.end(); ++iter)
-	{
-		r += (*iter)[x][0].mag();
-	}
-
-	range.setSup(c + r);
-	range.setInf(c - r);
-}
-
-void Zonotope::plot(FILE *fp, const int x, const int y)
-{
-
-
-
-	iMatrix box(2,1);
-	to2DBox(box, x, y);
-
-	fprintf(fp,"plot( [%e,%e,%e,%e,%e] , [%e,%e,%e,%e,%e] , 'color' , 'b');\nhold on;\nclear;\n",
-			box[0][0].inf(), box[0][0].sup(), box[0][0].sup(), box[0][0].inf(), box[0][0].inf(), box[1][0].inf(),
-			box[1][0].inf(), box[1][0].sup(), box[1][0].sup(), box[1][0].inf());
-
-}
-*/
 
 namespace flowstar
 {
@@ -1100,6 +759,9 @@ Zonotope operator + (const Zonotope & Z1, const Zonotope & Z2)
 
 Zonotope operator * (const Matrix<Real> & A, const Zonotope & Z)
 {
+	if(Z.isEmpty())
+		return Z;
+
 	Zonotope result;
 
 	result.center = A * Z.center;

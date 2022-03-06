@@ -1,8 +1,5 @@
 /*---
-  Flow*: A Verification Tool for Cyber-Physical Systems.
-  Authors: Xin Chen, Sriram Sankaranarayanan, and Erika Abraham.
   Email: Xin Chen <chenxin415@gmail.com> if you have questions or comments.
-  
   The code is released as is under the GNU General Public License (GPL).
 ---*/
 
@@ -56,8 +53,14 @@ public:
 
 	bool isZero() const;
 
+	DATA_TYPE norm(const int n);								// only valid when the matrix represents a vector
+
 	void sortColumns();										// Sort the columns by size in descending order.
 	unsigned int rank() const;
+	void normalize_columns();
+	void normalize_rows();
+
+	void cutoff(const DATA_TYPE & threshold);
 
 	void inverse(Matrix<DATA_TYPE> & result) const;
 	void inverse_assign();
@@ -81,6 +84,7 @@ public:
 	double width() const;
 	bool isSingle() const;
 	void toReal(Matrix<Real> & result) const;
+	void toDouble(Matrix<double> & result) const;
 
 
 	// should be a matrix of polynomials
@@ -188,6 +192,8 @@ public:
 
 	template <class DATA_TYPE2>
 	friend class Matrix;
+
+	friend class TaylorModelVec<DATA_TYPE>;
 };
 
 
@@ -336,6 +342,44 @@ bool Matrix<DATA_TYPE>::isZero() const
 	return result;
 }
 
+template <class DATA_TYPE>
+DATA_TYPE Matrix<DATA_TYPE>::norm(const int n)
+{
+	if(size1 == 1 || size2 == 1)		// row or column vector
+	{
+		unsigned int size = size1 * size2;
+		DATA_TYPE result = 0;
+
+		if(n == 0)	// max norm
+		{
+			for(unsigned int i=0; i<size; ++i)
+			{
+				DATA_TYPE tmp;
+				data[i].abs(tmp);
+
+				if(result < tmp)
+					result = tmp;
+			}
+		}
+		else if(n == 1)	// 1 norm
+		{
+			for(unsigned int i=0; i<size; ++i)
+			{
+				DATA_TYPE tmp;
+				data[i].abs(tmp);
+
+				result += tmp;
+			}
+		}
+
+		return result;
+	}
+	else
+	{
+		return INVALID;
+	}
+}
+
 template <>
 bool inline Matrix<UnivariatePolynomial<Real> >::isZero() const
 {
@@ -455,6 +499,65 @@ unsigned int Matrix<DATA_TYPE>::rank() const
 }
 
 template <class DATA_TYPE>
+void Matrix<DATA_TYPE>::normalize_columns()
+{
+	unsigned int wholeSize = size1 * size2;
+
+	for(unsigned int j=0; j<size2; ++j)
+	{
+		DATA_TYPE sum_of_squares = 0;
+		for(unsigned int i=0; i<wholeSize; i += size2)
+		{
+			unsigned int pos = j + i;
+			sum_of_squares += data[pos] * data[pos];
+		}
+
+		DATA_TYPE tmp;
+		sum_of_squares.sqrt(tmp);
+
+		for(unsigned int i=0; i<wholeSize; i += size2)
+		{
+			data[i + j] /= tmp;
+		}
+	}
+}
+
+template <class DATA_TYPE>
+void Matrix<DATA_TYPE>::normalize_rows()
+{
+	for(unsigned int i=0, k=0; k<size1; i+=size2, ++k)
+	{
+		DATA_TYPE sum_of_squares = 0;
+
+		for(unsigned int j=0; j<size2; ++j)
+		{
+			sum_of_squares += data[i+j] * data[i+j];
+		}
+
+		DATA_TYPE tmp = sqrt(sum_of_squares);
+
+		for(unsigned int j=0; j<size2; ++j)
+		{
+			data[i+j] /= tmp;
+		}
+	}
+}
+
+template <class DATA_TYPE>
+void Matrix<DATA_TYPE>::cutoff(const DATA_TYPE & threshold)
+{
+	unsigned int wholesize = size1 * size2;
+
+	for(unsigned int i=0; i<wholesize; ++i)
+	{
+		if(data[i] >= -threshold && data[i] <= threshold)
+		{
+			data[i] = 0;
+		}
+	}
+}
+
+template <class DATA_TYPE>
 void Matrix<DATA_TYPE>::inverse(Matrix<DATA_TYPE> & result) const
 {
 	if(size1 != size2)
@@ -520,6 +623,48 @@ void Matrix<DATA_TYPE>::inverse_assign()
 		for(unsigned int j=0; j<size2; ++j)
 		{
 			gsl_matrix_set(A, i, j, (double)data[pos + j]);
+		}
+	}
+
+	int *signum = new int[size1];
+
+	gsl_linalg_LU_decomp(A, p, signum);
+	gsl_linalg_LU_invert(A, p, invA);
+
+	for(unsigned int i=0, pos=0; i<size1; ++i, pos+=size2)
+	{
+		for(unsigned int j=0; j<size2; ++j)
+		{
+			data[pos + j] = gsl_matrix_get(invA, i, j);
+		}
+	}
+
+	gsl_matrix_free(A);
+	gsl_permutation_free(p);
+	gsl_matrix_free(invA);
+	delete[] signum;
+}
+
+template <>
+inline void Matrix<Real>::inverse_assign()
+{
+	if(size1 != size2)
+	{
+		printf("Not a square matrix.\n");
+		return;
+	}
+
+	// use the GSL library.
+	gsl_matrix *A = gsl_matrix_alloc(size1, size1);
+	gsl_permutation *p = gsl_permutation_alloc(size1);
+	gsl_matrix *invA = gsl_matrix_alloc(size1, size1);
+
+	// make a copy the matrix
+	for(unsigned int i=0, pos=0; i<size1; ++i, pos+=size2)
+	{
+		for(unsigned int j=0; j<size2; ++j)
+		{
+			gsl_matrix_set(A, i, j, data[pos + j].toDouble());
 		}
 	}
 
@@ -761,6 +906,17 @@ void Matrix<DATA_TYPE>::toReal(Matrix<Real> & result) const
 	for(unsigned int i=0; i<wholeSize; ++i)
 	{
 		result.data[i] = data[i].toReal();
+	}
+}
+
+template <class DATA_TYPE>
+void Matrix<DATA_TYPE>::toDouble(Matrix<double> & result) const
+{
+	unsigned int wholeSize = size1 * size2;
+
+	for(unsigned int i=0; i<wholeSize; ++i)
+	{
+		result.data[i] = data[i].toDouble();
 	}
 }
 

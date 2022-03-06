@@ -1,8 +1,5 @@
 /*---
-  Flow*: A Verification Tool for Cyber-Physical Systems.
-  Authors: Xin Chen, Sriram Sankaranarayanan, and Erika Abraham.
   Email: Xin Chen <chenxin415@gmail.com> if you have questions or comments.
-  
   The code is released as is under the GNU General Public License (GPL).
 ---*/
 
@@ -54,8 +51,8 @@ const int high_precision	=	256;
 #define INVALID 				-1e10
 #define UNBOUNDED				1e10
 
-#define DC_THRESHOLD_SEARCH 	1e-6
-#define DC_THRESHOLD_IMPROV		0.9
+#define DC_THRESHOLD_SEARCH 	1e-8
+#define DC_THRESHOLD_IMPROV		0.95
 
 #define UNIFORM			0
 #define MULTI			1
@@ -88,6 +85,12 @@ const int high_precision	=	256;
 #define UNKNOWN_REACHABLE		101
 
 
+#define SAT						0
+#define UNSAT					-1
+#define CONTRACTED				1
+#define TIME_RANGE_CONTRACTED	2
+
+
 #define PLOT_GNUPLOT	0
 #define PLOT_MATLAB		1
 
@@ -118,9 +121,6 @@ const int high_precision	=	256;
 const char str_pi_up[]	=	"3.14159265358979323846264338327950288419716939937511";
 const char str_pi_lo[]	=	"3.14159265358979323846264338327950288419716939937510";
 
-const std::string outputDir = "./outputs/";
-const std::string imageDir = "./images/";
-const std::string counterexampleDir = "./counterexamples/";
 const char local_var_name[] = "local_var_";
 
 const char str_prefix_taylor_picard[] = "taylor picard { ";
@@ -147,6 +147,5 @@ const std::string str_counterexample_dumping_name_suffix = ".counterexample";
 
 extern int lineNum;
 
-extern void parseODE();
 
 #endif /* INCLUDE_H_ */

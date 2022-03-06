@@ -1,8 +1,5 @@
 /*---
-  Flow*: A Verification Tool for Cyber-Physical Systems.
-  Authors: Xin Chen, Sriram Sankaranarayanan, and Erika Abraham.
   Email: Xin Chen <chenxin415@gmail.com> if you have questions or comments.
-
   The code is released as is under the GNU General Public License (GPL).
 ---*/
 
@@ -25,7 +22,7 @@ std::ostream & operator << (std::ostream & os, const UnivariateTaylorModel<DATA_
 template <class DATA_TYPE>
 class UnivariateTaylorModel
 {
-protected:
+public:
 	UnivariatePolynomial<DATA_TYPE> expansion;
 	Interval remainder;
 
@@ -64,10 +61,13 @@ public:
 	void addRemainder(const Interval & I);
 	double remainderSize() const;
 
+	void constant(DATA_TYPE & c) const;
+
 
 	UnivariateTaylorModel<DATA_TYPE> & operator = (const UnivariateTaylorModel<DATA_TYPE> & utm);
 	UnivariateTaylorModel<DATA_TYPE> & operator = (const UnivariatePolynomial<DATA_TYPE> & up);
 	UnivariateTaylorModel<DATA_TYPE> & operator = (const DATA_TYPE & c);
+	UnivariateTaylorModel<DATA_TYPE> & operator = (const double c);
 
 	template <class DATA_TYPE2>
 	UnivariateTaylorModel<DATA_TYPE> & operator += (const UnivariateTaylorModel<DATA_TYPE2> & utm);
@@ -335,6 +335,13 @@ double UnivariateTaylorModel<DATA_TYPE>::remainderSize() const
 }
 
 template <class DATA_TYPE>
+void UnivariateTaylorModel<DATA_TYPE>::constant(DATA_TYPE & c) const
+{
+	if(expansion.coefficients.size() > 0)
+		c = expansion.coefficients[0];
+}
+
+template <class DATA_TYPE>
 UnivariateTaylorModel<DATA_TYPE> & UnivariateTaylorModel<DATA_TYPE>::operator = (const UnivariateTaylorModel<DATA_TYPE> & utm)
 {
 	if(this == &utm)
@@ -351,6 +358,8 @@ UnivariateTaylorModel<DATA_TYPE> & UnivariateTaylorModel<DATA_TYPE>::operator = 
 {
 	expansion = up;
 	remainder = 0;
+
+	return *this;
 }
 
 template <class DATA_TYPE>
@@ -358,6 +367,17 @@ UnivariateTaylorModel<DATA_TYPE> & UnivariateTaylorModel<DATA_TYPE>::operator = 
 {
 	expansion = c;
 	remainder = 0;
+
+	return *this;
+}
+
+template <class DATA_TYPE>
+UnivariateTaylorModel<DATA_TYPE> & UnivariateTaylorModel<DATA_TYPE>::operator = (const double c)
+{
+	expansion = c;
+	remainder = 0;
+
+	return *this;
 }
 
 template <class DATA_TYPE>

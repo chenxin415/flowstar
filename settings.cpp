@@ -13,10 +13,11 @@ namespace flowstar
 
 UTM_Setting<Interval> interval_utm_setting;
 Multivariate_Polynomial_Setting<Interval> multivariate_polynomial_setting;
-Expression_AST_Setting<Interval> expression_ast_setting;
+Expression_Setting<Interval> expression_setting;
+UnivariatePolynomial<Real> up_parseresult;
 
 
-Taylor_Model_Computation_Setting::Taylor_Model_Computation_Setting()
+Taylor_Model_Setting::Taylor_Model_Setting()
 {
 	order = 0;
 
@@ -24,10 +25,9 @@ Taylor_Model_Computation_Setting::Taylor_Model_Computation_Setting()
 	step_max = 0;
 	order_min = 0;
 	order_max = 0;
-	queue_size = 0;
 }
 
-Taylor_Model_Computation_Setting::Taylor_Model_Computation_Setting(const Variables & vars)
+Taylor_Model_Setting::Taylor_Model_Setting(const Variables & vars)
 {
 	variables = vars;
 	order = 0;
@@ -36,10 +36,9 @@ Taylor_Model_Computation_Setting::Taylor_Model_Computation_Setting(const Variabl
 	step_max = 0;
 	order_min = 0;
 	order_max = 0;
-	queue_size = 0;
 }
 
-Taylor_Model_Computation_Setting::Taylor_Model_Computation_Setting(const Variables & vars, const Parameters & pars)
+Taylor_Model_Setting::Taylor_Model_Setting(const Variables & vars, const Parameters & pars)
 {
 	variables = vars;
 	parameters = pars;
@@ -49,10 +48,9 @@ Taylor_Model_Computation_Setting::Taylor_Model_Computation_Setting(const Variabl
 	step_max = 0;
 	order_min = 0;
 	order_max = 0;
-	queue_size = 0;
 }
 
-Taylor_Model_Computation_Setting::Taylor_Model_Computation_Setting(const Taylor_Model_Computation_Setting & setting)
+Taylor_Model_Setting::Taylor_Model_Setting(const Taylor_Model_Setting & setting)
 {
 	variables			= setting.variables;
 	parameters			= setting.parameters;
@@ -67,15 +65,13 @@ Taylor_Model_Computation_Setting::Taylor_Model_Computation_Setting(const Taylor_
 	step_max			= setting.step_max;
 	order_min			= setting.order_min;
 	order_max			= setting.order_max;
-
-	queue_size			= setting.queue_size;
 }
 
-Taylor_Model_Computation_Setting::~Taylor_Model_Computation_Setting()
+Taylor_Model_Setting::~Taylor_Model_Setting()
 {
 }
 
-Taylor_Model_Computation_Setting & Taylor_Model_Computation_Setting::operator = (const Taylor_Model_Computation_Setting & setting)
+Taylor_Model_Setting & Taylor_Model_Setting::operator = (const Taylor_Model_Setting & setting)
 {
 	if(this == &setting)
 		return *this;
@@ -94,12 +90,10 @@ Taylor_Model_Computation_Setting & Taylor_Model_Computation_Setting::operator = 
 	order_min			= setting.order_min;
 	order_max			= setting.order_max;
 
-	queue_size			= setting.queue_size;
-
 	return *this;
 }
 
-void Taylor_Model_Computation_Setting::initializeAdaptiveSettings(const double delta_min, const double delta_max, const unsigned int k_min, const unsigned int k_max)
+void Taylor_Model_Setting::initializeAdaptiveSettings(const double delta_min, const double delta_max, const unsigned int k_min, const unsigned int k_max)
 {
 	step_min = delta_min;
 	step_max = delta_max;
@@ -107,7 +101,7 @@ void Taylor_Model_Computation_Setting::initializeAdaptiveSettings(const double d
 	order_max = k_max;
 }
 
-bool Taylor_Model_Computation_Setting::setCutoff(const Interval & cutoff)
+bool Taylor_Model_Setting::setCutoff(const Interval & cutoff)
 {
 	if(cutoff.valid())
 	{
@@ -120,9 +114,9 @@ bool Taylor_Model_Computation_Setting::setCutoff(const Interval & cutoff)
 	}
 }
 
-bool Taylor_Model_Computation_Setting::setStepsize(const double step, const unsigned int k)
+bool Taylor_Model_Setting::setStepsize(const double step, const unsigned int k)
 {
-	if(step <= 0 || k < 2)
+	if(step < 0 || k < 2)
 	{
 		std::cout << "The stepsize should be a positive number and the order should be an integer > 1." <<std::endl;
 		return false;
@@ -156,7 +150,7 @@ bool Taylor_Model_Computation_Setting::setStepsize(const double step, const unsi
 	return true;
 }
 
-bool Taylor_Model_Computation_Setting::resetOrder(const double step, const unsigned int k)
+bool Taylor_Model_Setting::resetOrder(const double step, const unsigned int k)
 {
 	if(k < 2)
 	{
@@ -196,7 +190,7 @@ bool Taylor_Model_Computation_Setting::resetOrder(const double step, const unsig
 	}
 }
 
-bool Taylor_Model_Computation_Setting::resetOrder(const unsigned int k)
+bool Taylor_Model_Setting::resetOrder(const unsigned int k)
 {
 	if(k < 2)
 	{
@@ -231,22 +225,17 @@ bool Taylor_Model_Computation_Setting::resetOrder(const unsigned int k)
 	}
 }
 
-void Taylor_Model_Computation_Setting::setRemainderEstimation(const std::vector<Interval> & intVec)
+void Taylor_Model_Setting::setRemainderEstimation(const std::vector<Interval> & intVec)
 {
 	remainder_estimation = intVec;
 }
 
-void Taylor_Model_Computation_Setting::setDomain(const std::vector<Interval> & intVec)
+void Taylor_Model_Setting::setDomain(const std::vector<Interval> & intVec)
 {
 	domain = intVec;
 }
 
-void Taylor_Model_Computation_Setting::setQueueSize(const unsigned int m)
-{
-	queue_size = m;
-}
-
-void Taylor_Model_Computation_Setting::clear()
+void Taylor_Model_Setting::clear()
 {
 	order = 0;
 	step_exp_table.clear();
@@ -255,7 +244,7 @@ void Taylor_Model_Computation_Setting::clear()
 	domain.clear();
 }
 
-bool Taylor_Model_Computation_Setting::bAdaptiveStepSize() const
+bool Taylor_Model_Setting::bAdaptiveStepSize() const
 {
 	if(step_min > 0)
 		return true;
@@ -263,7 +252,7 @@ bool Taylor_Model_Computation_Setting::bAdaptiveStepSize() const
 		return false;
 }
 
-bool Taylor_Model_Computation_Setting::bAdaptiveOrder() const
+bool Taylor_Model_Setting::bAdaptiveOrder() const
 {
 	if(order_max > 0)
 		return true;
@@ -275,22 +264,22 @@ bool Taylor_Model_Computation_Setting::bAdaptiveOrder() const
 
 
 
-Global_Computation_Setting::Global_Computation_Setting()
+Global_Setting::Global_Setting()
 {
 }
 
-Global_Computation_Setting::Global_Computation_Setting(const Global_Computation_Setting & setting)
+Global_Setting::Global_Setting(const Global_Setting & setting)
 {
 	factorial_rec = setting.factorial_rec;
 	power_4 = setting.power_4;
 	double_factorial = setting.double_factorial;
 }
 
-Global_Computation_Setting::~Global_Computation_Setting()
+Global_Setting::~Global_Setting()
 {
 }
 
-bool Global_Computation_Setting::resetOrder(const unsigned int k)
+bool Global_Setting::resetOrder(const unsigned int k)
 {
 	unsigned int currentOrder = factorial_rec.size() - 1;
 
@@ -350,7 +339,7 @@ bool Global_Computation_Setting::resetOrder(const unsigned int k)
 	return true;
 }
 
-Global_Computation_Setting & Global_Computation_Setting::operator = (const Global_Computation_Setting & setting)
+Global_Setting & Global_Setting::operator = (const Global_Setting & setting)
 {
 	if(this == &setting)
 		return *this;
@@ -362,7 +351,7 @@ Global_Computation_Setting & Global_Computation_Setting::operator = (const Globa
 	return *this;
 }
 
-void Global_Computation_Setting::prepareForReachability(const unsigned int maxOrder)
+void Global_Setting::prepareForReachability(const unsigned int maxOrder)
 {
 	compute_factorial_rec(factorial_rec, maxOrder+5);
 	compute_power_4(power_4, maxOrder+5);

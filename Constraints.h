@@ -45,7 +45,7 @@ public:
 //	PolynomialConstraint(const std::string & strPolynomial, const Variables & vars);
 	~PolynomialConstraint();
 
-	void output(std::ostream & os, const Variables & stateVars) const;
+	void output(std::ostream & os, const Variables & vars) const;
 
 	PolynomialConstraint & operator = (const PolynomialConstraint & pc);
 };
@@ -53,17 +53,17 @@ public:
 class Constraint
 {
 public:
-	Expression_AST<Real> expression;
+	Expression<Real> expression;
 	Real bound;
 
 public:
 	Constraint();
-	Constraint(const Expression_AST<Real> & exp, const Real & b);
-	Constraint(const std::string & strExpression);
+	Constraint(const Expression<Real> & exp, const Real & b);
+	Constraint(const std::string & strExpression, Variables & vars);
 	Constraint(const Constraint & constraint);
 	~Constraint();
 
-	void output(std::ostream & os, const Variables & stateVars) const;
+	void output(std::ostream & os, const Variables & vars) const;
 
 	Constraint & operator = (const Constraint & constraint);
 };

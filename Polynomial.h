@@ -28,7 +28,7 @@ class HornerForm;
 template <class DATA_TYPE>
 class Polynomial														// polynomials in monomial form
 {
-protected:
+public:
 	std::list<Term<DATA_TYPE> > terms;
 
 public:
@@ -41,19 +41,21 @@ public:
 	Polynomial(const std::list<Term<DATA_TYPE> > & term_list);
 	Polynomial(const unsigned int varID, const unsigned int degree, const unsigned int numVars);
 
+	void toReal(Polynomial<Real> & realPoly);
+
+	Polynomial(const std::string & strPolynomial, Variables & vars);
+
 //	Polynomial(const UnivariatePolynomial & up, const int numVars);
 
 	Polynomial(const Polynomial<DATA_TYPE> & polynomial);
 
 	~Polynomial();
 
+	unsigned int numOfVars() const;
 	void toHornerForm(HornerForm<DATA_TYPE> & hf) const;
 
 	void reorder();														// sort the terms.
 	void clear();
-
-	void toReal(Polynomial<Real> & realPoly);
-	Polynomial(const std::string & strPolynomial);
 
 	void toString(std::string & result, const Variables & vars) const;
 
@@ -62,7 +64,6 @@ public:
 
 	void constant(DATA_TYPE & c) const;									// constant part of the polynomial
 
-//	void toHornerForm(Expression_AST<DATA_TYPE> & hf) const;
 
 	template <class DATA_TYPE2, class DATA_TYPE3>
 	void evaluate(DATA_TYPE2 & result, const std::vector<DATA_TYPE3> & domain) const;
@@ -78,7 +79,6 @@ public:
 	void pow(Polynomial<DATA_TYPE> & result, const unsigned int degree, const unsigned int order) const;
 	void pow_assign(const unsigned int degree, const unsigned int order);
 
-//	void center();
 
 	void mul_assign(const unsigned int varIndex, const unsigned int degree);		// multiplied by a term x^d
 	void mul(Polynomial<DATA_TYPE> result, const unsigned int varIndex, const unsigned int degree) const;
@@ -88,6 +88,11 @@ public:
 
 	Polynomial<DATA_TYPE> & operator += (const Polynomial<DATA_TYPE> & polynomial);
 	Polynomial<DATA_TYPE> & operator += (const Term<DATA_TYPE> & term);
+
+	// only for nonempty polynomials
+	Polynomial<DATA_TYPE> & operator += (const DATA_TYPE & c);
+
+
 	Polynomial<DATA_TYPE> & operator -= (const Polynomial<DATA_TYPE> & polynomial);
 	Polynomial<DATA_TYPE> & operator -= (const Term<DATA_TYPE> & term);
 
@@ -124,10 +129,9 @@ public:
 	void decompose(Polynomial<DATA_TYPE> & linear, Polynomial<DATA_TYPE> & other) const;
 
 	unsigned int degree() const;				// degree of the polynomial
-//	unsigned int degree_wo_t() const;			// degree of the polynomial without the time variable
 
-//	bool isLinear_wo_t() const;
 	bool isZero() const;
+	bool isFreeOfT() const;						// Is the polynomial without the t variable?
 
 	void rmZeroTerms(const std::vector<unsigned int> & indices);
 
@@ -144,10 +148,6 @@ public:
 	void derivative(Polynomial<DATA_TYPE> & result, const unsigned int varIndex) const;						// derivative with respect to a variable
 	void LieDerivative(Polynomial<DATA_TYPE> & result, const std::vector<Polynomial<DATA_TYPE> > & f) const;	// Lie derivative without truncation
 
-//	void insert(TaylorModel & result, const TaylorModelVec & vars, const std::vector<Interval> & varsPolyRange, const std::vector<Interval> & domain, const Interval & cutoff_threshold) const;
-//	void insert_normal(TaylorModel & result, const TaylorModelVec & vars, const std::vector<Interval> & varsPolyRange, const std::vector<Interval> & step_exp_table, const int numVars, const Interval & cutoff_threshold) const;
-
-//	void sub(Polynomial & result, const Polynomial & P, const int order) const;		// compute the subtraction of the monomials with some order
 
 	void exp_taylor(Polynomial<DATA_TYPE> & result, const unsigned int numVars, const unsigned int order, const Interval & cutoff_threshold) const;
 	void rec_taylor(Polynomial<DATA_TYPE> & result, const unsigned int numVars, const unsigned int order, const Interval & cutoff_threshold) const;
@@ -155,23 +155,6 @@ public:
 	void cos_taylor(Polynomial<DATA_TYPE> & result, const unsigned int numVars, const unsigned int order, const Interval & cutoff_threshold) const;
 	void log_taylor(Polynomial<DATA_TYPE> & result, const unsigned int numVars, const unsigned int order, const Interval & cutoff_threshold) const;
 	void sqrt_taylor(Polynomial<DATA_TYPE> & result, const unsigned int numVars, const unsigned int order, const Interval & cutoff_threshold) const;
-
-/*
-	void substitute(const int varID, const Interval & intVal);									// substitute a variable by an interval
-	void substitute(const std::vector<int> & varIDs, const std::vector<Interval> & intVals);	// substitute a set of variables by intervals
-
-	void substitute_with_precond(Interval & intRem, const std::vector<bool> & substitution, const std::vector<Interval> & step_exp_table);
-	void substitute_with_precond_no_remainder(const std::vector<bool> & substitution);
-
-	void simplification_in_decomposition(const std::vector<bool> & substitution);
-
-	void substitute(Polynomial & result, const int varID, const Interval & intVal) const;
-	void substitute(Polynomial & result, const std::vector<int> & varIDs, const std::vector<Interval> & intVals) const;
-*/
-
-
-//	void extend(const int num);		// current dim -> dim + num
-//	void extend();					// current dim -> dim + 1
 
 
 	template <class DATA_TYPE2>
@@ -182,9 +165,6 @@ public:
 
 	template <class DATA_TYPE2>
 	friend class TaylorModelVec;
-
-//	friend class Flowpipe;
-//	friend class ContinuousSystem;
 };
 
 
@@ -255,6 +235,55 @@ Polynomial<DATA_TYPE>::Polynomial(const DATA_TYPE *pCoefficients, const unsigned
 	}
 }
 
+template <>
+inline void Polynomial<Interval>::toReal(Polynomial<Real> & realPoly)
+{
+	realPoly.terms.clear();
+
+	std::list<Term<Interval> >::const_iterator iter;
+	for(iter = terms.begin(); iter != terms.end(); ++iter)
+	{
+		Term<Real> term;
+		term.coefficient = iter->coefficient.toReal();
+		term.degrees = iter->degrees;
+		term.d = iter->d;
+
+		realPoly.terms.push_back(term);
+	}
+}
+
+template <>
+inline Polynomial<Interval>::Polynomial(const std::string & strPolynomial, Variables & vars)
+{
+	multivariate_polynomial_setting.clear();
+
+	std::string prefix(str_prefix_multivariate_polynomial);
+	std::string suffix(str_suffix);
+
+	multivariate_polynomial_setting.strPolynomial = prefix + strPolynomial + suffix;
+	multivariate_polynomial_setting.pVars = &vars;
+
+	parseMultivariatePolynomial();
+
+	*this = multivariate_polynomial_setting.result;
+}
+
+template <>
+inline Polynomial<Real>::Polynomial(const std::string & strPolynomial, Variables & vars)
+{
+	multivariate_polynomial_setting.clear();
+
+	std::string prefix(str_prefix_multivariate_polynomial);
+	std::string suffix(str_suffix);
+
+	multivariate_polynomial_setting.strPolynomial = prefix + strPolynomial + suffix;
+	multivariate_polynomial_setting.pVars = &vars;
+
+	parseMultivariatePolynomial();
+
+	multivariate_polynomial_setting.result.toReal(*this);
+}
+
 template <class DATA_TYPE>
 Polynomial<DATA_TYPE>::Polynomial(const Term<DATA_TYPE> & term)
 {
@@ -285,6 +314,19 @@ Polynomial<DATA_TYPE>::Polynomial(const Polynomial<DATA_TYPE> & polynomial)
 template <class DATA_TYPE>
 Polynomial<DATA_TYPE>::~Polynomial()
 {
+}
+
+template <class DATA_TYPE>
+unsigned int Polynomial<DATA_TYPE>::numOfVars() const
+{
+	if(terms.size() > 0)
+	{
+		return terms.begin()->degrees.size();
+	}
+	else
+	{
+		return 0;
+	}
 }
 
 template <class DATA_TYPE>
@@ -348,53 +390,6 @@ template <class DATA_TYPE>
 void Polynomial<DATA_TYPE>::clear()
 {
 	terms.clear();
-}
-
-template <>
-inline void Polynomial<Interval>::toReal(Polynomial<Real> & realPoly)
-{
-	realPoly.terms.clear();
-
-	std::list<Term<Interval> >::const_iterator iter;
-	for(iter = terms.begin(); iter != terms.end(); ++iter)
-	{
-		Term<Real> term;
-		term.coefficient = iter->coefficient.toReal();
-		term.degrees = iter->degrees;
-		term.d = iter->d;
-
-		realPoly.terms.push_back(term);
-	}
-}
-
-template <>
-inline Polynomial<Interval>::Polynomial(const std::string & strPolynomial)
-{
-	multivariate_polynomial_setting.clear();
-
-	std::string prefix(str_prefix_multivariate_polynomial);
-	std::string suffix(str_suffix);
-
-	multivariate_polynomial_setting.strPolynomial = prefix + strPolynomial + suffix;
-
-	parseMultivariatePolynomial();
-
-	*this = multivariate_polynomial_setting.result;
-}
-
-template <>
-inline Polynomial<Real>::Polynomial(const std::string & strPolynomial)
-{
-	multivariate_polynomial_setting.clear();
-
-	std::string prefix(str_prefix_multivariate_polynomial);
-	std::string suffix(str_suffix);
-
-	multivariate_polynomial_setting.strPolynomial = prefix + strPolynomial + suffix;
-
-	parseMultivariatePolynomial();
-
-	multivariate_polynomial_setting.result.toReal(*this);
 }
 
 template <class DATA_TYPE>
@@ -503,7 +498,7 @@ void Polynomial<DATA_TYPE>::evaluate_time(Polynomial<DATA_TYPE> & result, const 
 
 	typename std::list<Term<DATA_TYPE> >::const_iterator iter;
 
-	if(step_exp_table[1] == 0 || step_exp_table.size() == 0)		// t = 0
+	if(step_exp_table.size() == 0 || step_exp_table[1] == 0)		// t = 0
 	{
 		for(iter = terms.begin(); iter != terms.end(); ++iter)
 		{
@@ -925,6 +920,27 @@ Polynomial<DATA_TYPE> & Polynomial<DATA_TYPE>::operator *= (const Term<DATA_TYPE
 }
 
 template <class DATA_TYPE>
+Polynomial<DATA_TYPE> & Polynomial<DATA_TYPE>::operator += (const DATA_TYPE & c)
+{
+	if(terms.size() == 0)
+	{
+		if(!c.isZero())
+		{
+			printf("You can only add a constant to a nonempty polynomial.\n");
+			exit(1);
+		}
+
+		return *this;
+	}
+	else
+	{
+		Term<DATA_TYPE> term(c, (this->terms.begin())->degrees.size());
+		*this += term;
+		return *this;
+	}
+}
+
+template <class DATA_TYPE>
 Polynomial<DATA_TYPE> & Polynomial<DATA_TYPE>::operator *= (const DATA_TYPE & c)
 {
 	if(c == 0)
@@ -1223,7 +1239,8 @@ void Polynomial<DATA_TYPE>::linearCoefficients(Matrix<DATA_TYPE> & coefficients,
 		{
 			if(i != 0)		// variable t is not considered
 			{
-				coefficients[row][i-1] = iter->coefficient;
+				if(i <= coefficients.cols())
+					coefficients[row][i-1] = iter->coefficient;
 			}
 		}
 	}
@@ -1243,7 +1260,7 @@ void Polynomial<DATA_TYPE>::linearCoefficients(std::vector<DATA_TYPE> & coeffici
 
 		if(iter->isLinear(i))
 		{
-			if(i != 0)		// variable t is not considered
+			if(i != 0 && i <= coefficients.cols())		// variable t is not considered
 			{
 				coefficients[i-1] = iter->coefficient;
 			}
@@ -1305,6 +1322,22 @@ bool Polynomial<DATA_TYPE>::isZero() const
 	{
 		return false;
 	}
+}
+
+template <class DATA_TYPE>
+bool Polynomial<DATA_TYPE>::isFreeOfT() const
+{
+	typename std::list<Term<DATA_TYPE> >::const_iterator iter = terms.begin();
+
+	for(; iter != terms.end(); ++iter)
+	{
+		if(iter->degrees[0] > 0)
+		{
+			return false;
+		}
+	}
+
+	return true;
 }
 
 template <class DATA_TYPE>

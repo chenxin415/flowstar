@@ -1,8 +1,5 @@
 /*---
-  Flow*: A Verification Tool for Cyber-Physical Systems.
-  Authors: Xin Chen, Sriram Sankaranarayanan, and Erika Abraham.
   Email: Xin Chen <chenxin415@gmail.com> if you have questions or comments.
-  
   The code is released as is under the GNU General Public License (GPL).
 ---*/
 
@@ -768,6 +765,11 @@ void Interval::setInf(const double l)
 	mpfr_set_d(lo, l, MPFR_RNDD);
 }
 
+void Interval::setInf(const Real & r)
+{
+	mpfr_set(lo, r.value, MPFR_RNDD);
+}
+
 void Interval::setInf(const Interval & I)
 {
 	mpfr_set(lo, I.lo, MPFR_RNDD);
@@ -776,6 +778,11 @@ void Interval::setInf(const Interval & I)
 void Interval::setSup(const double u)
 {
 	mpfr_set_d(up, u, MPFR_RNDU);
+}
+
+void Interval::setSup(const Real & r)
+{
+	mpfr_set(up, r.value, MPFR_RNDU);
 }
 
 void Interval::setSup(const Interval & S)
@@ -1085,6 +1092,11 @@ void Interval::width(Interval & W) const
 	mpfr_set(W.up, tmp, MPFR_RNDU);
 
 	mpfr_clear(tmp);
+}
+
+void Interval::width(Real & w) const
+{
+	mpfr_sub(w.value, up, lo, MPFR_RNDU);
 }
 
 double Interval::mag() const
@@ -1776,8 +1788,10 @@ void Interval::rec(Interval & result) const
 {
 	if (mpfr_sgn(lo) <= 0 && mpfr_sgn(up) >= 0)
 	{
-		printf("Exception: Divided by 0.\n");
-		exit(1);
+		Interval tmp(-1e5,1e5);
+		result = tmp;
+//		printf("Exception: Divided by 0.\n");
+//		exit(1);
 	}
 	else
 	{

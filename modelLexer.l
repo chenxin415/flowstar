@@ -1,9 +1,6 @@
 %{
 /*---
-  Flow*: A Verification Tool for Cyber-Physical Systems.
-  Authors: Xin Chen, Sriram Sankaranarayanan, and Erika Abraham.
   Email: Xin Chen <chenxin415@gmail.com> if you have questions or comments.
-
   The code is released as is under the GNU General Public License (GPL).
 ---*/
 
@@ -37,78 +34,17 @@ number ("-"?)(({digit}+)|({digit}*"."{digit}*)|({digit}+"e"(({digit}+)|("-"{digi
 "}" {return '}';}
 "[" {return '[';}
 "]" {return ']';}
-":=" {return ASSIGN;}
 "^" {return '^';}
 "/" {return '/';}
 ">" {return '>';}
-"mode" {return MODE;}
-"init" {return INIT;}
-"in" {return BELONGSTO;}
-"end" {return END;}
-"setting" {return SETTING;}
-"continuous reachability" {return CONTINUOUS;}
-"hybrid reachability" {return HYBRID;}
-"fixed steps" {return FIXEDST;}
-"adaptive steps" {return ADAPTIVEST;}
-"fixed orders" {return FIXEDORD;}
-"adaptive orders" {return ADAPTIVEORD;}
-"order" {return ORDER;}
-"min" {return MIN;}
-"max" {return MAX;}
-"remainder estimation" {return REMEST;}
-"interval" {return INTERVAL;}
-"octagon" {return OCTAGON;}
-"grid" {return GRID;}
-"plot" {return PLOT;}
-"tm" {return TM;}
-"time" {return TIME;}
-"modes" {return MODES;}
-"jumps" {return JUMPS;}
-"inv" {return INV;}
-"guard" {return GUARD;}
-"reset" {return RESET;}
-"start" {return START;}
-"max jumps" {return MAXJMPS;}
-"output" {return OUTPUT;}
-"no output" {return NOOUTPUT;}
-"print on" {return PRINTON;}
-"print off" {return PRINTOFF;}
-"unsafe" {return UNSAFESET;}
-"state var" {return STATEVAR;}
-"tm var" {return TMVAR;}
-"parallelotope aggregation" {return PARAAGGREG;}
-"interval aggregation" {return INTAGGREG;}
-"taylor model aggregation" {return TMAGGREG;}
-"continuous flowpipes" {return CONTINUOUSFLOW;}
-"linear continuous flowpipes" {return LINEARCONTINUOUSFLOW;}
-"hybrid flowpipes" {return HYBRIDFLOW;}
-"taylor picard" {return TAYLOR_PICARD;}
-"taylor remainder" {return TAYLOR_REMAINDER;}
-"taylor polynomial" {return TAYLOR_POLYNOMIAL;}
 "exp" {return EXP;}
 "sin" {return SIN;}
 "cos" {return COS;}
 "log" {return LOG;}
 "sqrt" {return SQRT;}
-"ode" {return ODE;}
-"cutoff" {return CUTOFF;}
-"precision" {return PRECISION;}
-"gnuplot" {return GNUPLOT;}
-"matlab" {return MATLAB;}
-"computation paths" {return COMPUTATIONPATHS;}
-"par" {return PAR;}
-"uncertain" {return UNC;}
-"lti ode" {return LTIODE;}
-"ltv ode" {return LTVODE;}
 "univariate polynomial" {return UNIVARIATE_POLYNOMIAL;}
 "multivariate polynomial" {return MULTIVARIATE_POLYNOMIAL;}
-"time-inv" {return TIME_INV;}
-"time-var" {return TIME_VAR;}
-"step" {return STEP;}
-"true" {return TRUE;}
-"false" {return FALSE;}
 "expression ast" {return EXPRESSION;}
-"matrix" {return MATRIX;}
 
 
 
@@ -144,7 +80,7 @@ int yywrap()
 {
 	return 1;
 }
-/*
+
 void parseUnivariatePolynomial(const std::string & strPolynomial)
 {
 	int length = strPolynomial.size();
@@ -164,7 +100,6 @@ void parseUnivariatePolynomial(const std::string & strPolynomial)
 
 	delete [] strInput;
 }
-*/
 
 void parseMultivariatePolynomial()
 {
@@ -188,10 +123,10 @@ void parseMultivariatePolynomial()
 
 void parseExpression()
 {
-	int length = flowstar::expression_ast_setting.strExpression.size();
+	int length = flowstar::expression_setting.strExpression.size();
 	char *strExpression = new char[length+5];
 
-	sprintf(strExpression, "%s", flowstar::expression_ast_setting.strExpression.c_str());
+	sprintf(strExpression, "%s", flowstar::expression_setting.strExpression.c_str());
 
 	YY_BUFFER_STATE current = YY_CURRENT_BUFFER;
 

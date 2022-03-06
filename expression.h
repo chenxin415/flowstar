@@ -34,7 +34,7 @@ void parseExpression();
 namespace flowstar
 {
 
-inline void exp_taylor_only_remainder(Interval & result, const Interval & remainder, std::list<Interval>::iterator & iterRange, const unsigned int order, const Global_Computation_Setting & setting)
+inline void exp_taylor_only_remainder(Interval & result, const Interval & remainder, std::list<Interval>::iterator & iterRange, const unsigned int order, const Global_Setting & setting)
 {
 	result = 0;
 
@@ -64,10 +64,10 @@ inline void exp_taylor_only_remainder(Interval & result, const Interval & remain
 	}
 
 	result *= const_part;
-
+/*
 	result += (*iterRange);						// cutoff error
 	++iterRange;
-
+*/
 	Interval tmRange = (*iterRange) + remainder;
 	++iterRange;
 
@@ -76,7 +76,7 @@ inline void exp_taylor_only_remainder(Interval & result, const Interval & remain
 	result += const_part * rem;
 }
 
-inline void rec_taylor_only_remainder(Interval & result, const Interval & remainder, std::list<Interval>::iterator & iterRange, const unsigned int order, const Global_Computation_Setting & setting)
+inline void rec_taylor_only_remainder(Interval & result, const Interval & remainder, std::list<Interval>::iterator & iterRange, const unsigned int order, const Global_Setting & setting)
 {
 	result = 0;
 
@@ -108,10 +108,10 @@ inline void rec_taylor_only_remainder(Interval & result, const Interval & remain
 	}
 
 	result *= const_part;
-
+/*
 	result += (*iterRange);		// cutoff error
 	++iterRange;
-
+*/
 	Interval rem, tmF_cRange;
 	tmF_cRange = (*iterRange) + tmF_c_remainder;
 	++iterRange;
@@ -121,7 +121,7 @@ inline void rec_taylor_only_remainder(Interval & result, const Interval & remain
 	result += rem * const_part;
 }
 
-inline void sin_taylor_only_remainder(Interval & result, const Interval & remainder, std::list<Interval>::iterator & iterRange, const unsigned int order, const Global_Computation_Setting & setting)
+inline void sin_taylor_only_remainder(Interval & result, const Interval & remainder, std::list<Interval>::iterator & iterRange, const unsigned int order, const Global_Setting & setting)
 {
 	result = 0;
 
@@ -156,10 +156,10 @@ inline void sin_taylor_only_remainder(Interval & result, const Interval & remain
 
 		result += intTemp2;
 	}
-
+/*
 	result += (*iterRange);		// cutoff error
 	++iterRange;
-
+*/
 	Interval tmRange, rem;
 	tmRange = (*iterRange) + remainder;
 	++iterRange;
@@ -169,7 +169,7 @@ inline void sin_taylor_only_remainder(Interval & result, const Interval & remain
 	result += rem;
 }
 
-inline void cos_taylor_only_remainder(Interval & result, const Interval & remainder, std::list<Interval>::iterator & iterRange, const unsigned int order, const Global_Computation_Setting & setting)
+inline void cos_taylor_only_remainder(Interval & result, const Interval & remainder, std::list<Interval>::iterator & iterRange, const unsigned int order, const Global_Setting & setting)
 {
 	result = 0;
 
@@ -204,10 +204,10 @@ inline void cos_taylor_only_remainder(Interval & result, const Interval & remain
 
 		result += intTemp2;
 	}
-
+/*
 	result += (*iterRange);		// cutoff error
 	++iterRange;
-
+*/
 	Interval tmRange, rem;
 	tmRange = (*iterRange) + remainder;
 	++iterRange;
@@ -254,10 +254,10 @@ inline void log_taylor_only_remainder(Interval & result, const Interval & remain
 
 		result = intTemp;
 	}
-
+/*
 	result += (*iterRange);		// cutoff error
 	++iterRange;
-
+*/
 	Interval rem, tmF_cRange;
 	tmF_cRange = (*iterRange) + tmF_c_remainder;
 	++iterRange;
@@ -267,7 +267,7 @@ inline void log_taylor_only_remainder(Interval & result, const Interval & remain
 	result += rem;
 }
 
-inline void sqrt_taylor_only_remainder(Interval & result, const Interval & remainder, std::list<Interval>::iterator & iterRange, const unsigned int order, const Global_Computation_Setting & setting)
+inline void sqrt_taylor_only_remainder(Interval & result, const Interval & remainder, std::list<Interval>::iterator & iterRange, const unsigned int order, const Global_Setting & setting)
 {
 	result = 0;
 
@@ -307,10 +307,10 @@ inline void sqrt_taylor_only_remainder(Interval & result, const Interval & remai
 	}
 
 	result *= const_part;
-
+/*
 	result += (*iterRange);		// cutoff error
 	++iterRange;
-
+*/
 	Interval rem, tmF_cRange;
 	tmF_cRange = (*iterRange);
 	++iterRange;
@@ -331,7 +331,7 @@ template <class DATA_TYPE>
 class AST_Node;
 
 template <class DATA_TYPE>
-class Expression_AST;
+class Expression;
 
 template <class DATA_TYPE>
 class Node_Operator
@@ -439,33 +439,33 @@ public:
 	void evaluate(Interval & result, const std::vector<Interval> & domain) const;
 
 	template <class DATA_TYPE2>
-	void evaluate(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & step_exp_table, const Interval & cutoff_threshold, const unsigned int numVars, const Global_Computation_Setting & setting) const;
+	void evaluate(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & step_exp_table, const Interval & cutoff_threshold, const unsigned int numVars, const Global_Setting & setting) const;
 
 	template <class DATA_TYPE2>
-	void evaluate(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & domain, const Interval & cutoff_threshold, const Global_Computation_Setting & setting) const;
+	void evaluate(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & domain, const Interval & cutoff_threshold, const Global_Setting & setting) const;
 
 //	void evaluate(Real & result, const std::vector<Real> & values_of_vars) const;
 //	void evaluate(Interval & result, const std::vector<Interval> & values_of_vars) const;
 
-//	void evaluate(TaylorModel<DATA_TYPE> & result, const std::vector<TaylorModel> & tms_of_vars, const int order, const Taylor_Model_Computation_Setting & setting) const;
+//	void evaluate(TaylorModel<DATA_TYPE> & result, const std::vector<TaylorModel> & tms_of_vars, const int order, const Taylor_Model_Setting & setting) const;
 //	template <class DATA_TYPE2>
-//	void evaluate(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & domain, const Interval & cutoff_threshold, const Global_Computation_Setting & setting) const;
+//	void evaluate(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & domain, const Interval & cutoff_threshold, const Global_Setting & setting) const;
 
 //	template <class DATA_TYPE2>
-//	void evaluate(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & step_exp_table, const Interval & cutoff_threshold, const unsigned int numVars, const Global_Computation_Setting & setting) const;
+//	void evaluate(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & step_exp_table, const Interval & cutoff_threshold, const unsigned int numVars, const Global_Setting & setting) const;
 
 	// for internal use
 	template <class DATA_TYPE2>
 	void evaluate_no_remainder(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const Interval & cutoff_threshold, const unsigned int numVars) const;
 
 	template <class DATA_TYPE2>
-	void evaluate(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & step_exp_table, const Interval & cutoff_threshold, const unsigned int numVars, std::list<Interval> & intermediate_ranges, const Global_Computation_Setting & setting) const;
+	void evaluate(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & step_exp_table, const Interval & cutoff_threshold, const unsigned int numVars, std::list<Interval> & intermediate_ranges, const Global_Setting & setting) const;
 
 	template <class DATA_TYPE2>
-	void evaluate_remainder(Interval & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, std::list<Interval>::iterator & iter, const Global_Computation_Setting & setting) const;
+	void evaluate_remainder(Interval & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, std::list<Interval>::iterator & iter, const Global_Setting & setting) const;
 
 
-//	void output(std::string & expression, const Taylor_Model_Computation_Setting & setting) const;
+//	void output(std::string & expression, const Taylor_Model_Setting & setting) const;
 	void output(std::string & expression, const Variables & variables) const;
 
 	void toReal(std::shared_ptr<AST_Node<Real> > & pNode) const;
@@ -615,7 +615,7 @@ void AST_Node<DATA_TYPE>::evaluate(Interval & result, const std::vector<Interval
 
 template <class DATA_TYPE>
 template <class DATA_TYPE2>
-void AST_Node<DATA_TYPE>::evaluate(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & step_exp_table, const Interval & cutoff_threshold, const unsigned int numVars, const Global_Computation_Setting & setting) const
+void AST_Node<DATA_TYPE>::evaluate(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & step_exp_table, const Interval & cutoff_threshold, const unsigned int numVars, const Global_Setting & setting) const
 {
 	switch(node_type)
 	{
@@ -761,7 +761,7 @@ void AST_Node<DATA_TYPE>::evaluate(TaylorModel<DATA_TYPE2> & result, const std::
 
 template <class DATA_TYPE>
 template <class DATA_TYPE2>
-void AST_Node<DATA_TYPE>::evaluate(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & domain, const Interval & cutoff_threshold, const Global_Computation_Setting & setting) const
+void AST_Node<DATA_TYPE>::evaluate(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & domain, const Interval & cutoff_threshold, const Global_Setting & setting) const
 {
 	switch(node_type)
 	{
@@ -1202,7 +1202,7 @@ inline void AST_Node<Interval>::evaluate_no_remainder<Real>(TaylorModel<Real> & 
 
 template <class DATA_TYPE>
 template <class DATA_TYPE2>
-void AST_Node<DATA_TYPE>::evaluate(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & step_exp_table, const Interval & cutoff_threshold, const unsigned int numVars, std::list<Interval> & intermediate_ranges, const Global_Computation_Setting & setting) const
+void AST_Node<DATA_TYPE>::evaluate(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & step_exp_table, const Interval & cutoff_threshold, const unsigned int numVars, std::list<Interval> & intermediate_ranges, const Global_Setting & setting) const
 {
 	switch(node_type)
 	{
@@ -1370,7 +1370,7 @@ void AST_Node<DATA_TYPE>::evaluate(TaylorModel<DATA_TYPE2> & result, const std::
 
 template <>
 template <>
-inline void AST_Node<Interval>::evaluate<Real>(TaylorModel<Real> & result, const std::vector<TaylorModel<Real> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & step_exp_table, const Interval & cutoff_threshold, const unsigned int numVars, std::list<Interval> & intermediate_ranges, const Global_Computation_Setting & setting) const
+inline void AST_Node<Interval>::evaluate<Real>(TaylorModel<Real> & result, const std::vector<TaylorModel<Real> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & step_exp_table, const Interval & cutoff_threshold, const unsigned int numVars, std::list<Interval> & intermediate_ranges, const Global_Setting & setting) const
 {
 	switch(node_type)
 	{
@@ -1546,7 +1546,7 @@ inline void AST_Node<Interval>::evaluate<Real>(TaylorModel<Real> & result, const
 
 template <class DATA_TYPE>
 template <class DATA_TYPE2>
-void AST_Node<DATA_TYPE>::evaluate_remainder(Interval & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, std::list<Interval>::iterator & iter, const Global_Computation_Setting & setting) const
+void AST_Node<DATA_TYPE>::evaluate_remainder(Interval & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, std::list<Interval>::iterator & iter, const Global_Setting & setting) const
 {
 	switch(node_type)
 	{
@@ -1708,7 +1708,7 @@ void AST_Node<DATA_TYPE>::evaluate_remainder(Interval & result, const std::vecto
 
 template <>
 template <>
-inline void AST_Node<Interval>::evaluate_remainder<Real>(Interval & result, const std::vector<TaylorModel<Real> > & tms_of_vars, const unsigned int order, std::list<Interval>::iterator & iter, const Global_Computation_Setting & setting) const
+inline void AST_Node<Interval>::evaluate_remainder<Real>(Interval & result, const std::vector<TaylorModel<Real> > & tms_of_vars, const unsigned int order, std::list<Interval>::iterator & iter, const Global_Setting & setting) const
 {
 	switch(node_type)
 	{
@@ -1996,55 +1996,52 @@ inline void AST_Node<Interval>::toReal(std::shared_ptr<AST_Node<Real> > & pNode)
 
 
 
-// abstract syntax tree
+// class of expressions represented in abstract syntax trees
 template <class DATA_TYPE>
-class Expression_AST
+class Expression
 {
 protected:
 	std::shared_ptr<AST_Node<DATA_TYPE> > root;
 
 public:
-	Expression_AST();
-//	Expression_AST(const std::string & varName, const Taylor_Model_Computation_Setting & setting);
-	Expression_AST(const std::string & varName, const Variables & variables);
-	Expression_AST(const DATA_TYPE & c);
-	~Expression_AST();
+	Expression();
+	Expression(const std::string & varName, const Variables *pVars);
+	Expression(const DATA_TYPE & c);
+	~Expression();
 
-	void toReal(Expression_AST<Real> & expression) const;
+	void toReal(Expression<Real> & expression) const;
 
 	// using lex
-	Expression_AST(const std::string & strExpression);
-//	Expression_AST(const std::string & strExpression, const Variables & variables, const Parameters & parameters);
+	Expression(const std::string & strExpression, Variables & vars);
 
 	void clear();
 
-//	void output(FILE *fp, const Taylor_Model_Computation_Setting & setting) const;
 	void output(std::ostream & os, const Variables & variables) const;
 
 	void evaluate(Interval & result, const std::vector<Interval> & domain) const;
 
 	template <class DATA_TYPE2>
-	void evaluate(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & step_exp_table, const Interval & cutoff_threshold, const unsigned int numVars, const Global_Computation_Setting & setting) const;
+	void evaluate(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & step_exp_table, const Interval & cutoff_threshold, const unsigned int numVars, const Global_Setting & setting) const;
 
 	template <class DATA_TYPE2>
-	void evaluate(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & domain, const Interval & cutoff_threshold, const Global_Computation_Setting & setting) const;
+	void evaluate(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & domain, const Interval & cutoff_threshold, const Global_Setting & setting) const;
 
 	template <class DATA_TYPE2>
 	void evaluate_no_remainder(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const Interval & cutoff_threshold, const unsigned int numVars) const;
 
 	template <class DATA_TYPE2>
-	void evaluate(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & step_exp_table, const Interval & cutoff_threshold, const unsigned int numVars, std::list<Interval> & intermediate_ranges, const Global_Computation_Setting & setting) const;
+	void evaluate(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & step_exp_table, const Interval & cutoff_threshold, const unsigned int numVars, std::list<Interval> & intermediate_ranges, const Global_Setting & setting) const;
 
 	template <class DATA_TYPE2>
-	void evaluate_remainder(Interval & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, std::list<Interval>::iterator & iter, const Global_Computation_Setting & setting) const;
+	void evaluate_remainder(Interval & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, std::list<Interval>::iterator & iter, const Global_Setting & setting) const;
 
 	bool isConstant(DATA_TYPE & c) const;
 
-	Expression_AST & operator = (const Expression_AST & expression);
-	Expression_AST & operator += (const Expression_AST & expression);
-	Expression_AST & operator -= (const Expression_AST & expression);
-	Expression_AST & operator *= (const Expression_AST & expression);
-	Expression_AST & operator /= (const Expression_AST & expression);
+	Expression & operator = (const Expression & expression);
+	Expression & operator += (const Expression & expression);
+	Expression & operator -= (const Expression & expression);
+	Expression & operator *= (const Expression & expression);
+	Expression & operator /= (const Expression & expression);
 
 	void pow_assign(const unsigned int n);
 	void inv_assign();
@@ -2055,20 +2052,20 @@ public:
 	void sqrt_assign();
 
 	template <class DATA_TYPE2>
-	friend class Expression_AST;
+	friend class Expression;
 };
 
 
 template <class DATA_TYPE>
-Expression_AST<DATA_TYPE>::Expression_AST()
+Expression<DATA_TYPE>::Expression()
 {
 	root = nullptr;
 }
 
 template <class DATA_TYPE>
-Expression_AST<DATA_TYPE>::Expression_AST(const std::string & varName, const Variables & variables)
+Expression<DATA_TYPE>::Expression(const std::string & varName, const Variables *pVars)
 {
-	int id = variables.getIDForVar(varName);
+	int id = pVars->getIDForVar(varName);
 
 	if(id < 0)
 	{
@@ -2082,61 +2079,63 @@ Expression_AST<DATA_TYPE>::Expression_AST(const std::string & varName, const Var
 }
 
 template <class DATA_TYPE>
-Expression_AST<DATA_TYPE>::Expression_AST(const DATA_TYPE & c)
+Expression<DATA_TYPE>::Expression(const DATA_TYPE & c)
 {
 	root = std::shared_ptr<AST_Node<DATA_TYPE> > (new AST_Node<DATA_TYPE>(c));
 }
 
 template <class DATA_TYPE>
-Expression_AST<DATA_TYPE>::~Expression_AST()
+Expression<DATA_TYPE>::~Expression()
 {
 	root.reset();
 }
 
 template <>
-inline void Expression_AST<Interval>::toReal(Expression_AST<Real> & expression) const
+inline void Expression<Interval>::toReal(Expression<Real> & expression) const
 {
 	root->toReal(expression.root);
 }
 
 template <>
-inline Expression_AST<Interval>::Expression_AST(const std::string & strExpression)
+inline Expression<Interval>::Expression(const std::string & strExpression, Variables & vars)
 {
-	expression_ast_setting.clear();
+	expression_setting.clear();
 
 	std::string prefix(str_prefix_expression_ast);
 	std::string suffix(str_suffix);
 
-	expression_ast_setting.strExpression = prefix + strExpression + suffix;
+	expression_setting.strExpression = prefix + strExpression + suffix;
+	expression_setting.pVars = &vars;
 
 	parseExpression();
 
-	*this = expression_ast_setting.result;
+	*this = expression_setting.result;
 }
 
 template <>
-inline Expression_AST<Real>::Expression_AST(const std::string & strExpression)
+inline Expression<Real>::Expression(const std::string & strExpression, Variables & vars)
 {
-	expression_ast_setting.clear();
+	expression_setting.clear();
 
 	std::string prefix(str_prefix_expression_ast);
 	std::string suffix(str_suffix);
 
-	expression_ast_setting.strExpression = prefix + strExpression + suffix;
+	expression_setting.strExpression = prefix + strExpression + suffix;
+	expression_setting.pVars = &vars;
 
 	parseExpression();
 
-	expression_ast_setting.result.toReal(*this);
+	expression_setting.result.toReal(*this);
 }
 
 template <class DATA_TYPE>
-void Expression_AST<DATA_TYPE>::clear()
+void Expression<DATA_TYPE>::clear()
 {
 	root.reset();
 }
 
 template <class DATA_TYPE>
-void Expression_AST<DATA_TYPE>::output(std::ostream & os, const Variables & variables) const
+void Expression<DATA_TYPE>::output(std::ostream & os, const Variables & variables) const
 {
 	std::string expression;
 	root->output(expression, variables);
@@ -2145,48 +2144,48 @@ void Expression_AST<DATA_TYPE>::output(std::ostream & os, const Variables & vari
 }
 
 template <class DATA_TYPE>
-void Expression_AST<DATA_TYPE>::evaluate(Interval & result, const std::vector<Interval> & domain) const
+void Expression<DATA_TYPE>::evaluate(Interval & result, const std::vector<Interval> & domain) const
 {
 	root->evaluate(result, domain);
 }
 
 template <class DATA_TYPE>
 template <class DATA_TYPE2>
-void Expression_AST<DATA_TYPE>::evaluate(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & step_exp_table, const Interval & cutoff_threshold, const unsigned int numVars, const Global_Computation_Setting & setting) const
+void Expression<DATA_TYPE>::evaluate(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & step_exp_table, const Interval & cutoff_threshold, const unsigned int numVars, const Global_Setting & setting) const
 {
 	root->evaluate(result, tms_of_vars, order, step_exp_table, cutoff_threshold, numVars, setting);
 }
 
 template <class DATA_TYPE>
 template <class DATA_TYPE2>
-void Expression_AST<DATA_TYPE>::evaluate(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & domain, const Interval & cutoff_threshold, const Global_Computation_Setting & setting) const
+void Expression<DATA_TYPE>::evaluate(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & domain, const Interval & cutoff_threshold, const Global_Setting & setting) const
 {
 	root->evaluate(result, tms_of_vars, order, domain, cutoff_threshold, setting);
 }
 
 template <class DATA_TYPE>
 template <class DATA_TYPE2>
-void Expression_AST<DATA_TYPE>::evaluate_no_remainder(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const Interval & cutoff_threshold, const unsigned int numVars) const
+void Expression<DATA_TYPE>::evaluate_no_remainder(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const Interval & cutoff_threshold, const unsigned int numVars) const
 {
 	root->evaluate_no_remainder(result, tms_of_vars, order, cutoff_threshold, numVars);
 }
 
 template <class DATA_TYPE>
 template <class DATA_TYPE2>
-void Expression_AST<DATA_TYPE>::evaluate(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & step_exp_table, const Interval & cutoff_threshold, const unsigned int numVars, std::list<Interval> & intermediate_ranges, const Global_Computation_Setting & setting) const
+void Expression<DATA_TYPE>::evaluate(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & step_exp_table, const Interval & cutoff_threshold, const unsigned int numVars, std::list<Interval> & intermediate_ranges, const Global_Setting & setting) const
 {
 	root->evaluate(result, tms_of_vars, order, step_exp_table, cutoff_threshold, numVars, intermediate_ranges, setting);
 }
 
 template <class DATA_TYPE>
 template <class DATA_TYPE2>
-void Expression_AST<DATA_TYPE>::evaluate_remainder(Interval & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, std::list<Interval>::iterator & iter, const Global_Computation_Setting & setting) const
+void Expression<DATA_TYPE>::evaluate_remainder(Interval & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, std::list<Interval>::iterator & iter, const Global_Setting & setting) const
 {
 	root->evaluate_remainder(result, tms_of_vars, order, iter, setting);
 }
 
 template <class DATA_TYPE>
-bool Expression_AST<DATA_TYPE>::isConstant(DATA_TYPE & c) const
+bool Expression<DATA_TYPE>::isConstant(DATA_TYPE & c) const
 {
 	if(root->node_type == NODE_CONST)
 	{
@@ -2201,7 +2200,7 @@ bool Expression_AST<DATA_TYPE>::isConstant(DATA_TYPE & c) const
 }
 
 template <class DATA_TYPE>
-Expression_AST<DATA_TYPE> & Expression_AST<DATA_TYPE>::operator = (const Expression_AST<DATA_TYPE> & expression)
+Expression<DATA_TYPE> & Expression<DATA_TYPE>::operator = (const Expression<DATA_TYPE> & expression)
 {
 	if(this == &expression)
 		return *this;
@@ -2212,7 +2211,7 @@ Expression_AST<DATA_TYPE> & Expression_AST<DATA_TYPE>::operator = (const Express
 }
 
 template <class DATA_TYPE>
-Expression_AST<DATA_TYPE> & Expression_AST<DATA_TYPE>::operator += (const Expression_AST<DATA_TYPE> & expression)
+Expression<DATA_TYPE> & Expression<DATA_TYPE>::operator += (const Expression<DATA_TYPE> & expression)
 {
 	std::shared_ptr<AST_Node<DATA_TYPE> > tmp(new AST_Node<DATA_TYPE>(OPT_PLUS, root, expression.root));
 	root = tmp;
@@ -2221,7 +2220,7 @@ Expression_AST<DATA_TYPE> & Expression_AST<DATA_TYPE>::operator += (const Expres
 }
 
 template <class DATA_TYPE>
-Expression_AST<DATA_TYPE> & Expression_AST<DATA_TYPE>::operator -= (const Expression_AST<DATA_TYPE> & expression)
+Expression<DATA_TYPE> & Expression<DATA_TYPE>::operator -= (const Expression<DATA_TYPE> & expression)
 {
 	std::shared_ptr<AST_Node<DATA_TYPE> > tmp(new AST_Node<DATA_TYPE>(OPT_MINU, root, expression.root));
 	root = tmp;
@@ -2230,7 +2229,7 @@ Expression_AST<DATA_TYPE> & Expression_AST<DATA_TYPE>::operator -= (const Expres
 }
 
 template <class DATA_TYPE>
-Expression_AST<DATA_TYPE> & Expression_AST<DATA_TYPE>::operator *= (const Expression_AST<DATA_TYPE> & expression)
+Expression<DATA_TYPE> & Expression<DATA_TYPE>::operator *= (const Expression<DATA_TYPE> & expression)
 {
 	std::shared_ptr<AST_Node<DATA_TYPE> > tmp(new AST_Node<DATA_TYPE>(OPT_MULT, root, expression.root));
 	root = tmp;
@@ -2239,7 +2238,7 @@ Expression_AST<DATA_TYPE> & Expression_AST<DATA_TYPE>::operator *= (const Expres
 }
 
 template <class DATA_TYPE>
-Expression_AST<DATA_TYPE> & Expression_AST<DATA_TYPE>::operator /= (const Expression_AST<DATA_TYPE> & expression)
+Expression<DATA_TYPE> & Expression<DATA_TYPE>::operator /= (const Expression<DATA_TYPE> & expression)
 {
 	std::shared_ptr<AST_Node<DATA_TYPE> > tmp(new AST_Node<DATA_TYPE>(OPT_DIV, root, expression.root));
 	root = tmp;
@@ -2248,7 +2247,7 @@ Expression_AST<DATA_TYPE> & Expression_AST<DATA_TYPE>::operator /= (const Expres
 }
 
 template <class DATA_TYPE>
-void Expression_AST<DATA_TYPE>::pow_assign(const unsigned int n)
+void Expression<DATA_TYPE>::pow_assign(const unsigned int n)
 {
 	std::shared_ptr<AST_Node<DATA_TYPE> > exponent(new AST_Node<DATA_TYPE>(n));
 
@@ -2257,42 +2256,42 @@ void Expression_AST<DATA_TYPE>::pow_assign(const unsigned int n)
 }
 
 template <class DATA_TYPE>
-void Expression_AST<DATA_TYPE>::inv_assign()
+void Expression<DATA_TYPE>::inv_assign()
 {
 	std::shared_ptr<AST_Node<DATA_TYPE> > tmp(new AST_Node<DATA_TYPE>(OPT_NEG, root));
 	root = tmp;
 }
 
 template <class DATA_TYPE>
-void Expression_AST<DATA_TYPE>::sin_assign()
+void Expression<DATA_TYPE>::sin_assign()
 {
 	std::shared_ptr<AST_Node<DATA_TYPE> > tmp(new AST_Node<DATA_TYPE>(OPT_SIN, root));
 	root = tmp;
 }
 
 template <class DATA_TYPE>
-void Expression_AST<DATA_TYPE>::cos_assign()
+void Expression<DATA_TYPE>::cos_assign()
 {
 	std::shared_ptr<AST_Node<DATA_TYPE> > tmp(new AST_Node<DATA_TYPE>(OPT_COS, root));
 	root = tmp;
 }
 
 template <class DATA_TYPE>
-void Expression_AST<DATA_TYPE>::exp_assign()
+void Expression<DATA_TYPE>::exp_assign()
 {
 	std::shared_ptr<AST_Node<DATA_TYPE> > tmp(new AST_Node<DATA_TYPE>(OPT_EXP, root));
 	root = tmp;
 }
 
 template <class DATA_TYPE>
-void Expression_AST<DATA_TYPE>::log_assign()
+void Expression<DATA_TYPE>::log_assign()
 {
 	std::shared_ptr<AST_Node<DATA_TYPE> > tmp(new AST_Node<DATA_TYPE>(OPT_LOG, root));
 	root = tmp;
 }
 
 template <class DATA_TYPE>
-void Expression_AST<DATA_TYPE>::sqrt_assign()
+void Expression<DATA_TYPE>::sqrt_assign()
 {
 	std::shared_ptr<AST_Node<DATA_TYPE> > tmp(new AST_Node<DATA_TYPE>(OPT_SQRT, root));
 	root = tmp;

@@ -1,8 +1,5 @@
 /*---
-  Flow*: A Verification Tool for Cyber-Physical Systems.
-  Authors: Xin Chen, Sriram Sankaranarayanan, and Erika Abraham.
   Email: Xin Chen <chenxin415@gmail.com> if you have questions or comments.
-  
   The code is released as is under the GNU General Public License (GPL).
 ---*/
 
@@ -180,9 +177,11 @@ public:
 	void set(const Real & r);
 
 	void setInf(const double l);
+	void setInf(const Real & r);
 	void setInf(const Interval & I);
 
 	void setSup(const double u);
+	void setSup(const Real & r);
 	void setSup(const Interval & S);
 
 	void split(Interval & left, Interval & right) const;			// split the interval at the midpoint
@@ -218,6 +217,7 @@ public:
 
 	double width() const;
 	void width(Interval & W) const;
+	void width(Real & w) const;
 
 	double mag() const;		// max{|lo|,|up|}
 	void mag(Real & m) const;

@@ -17,7 +17,7 @@ template <class DATA_TYPE>
 class Polynomial;
 
 template <class DATA_TYPE>
-class Expression_AST;
+class Expression;
 
 
 inline void compute_factorial_rec(std::vector<Real> & factorial_rec, const unsigned int order)
@@ -201,7 +201,7 @@ UTM_Setting<DATA_TYPE> & UTM_Setting<DATA_TYPE>::operator = (const UTM_Setting<D
 
 
 
-class Taylor_Model_Computation_Setting
+class Taylor_Model_Setting
 {
 public:
 	Variables variables;		// state variables
@@ -218,16 +218,14 @@ public:
 	unsigned int order_min;
 	unsigned int order_max;
 
-	unsigned int queue_size;
-
 public:
-	Taylor_Model_Computation_Setting();
-	Taylor_Model_Computation_Setting(const Variables & vars);
-	Taylor_Model_Computation_Setting(const Variables & vars, const Parameters & pars);
-	Taylor_Model_Computation_Setting(const Taylor_Model_Computation_Setting & setting);
-	~Taylor_Model_Computation_Setting();
+	Taylor_Model_Setting();
+	Taylor_Model_Setting(const Variables & vars);
+	Taylor_Model_Setting(const Variables & vars, const Parameters & pars);
+	Taylor_Model_Setting(const Taylor_Model_Setting & setting);
+	~Taylor_Model_Setting();
 
-	Taylor_Model_Computation_Setting & operator = (const Taylor_Model_Computation_Setting & setting);
+	Taylor_Model_Setting & operator = (const Taylor_Model_Setting & setting);
 
 	void initializeAdaptiveSettings(const double delta_min, const double delta_max, const unsigned int k_min, const unsigned int k_max);
 
@@ -239,7 +237,6 @@ public:
 
 	void setRemainderEstimation(const std::vector<Interval> & intVec);
 	void setDomain(const std::vector<Interval> & intVec);
-	void setQueueSize(const unsigned int m);
 
 	void clear();
 
@@ -252,7 +249,7 @@ public:
 
 
 
-class Global_Computation_Setting
+class Global_Setting
 {
 public:
 	std::vector<Real> factorial_rec;
@@ -260,13 +257,13 @@ public:
 	std::vector<Real> double_factorial;
 
 public:
-	Global_Computation_Setting();
-	Global_Computation_Setting(const Global_Computation_Setting & setting);
-	~Global_Computation_Setting();
+	Global_Setting();
+	Global_Setting(const Global_Setting & setting);
+	~Global_Setting();
 
 	bool resetOrder(const unsigned int k);
 
-	Global_Computation_Setting & operator = (const Global_Computation_Setting & setting);
+	Global_Setting & operator = (const Global_Setting & setting);
 
 	void prepareForReachability(const unsigned int maxOrder);
 };
@@ -280,6 +277,7 @@ public:
 	std::string strPolynomial;
 	Polynomial<DATA_TYPE> result;
 	bool bDeterministic;
+	Variables *pVars;
 
 public:
 	Multivariate_Polynomial_Setting();
@@ -295,6 +293,7 @@ template <class DATA_TYPE>
 Multivariate_Polynomial_Setting<DATA_TYPE>::Multivariate_Polynomial_Setting()
 {
 	bDeterministic = true;
+	pVars = NULL;
 }
 
 template <class DATA_TYPE>
@@ -303,6 +302,7 @@ Multivariate_Polynomial_Setting<DATA_TYPE>::Multivariate_Polynomial_Setting(cons
 	strPolynomial = setting.strPolynomial;
 	result = setting.result;
 	bDeterministic = setting.bDeterministic;
+	pVars = setting.pVars;
 }
 
 template <class DATA_TYPE>
@@ -319,6 +319,7 @@ Multivariate_Polynomial_Setting<DATA_TYPE> & Multivariate_Polynomial_Setting<DAT
 	strPolynomial = setting.strPolynomial;
 	result = setting.result;
 	bDeterministic = setting.bDeterministic;
+	pVars = setting.pVars;
 
 	return *this;
 }
@@ -328,6 +329,7 @@ void Multivariate_Polynomial_Setting<DATA_TYPE>::clear()
 {
 	result.clear();
 	bDeterministic = true;
+	pVars = NULL;
 }
 
 
@@ -335,44 +337,47 @@ void Multivariate_Polynomial_Setting<DATA_TYPE>::clear()
 
 
 template <class DATA_TYPE>
-class Expression_AST_Setting
+class Expression_Setting
 {
 public:
 	std::string strExpression;
-	Expression_AST<DATA_TYPE> result;
+	Expression<DATA_TYPE> result;
 	bool bDeterministic;
+	Variables *pVars;
 
 public:
-	Expression_AST_Setting();
-	Expression_AST_Setting(const Expression_AST_Setting & setting);
-	~Expression_AST_Setting();
+	Expression_Setting();
+	Expression_Setting(const Expression_Setting & setting);
+	~Expression_Setting();
 
-	Expression_AST_Setting & operator = (const Expression_AST_Setting & setting);
+	Expression_Setting & operator = (const Expression_Setting & setting);
 
 	void clear();
 };
 
 template <class DATA_TYPE>
-Expression_AST_Setting<DATA_TYPE>::Expression_AST_Setting()
+Expression_Setting<DATA_TYPE>::Expression_Setting()
 {
 	bDeterministic = true;
+	pVars = NULL;
 }
 
 template <class DATA_TYPE>
-Expression_AST_Setting<DATA_TYPE>::Expression_AST_Setting(const Expression_AST_Setting<DATA_TYPE> & setting)
+Expression_Setting<DATA_TYPE>::Expression_Setting(const Expression_Setting<DATA_TYPE> & setting)
 {
 	strExpression = setting.strExpression;
 	result = setting.result;
 	bDeterministic = setting.bDeterministic;
+	pVars = setting.pVars;
 }
 
 template <class DATA_TYPE>
-Expression_AST_Setting<DATA_TYPE>::~Expression_AST_Setting()
+Expression_Setting<DATA_TYPE>::~Expression_Setting()
 {
 }
 
 template <class DATA_TYPE>
-Expression_AST_Setting<DATA_TYPE> & Expression_AST_Setting<DATA_TYPE>::operator = (const Expression_AST_Setting<DATA_TYPE> & setting)
+Expression_Setting<DATA_TYPE> & Expression_Setting<DATA_TYPE>::operator = (const Expression_Setting<DATA_TYPE> & setting)
 {
 	if(this == &setting)
 		return *this;
@@ -380,21 +385,23 @@ Expression_AST_Setting<DATA_TYPE> & Expression_AST_Setting<DATA_TYPE>::operator 
 	strExpression = setting.strExpression;
 	result = setting.result;
 	bDeterministic = setting.bDeterministic;
+	pVars = setting.pVars;
 
 	return *this;
 }
 
 template <class DATA_TYPE>
-void Expression_AST_Setting<DATA_TYPE>::clear()
+void Expression_Setting<DATA_TYPE>::clear()
 {
 	result.clear();
 	bDeterministic = true;
+	pVars = NULL;
 }
 
 
 extern UTM_Setting<Interval> interval_utm_setting;
 extern Multivariate_Polynomial_Setting<Interval> multivariate_polynomial_setting;
-extern Expression_AST_Setting<Interval> expression_ast_setting;
+extern Expression_Setting<Interval> expression_setting;
 
 }
 

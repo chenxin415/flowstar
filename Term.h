@@ -15,7 +15,7 @@ namespace flowstar
 template <class DATA_TYPE>
 class Term
 {
-protected:
+public:
 	DATA_TYPE coefficient;					// the coefficient of the term
 	std::vector<unsigned int> degrees;		// the degrees of the variables, e.g., [2,0,4] is the notation for x1^2 x3^4
 	unsigned int d;			        		// the degree of the term, it is the sum of the values in degrees.

@@ -1,8 +1,5 @@
 /*---
-  Flow*: A Verification Tool for Cyber-Physical Systems.
-  Authors: Xin Chen, Sriram Sankaranarayanan, and Erika Abraham.
   Email: Xin Chen <chenxin415@gmail.com> if you have questions or comments.
-
   The code is released as is under the GNU General Public License (GPL).
 ---*/
 
@@ -12,7 +9,7 @@
 #include "Interval.h"
 #include "settings.h"
 
-//void parseUnivariatePolynomial(const std::string & strPolynomial);
+void parseUnivariatePolynomial(const std::string & strPolynomial);
 
 namespace flowstar
 {
@@ -32,7 +29,7 @@ std::ostream & operator << (std::ostream & os, const UnivariatePolynomial<DATA_T
 template <class DATA_TYPE>
 class UnivariatePolynomial
 {
-protected:
+public:
 	std::vector<DATA_TYPE> coefficients;
 
 public:
@@ -42,12 +39,13 @@ public:
 	UnivariatePolynomial(const DATA_TYPE & c);
 	UnivariatePolynomial(const double c);
 	UnivariatePolynomial(const DATA_TYPE & c, const unsigned int degree);
+	UnivariatePolynomial(const std::string & strUp);
 
 	~UnivariatePolynomial();
 
-//	bool set(const std::string & strPolynomial);
+	void toPolynomial(Polynomial<DATA_TYPE> & result, const unsigned int numVars, const DATA_TYPE & x_lb);
+
 	void clear();
-	void set2zero();
 	unsigned int degree() const;
 	bool isZero() const;
 
@@ -85,6 +83,7 @@ public:
 
 	UnivariatePolynomial<DATA_TYPE> & operator = (const UnivariatePolynomial<DATA_TYPE> & up);
 	UnivariatePolynomial<DATA_TYPE> & operator = (const DATA_TYPE & c);
+	UnivariatePolynomial<DATA_TYPE> & operator = (const double c);
 
 	template <class DATA_TYPE2>
 	UnivariatePolynomial<DATA_TYPE> & operator += (const UnivariatePolynomial<DATA_TYPE2> & up);
@@ -160,6 +159,7 @@ public:
 template <class DATA_TYPE>
 UnivariatePolynomial<DATA_TYPE>::UnivariatePolynomial()
 {
+	// empty univariate polynomial
 }
 
 template <class DATA_TYPE>
@@ -183,7 +183,7 @@ UnivariatePolynomial<DATA_TYPE>::UnivariatePolynomial(const DATA_TYPE & c)
 template <class DATA_TYPE>
 UnivariatePolynomial<DATA_TYPE>::UnivariatePolynomial(const double c)
 {
-	coefficients.push_back(c);
+	coefficients.push_back((DATA_TYPE)c);
 }
 
 template <class DATA_TYPE>
@@ -198,36 +198,49 @@ UnivariatePolynomial<DATA_TYPE>::UnivariatePolynomial(const DATA_TYPE & c, const
 }
 
 template <class DATA_TYPE>
-UnivariatePolynomial<DATA_TYPE>::~UnivariatePolynomial()
-{
-}
-/*
-template <class DATA_TYPE>
-bool UnivariatePolynomial<DATA_TYPE>::set(const std::string & strPolynomial)
+UnivariatePolynomial<DATA_TYPE>::UnivariatePolynomial(const std::string & strUp)
 {
 	std::string prefix(str_prefix_univariate_polynomial);
 	std::string suffix(str_suffix);
 
-	std::string input = prefix + strPolynomial + suffix;
+	std::string input = prefix + strUp + suffix;
 
 	parseUnivariatePolynomial(input);		// call the parser
 
 	*this = (UnivariatePolynomial<DATA_TYPE>)(up_parseresult);
-
-	return true;
 }
-*/
+
+template <class DATA_TYPE>
+UnivariatePolynomial<DATA_TYPE>::~UnivariatePolynomial()
+{
+}
+
+template <class DATA_TYPE>
+void UnivariatePolynomial<DATA_TYPE>::toPolynomial(Polynomial<DATA_TYPE> & result, const unsigned int numVars, const DATA_TYPE & x_lb)
+{
+	result.clear();
+
+	if(coefficients.size() > 0)
+	{
+		Polynomial<DATA_TYPE> term(1, numVars), constant(x_lb, numVars);
+		term.mul_assign(0, 1);
+		term += constant;
+
+		Polynomial<DATA_TYPE> tmp1(coefficients[coefficients.size()-1], numVars);
+		result = tmp1;
+
+		for(int i=coefficients.size()-2; i>=0; --i)
+		{
+			Polynomial<DATA_TYPE> tmp2(coefficients[i], numVars);
+			result = result * term + tmp2;
+		}
+	}
+}
+
 template <class DATA_TYPE>
 void UnivariatePolynomial<DATA_TYPE>::clear()
 {
 	coefficients.clear();
-}
-
-template <class DATA_TYPE>
-void UnivariatePolynomial<DATA_TYPE>::set2zero()
-{
-	coefficients.clear();
-	coefficients.push_back(0);
 }
 
 template <class DATA_TYPE>
@@ -254,17 +267,13 @@ bool UnivariatePolynomial<DATA_TYPE>::isZero() const
 	}
 	else
 	{
-		bool bZero = true;
 		for(unsigned int i=0; i<n; ++i)
 		{
 			if(!(coefficients[i] == 0))
-			{
-				bZero = false;
-				break;
-			}
+				return false;
 		}
 
-		return bZero;
+		return true;
 	}
 }
 
@@ -402,6 +411,9 @@ template <class DATA_TYPE>
 template <class DATA_TYPE2, class DATA_TYPE3>
 void UnivariatePolynomial<DATA_TYPE>::ctrunc(DATA_TYPE2 & remainder, const unsigned int order, const std::vector<DATA_TYPE3> & val_exp_table)
 {
+	if(coefficients.size() == 0)
+		return;
+
 	UnivariatePolynomial<DATA_TYPE> trunc_part;
 
 	for(unsigned int i=order+1; i<coefficients.size(); ++i)
@@ -414,15 +426,25 @@ void UnivariatePolynomial<DATA_TYPE>::ctrunc(DATA_TYPE2 & remainder, const unsig
 		coefficients.pop_back();
 	}
 
-	trunc_part.evaluate(remainder, val_exp_table);
-
-	remainder *= val_exp_table[order+1];
+	if(!trunc_part.isZero())
+	{
+		trunc_part.evaluate(remainder, val_exp_table);
+		remainder *= val_exp_table[order+1];
+	}
+	else
+	{
+		Interval intZero;
+		remainder = intZero;
+	}
 }
 
 template <class DATA_TYPE>
 template <class DATA_TYPE2, class DATA_TYPE3>
 void UnivariatePolynomial<DATA_TYPE>::ctrunc(DATA_TYPE2 & remainder, const unsigned int order, const DATA_TYPE3 & val)
 {
+	if(coefficients.size() == 0)
+		return;
+
 	UnivariatePolynomial<DATA_TYPE> trunc_part;
 
 	for(unsigned int i=order+1; i<coefficients.size(); ++i)
@@ -447,6 +469,9 @@ template <class DATA_TYPE>
 template <class DATA_TYPE2, class DATA_TYPE3>
 void UnivariatePolynomial<DATA_TYPE>::ctrunc(DATA_TYPE3 & remainder1, DATA_TYPE3 & remainder2, const unsigned int order, const std::vector<DATA_TYPE3> & val1_exp_table, const std::vector<DATA_TYPE3> & val2_exp_table)
 {
+	if(coefficients.size() == 0)
+		return;
+
 	UnivariatePolynomial<DATA_TYPE> trunc_part;
 
 	for(unsigned int i=order+1; i<coefficients.size(); ++i)
@@ -459,16 +484,28 @@ void UnivariatePolynomial<DATA_TYPE>::ctrunc(DATA_TYPE3 & remainder1, DATA_TYPE3
 		coefficients.pop_back();
 	}
 
-	trunc_part.evaluate(remainder1, val1_exp_table);
-	trunc_part.evaluate(remainder2, val2_exp_table);
+	if(!trunc_part.isZero())
+	{
+		trunc_part.evaluate(remainder1, val1_exp_table);
+		trunc_part.evaluate(remainder2, val2_exp_table);
 
-	remainder1 *= val1_exp_table[order+1];
-	remainder2 *= val2_exp_table[order+1];
+		remainder1 *= val1_exp_table[order+1];
+		remainder2 *= val2_exp_table[order+1];
+	}
+	else
+	{
+		Interval intZero;
+		remainder1 = intZero;
+		remainder2 = intZero;
+	}
 }
 
 template <class DATA_TYPE>
 void UnivariatePolynomial<DATA_TYPE>::nctrunc(const unsigned int order)
 {
+	if(coefficients.size() == 0)
+		return;
+
 	for(int i=coefficients.size()-1; i>=order; --i)
 	{
 		coefficients.pop_back();
@@ -507,6 +544,15 @@ UnivariatePolynomial<DATA_TYPE> & UnivariatePolynomial<DATA_TYPE>::operator = (c
 {
 	coefficients.clear();
 	coefficients.push_back(c);
+
+	return *this;
+}
+
+template <class DATA_TYPE>
+UnivariatePolynomial<DATA_TYPE> & UnivariatePolynomial<DATA_TYPE>::operator = (const double c)
+{
+	coefficients.clear();
+	coefficients.push_back((DATA_TYPE)c);
 
 	return *this;
 }
@@ -582,7 +628,7 @@ UnivariatePolynomial<DATA_TYPE> & UnivariatePolynomial<DATA_TYPE>::operator *= (
 
 	if(up.isZero())
 	{
-		this->set2zero();
+		this->clear();
 		return *this;
 	}
 
@@ -616,7 +662,11 @@ template <class DATA_TYPE>
 template <class DATA_TYPE2>
 UnivariatePolynomial<DATA_TYPE> & UnivariatePolynomial<DATA_TYPE>::operator += (const DATA_TYPE2 & c)
 {
-	coefficients[0] += c;
+	if(coefficients.size() == 0)
+		coefficients.push_back((DATA_TYPE)c);
+	else
+		coefficients[0] += c;
+
 	return *this;
 }
 
@@ -624,7 +674,11 @@ template <class DATA_TYPE>
 template <class DATA_TYPE2>
 UnivariatePolynomial<DATA_TYPE> & UnivariatePolynomial<DATA_TYPE>::operator -= (const DATA_TYPE2 & c)
 {
-	coefficients[0] -= c;
+	if(coefficients.size() == 0)
+		coefficients.push_back((DATA_TYPE)(-c));
+	else
+		coefficients[0] -= c;
+
 	return *this;
 }
 
@@ -639,7 +693,7 @@ UnivariatePolynomial<DATA_TYPE> & UnivariatePolynomial<DATA_TYPE>::operator *= (
 
 	if(c == 0)
 	{
-		this->set2zero();
+		this->clear();
 		return *this;
 	}
 
@@ -775,7 +829,7 @@ template <class DATA_TYPE2>
 UnivariatePolynomial<DATA_TYPE> UnivariatePolynomial<DATA_TYPE>::operator + (const DATA_TYPE2 & c) const
 {
 	UnivariatePolynomial<DATA_TYPE> result = *this;
-	result.coefficients[0] += c;
+	result += c;
 
 	return result;
 }
@@ -785,7 +839,7 @@ template <class DATA_TYPE2>
 UnivariatePolynomial<DATA_TYPE> UnivariatePolynomial<DATA_TYPE>::operator - (const DATA_TYPE2 & c) const
 {
 	UnivariatePolynomial<DATA_TYPE> result = *this;
-	result.coefficients[0] -= c;
+	result -= c;
 
 	return result;
 }

@@ -79,9 +79,9 @@ PolynomialConstraint::~PolynomialConstraint()
 {
 }
 
-void PolynomialConstraint::output(std::ostream & os, const Variables & stateVars) const
+void PolynomialConstraint::output(std::ostream & os, const Variables & vars) const
 {
-	p.output_constraint(os, stateVars);
+	p.output_constraint(os, vars);
 	os << " <= " << B << std::endl;
 }
 
@@ -111,24 +111,25 @@ Constraint::Constraint()
 {
 }
 
-Constraint::Constraint(const Expression_AST<Real> & exp, const Real & b)
+Constraint::Constraint(const Expression<Real> & exp, const Real & b)
 {
 	expression	= exp;
 	bound		= b;
 }
 
-Constraint::Constraint(const std::string & strExpression)
+Constraint::Constraint(const std::string & strExpression, Variables & vars)
 {
-	expression_ast_setting.clear();
+	expression_setting.clear();
 
 	std::string prefix(str_prefix_expression_ast);
 	std::string suffix(str_suffix);
 
-	expression_ast_setting.strExpression = prefix + strExpression + suffix;
+	expression_setting.strExpression = prefix + strExpression + suffix;
+	expression_setting.pVars = &vars;
 
 	parseExpression();
 
-	expression_ast_setting.result.toReal(expression);
+	expression_setting.result.toReal(expression);
 }
 
 Constraint::Constraint(const Constraint & constraint)
@@ -141,9 +142,9 @@ Constraint::~Constraint()
 {
 }
 
-void Constraint::output(std::ostream & os, const Variables & stateVars) const
+void Constraint::output(std::ostream & os, const Variables & vars) const
 {
-	expression.output(os, stateVars);
+	expression.output(os, vars);
 	os << " <= " << bound;
 }
 

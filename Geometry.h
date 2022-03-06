@@ -1,8 +1,5 @@
 /*---
-  Flow*: A Verification Tool for Cyber-Physical Systems.
-  Authors: Xin Chen, Sriram Sankaranarayanan, and Erika Abraham.
   Email: Xin Chen <chenxin415@gmail.com> if you have questions or comments.
-  
   The code is released as is under the GNU General Public License (GPL).
 ---*/
 
@@ -83,7 +80,6 @@ public:
 	~Zonotope();
 
 	bool isEmpty() const;
-//	bool isIntersected(Matrix<Interval> & box) const;
 
 	unsigned int numOfGen() const;
 
@@ -91,21 +87,10 @@ public:
 
 	void intEval(Matrix<Interval> & range);
 
-//	void output(FILE *fp) const;
-
-
 	Zonotope & operator += (const Zonotope & Z);
 
 	friend Zonotope operator + (const Zonotope & Z1, const Zonotope & Z2);
 	friend Zonotope operator * (const Matrix<Real> & A, const Zonotope & Z);
-
-/*
-	void linearTrans(Zonotope & result, const iMatrix & map) const;
-	void linearTrans_assign(const iMatrix & map);
-
-	void MinSum(Zonotope & result, const Zonotope & zonotope) const;
-	void MinSum_assign(const Zonotope & zonotope);
-*/
 
 
 	// translate the zonotope to a Taylor model with a zero remainder
@@ -115,17 +100,6 @@ public:
 	Zonotope & operator = (const Zonotope & zonotope);
 	Zonotope & operator = (const std::vector<Interval> & box);
 	Zonotope & operator = (Matrix<Interval> & box);
-
-
-/*
-	bool belongsto(const std::vector<double> & x);
-	int contract(const LinearConstraint & constraint);
-
-	void to2DBox(Matrix<Interval> & box, const int x, const int y);
-	void intervalRange(Interval & range, const int x);
-
-	void plot(FILE *fp, const int x, const int y);	// only for 2D zonotopes
-*/
 };
 
 

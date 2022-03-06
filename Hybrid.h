@@ -3,68 +3,44 @@
   The code is released as is under the GNU General Public License (GPL).
 ---*/
 
+
 #ifndef HYBRID_H_
 #define HYBRID_H_
 
 #include "Continuous.h"
 
 
-class Reset
+class Initial_Set_Configuration
 {
 public:
-	std::vector<Expression_AST<Real> > resetMapping;
-	std::vector<Interval> uncertainties;
-	std::vector<bool> isIdentity;
+	Flowpipe initialSet;
+	double remaining_time;
+	int previous_mode;
 
 public:
-	Reset();
-	Reset(const std::vector<Expression_AST<Real> > & expressions);
-	Reset(const std::vector<Expression_AST<Real> > & expressions, const std::vector<bool> & ids);
-	Reset(const std::vector<Expression_AST<Real> > & expressions, const std::vector<Interval> & uncs);
-	Reset(const std::vector<Expression_AST<Real> > & expressions, const std::vector<Interval> & uncs, const std::vector<bool> & ids);
-	Reset(const Reset & reset);
-	~Reset();
+	Initial_Set_Configuration();
+	Initial_Set_Configuration(const Flowpipe & fp, const double t, const int mode);
+	~Initial_Set_Configuration();
 
-	void reset(TaylorModelVec<Real> & result, const TaylorModelVec<Real> & tmv_input, const std::vector<Interval> & domain, const Taylor_Model_Computation_Setting & t_setting) const;
-
-	Reset & operator = (const Reset & reset);
-};
-
-
-
-class DiscreteTransition
-{
-public:
-	int jumpID;
-	int startID;
-	int targetID;
-
-	std::vector<Constraint> guard;
-	Reset reset;
-public:
-	DiscreteTransition();
-	DiscreteTransition(const int id, const int start, const int target, const std::vector<Constraint> & constraints, const Reset & mapping);
-	DiscreteTransition(const DiscreteTransition & jump);
-	~DiscreteTransition();
-
-	DiscreteTransition & operator = (const DiscreteTransition & jump);
+	Initial_Set_Configuration & operator = (const Initial_Set_Configuration & isc);
 };
 
 
 
 
-
-
-class Hybrid_Dynamics
+class Queue_of_Initial_Set
 {
 protected:
-	std::vector<Dynamics> dynamics;
-	std::vector
+	std::list<Initial_Set_Configuration> iscs;
 
 public:
+	Queue_of_Initial_Set();
+	~Queue_of_Initial_Set();
 
+	bool isEmpty() const;
+	void enqueue(const Initial_Set_Configuration & isc);
+	void dequeue(Initial_Set_Configuration & isc);
 };
-
 
 
 
