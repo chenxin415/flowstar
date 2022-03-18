@@ -1975,7 +1975,7 @@ void Nonlinear_Discrete_Dynamics::reach(Result_of_Reachability & result, Computa
 	result.status = reach(result.nonlinear_flowpipes, result.orders_of_flowpipes, result.safety_of_flowpipes, result.num_of_flowpipes,
 			n, initialSet, setting.tm_setting, setting.g_setting, setting.bPrint, unsafeSet, bSafetyChecking, true, true);
 
-	if(result.tmv_flowpipes.size() > 0)
+	if(result.nonlinear_flowpipes.size() > 0)
 	{
 		result.fp_end_of_time = result.nonlinear_flowpipes.back();
 	}
@@ -2011,7 +2011,7 @@ void Nonlinear_Discrete_Dynamics::reach_sr(Result_of_Reachability & result, Comp
 	result.status = reach_symbolic_remainder(result.nonlinear_flowpipes, result.orders_of_flowpipes, result.safety_of_flowpipes, result.num_of_flowpipes,
 			n, initialSet, symbolic_remainder, setting.tm_setting, setting.g_setting, setting.bPrint, unsafeSet, bSafetyChecking, true, true);
 
-	if(result.tmv_flowpipes.size() > 0)
+	if(result.nonlinear_flowpipes.size() > 0)
 	{
 		result.fp_end_of_time = result.nonlinear_flowpipes.back();
 	}
