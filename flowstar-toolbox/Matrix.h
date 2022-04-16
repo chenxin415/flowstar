@@ -53,7 +53,9 @@ public:
 
 	bool isZero() const;
 
-	DATA_TYPE norm(const int n);								// only valid when the matrix represents a vector
+	DATA_TYPE norm(const int n);							// only valid when the matrix represents a vector
+
+	void toCenterForm(Matrix<Real> & center, Matrix<Interval> & remainder);
 
 	void sortColumns();										// Sort the columns by size in descending order.
 	unsigned int rank() const;
@@ -98,6 +100,12 @@ public:
 	template <class DATA_TYPE2, class DATA_TYPE3>
 	void evaluate(Matrix<DATA_TYPE2> & result, const std::vector<DATA_TYPE3> & val_exp_table) const;
 
+	template <class DATA_TYPE2, class DATA_TYPE3>
+	void evaluate(Matrix<DATA_TYPE2> & result, const DATA_TYPE3 & val) const;
+
+	template <class DATA_TYPE2>
+	void evaluate_assign(const DATA_TYPE2 & val);
+
 	void substitute(Matrix<DATA_TYPE> & result, const DATA_TYPE & x) const;
 
 
@@ -113,6 +121,9 @@ public:
 
 	template <class DATA_TYPE2>
 	void integral(const DATA_TYPE2 & val);
+
+	void intIntegral(const Interval & sup);
+	void invIntegral(const Interval & sup);
 
 	template <class DATA_TYPE2>
 	void evaluate(Matrix<DATA_TYPE2> & result) const;
@@ -143,15 +154,8 @@ public:
 	template <class DATA_TYPE1, class DATA_TYPE2>
 	friend Matrix<DATA_TYPE1> operator + (const Matrix<DATA_TYPE1> & A, const Matrix<DATA_TYPE2> & B);
 
-//	template <class DATA_TYPE1, class DATA_TYPE2>
-//	friend Matrix<DATA_TYPE2> operator + (const Matrix<DATA_TYPE1> & A, const Matrix<DATA_TYPE2> & B);
-
 	template <class DATA_TYPE1, class DATA_TYPE2>
 	friend Matrix<DATA_TYPE1> operator - (const Matrix<DATA_TYPE1> & A, const Matrix<DATA_TYPE2> & B);
-
-//	template <class DATA_TYPE1, class DATA_TYPE2>
-//	friend Matrix<DATA_TYPE2> operator - (const Matrix<DATA_TYPE1> & A, const Matrix<DATA_TYPE2> & B);
-
 
 	template <class DATA_TYPE1, class DATA_TYPE2>
 	friend Matrix<DATA_TYPE1> operator * (const Matrix<DATA_TYPE1> & A, const Matrix<DATA_TYPE2> & B);
@@ -161,11 +165,6 @@ public:
 
 	friend Matrix<Interval> operator * (const Matrix<Real> & A, const Matrix<Interval> & B);
 	friend Matrix<Interval> operator * (const Matrix<Real> & A, const Matrix<Interval> & B);
-
-//	template <class DATA_TYPE1, class DATA_TYPE2>
-//	friend Matrix<DATA_TYPE2> operator * (const Matrix<DATA_TYPE1> & A, const Matrix<DATA_TYPE2> & B);
-
-
 
 	template <class DATA_TYPE1, class DATA_TYPE2>
 	friend Matrix<DATA_TYPE1> operator * (const Matrix<DATA_TYPE1> & A, const DATA_TYPE2 & c);
@@ -377,6 +376,19 @@ DATA_TYPE Matrix<DATA_TYPE>::norm(const int n)
 	else
 	{
 		return INVALID;
+	}
+}
+
+template <>
+void inline Matrix<Interval>::toCenterForm(Matrix<Real> & center, Matrix<Interval> & remainder)
+{
+	unsigned int wholeSize = size1 * size2;
+
+	for(unsigned int i=0; i<wholeSize; ++i)
+	{
+		Interval tmp = data[i];
+		tmp.remove_midpoint(center.data[i]);
+		remainder.data[i] = tmp;
 	}
 }
 
@@ -995,6 +1007,32 @@ void Matrix<DATA_TYPE>::evaluate(Matrix<DATA_TYPE2> & result, const std::vector<
 }
 
 template <class DATA_TYPE>
+template <class DATA_TYPE2, class DATA_TYPE3>
+void Matrix<DATA_TYPE>::evaluate(Matrix<DATA_TYPE2> & result, const DATA_TYPE3 & val) const
+{
+	unsigned int wholeSize = size1 * size2;
+
+	for(unsigned int i=0; i<wholeSize; ++i)
+	{
+		DATA_TYPE2 tmp;
+		data[i].evaluate(result.data[i], val);
+	}
+}
+
+template <class DATA_TYPE>
+template <class DATA_TYPE2>
+void Matrix<DATA_TYPE>::evaluate_assign(const DATA_TYPE2 & val)
+{
+	unsigned int wholeSize = size1 * size2;
+
+	for(unsigned int i=0; i<wholeSize; ++i)
+	{
+		DATA_TYPE2 tmp;
+		data[i].evaluate_assign(val);
+	}
+}
+
+template <class DATA_TYPE>
 void Matrix<DATA_TYPE>::substitute(Matrix<DATA_TYPE> & result, const DATA_TYPE & x) const
 {
 	delete [] result.data;
@@ -1116,6 +1154,28 @@ void Matrix<DATA_TYPE>::integral(const DATA_TYPE2 & val)
 	for(unsigned int i=0; i<wholeSize; ++i)
 	{
 		data[i].integral(val);
+	}
+}
+
+template <class DATA_TYPE>
+void Matrix<DATA_TYPE>::intIntegral(const Interval & sup)
+{
+	unsigned int wholeSize = size1 * size2;
+
+	for(unsigned int i=0; i<wholeSize; ++i)
+	{
+		data[i].intIntegral(sup);
+	}
+}
+
+template <class DATA_TYPE>
+void Matrix<DATA_TYPE>::invIntegral(const Interval & sup)
+{
+	unsigned int wholeSize = size1 * size2;
+
+	for(unsigned int i=0; i<wholeSize; ++i)
+	{
+		data[i].invIntegral(sup);
 	}
 }
 
@@ -1716,6 +1776,30 @@ void compute_mat_pow(std::vector<Matrix<DATA_TYPE> > & result, const Matrix<DATA
 	}
 }
 
+
+
+template<class DATA_TYPE>
+void getCofactor(Matrix<DATA_TYPE> & mat, Matrix<DATA_TYPE> & temp, int p, int q, int n)
+{
+	int i = 0, j = 0;
+
+	for (int row = 0; row < n; row++)
+	{
+		for (int col = 0; col < n; col++)
+		{
+			if (row != p && col != q)
+			{
+				temp[i][j++] = mat[row][col];
+
+				if (j == n - 1)
+				{
+					j = 0;
+					i++;
+				}
+			}
+		}
+	}
+}
 
 /*
 // matrix for multivariate polynomials

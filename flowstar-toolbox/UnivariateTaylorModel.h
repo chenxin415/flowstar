@@ -9,11 +9,15 @@
 #include "UnivariatePolynomial.h"
 
 
+
 namespace flowstar
 {
 
 template <class DATA_TYPE>
 class UnivariateTaylorModel;
+
+template <class DATA_TYPE>
+class TaylorModel;
 
 template <class DATA_TYPE>
 std::ostream & operator << (std::ostream & os, const UnivariateTaylorModel<DATA_TYPE> & utm);
@@ -36,16 +40,27 @@ public:
 	UnivariateTaylorModel(const UnivariateTaylorModel<DATA_TYPE> & utm);
 	~UnivariateTaylorModel();
 
+	void toMultivariateTaylorModel(TaylorModel<DATA_TYPE> & result, const unsigned int numVars) const;
+
 	void evaluate(Interval & result) const;
 
 	template <class DATA_TYPE2>
 	void evaluate(Interval & result, const std::vector<DATA_TYPE2> & val_exp_table) const;
 
 	template <class DATA_TYPE2>
+	void evaluate(Interval & result, const DATA_TYPE2 & val) const;
+
+	template <class DATA_TYPE2>
 	void evaluate(Real & result, const std::vector<DATA_TYPE2> & val_exp_table) const;
 
 	template <class DATA_TYPE2>
 	void evaluate(UnivariateTaylorModel<DATA_TYPE> & result, const std::vector<DATA_TYPE2> & val_exp_table) const;
+
+	template <class DATA_TYPE2>
+	void evaluate(UnivariateTaylorModel<DATA_TYPE> & result, const DATA_TYPE2 & val) const;
+
+	template <class DATA_TYPE2>
+	void evaluate_assign(const DATA_TYPE2 & val);
 
 	template <class DATA_TYPE2>
 	void ctrunc(const unsigned int order, const std::vector<DATA_TYPE2> & val_exp_table);
@@ -55,6 +70,9 @@ public:
 
 	template <class DATA_TYPE2>
 	void integral(const DATA_TYPE2 & val);
+
+	void intIntegral(const Interval & sup);
+	void invIntegral(const Interval & sup);
 
 	void setRemainder(const Interval & I);
 	void getRemainder(Interval & I) const;
@@ -213,6 +231,14 @@ UnivariateTaylorModel<DATA_TYPE>::~UnivariateTaylorModel()
 }
 
 template <class DATA_TYPE>
+void UnivariateTaylorModel<DATA_TYPE>::toMultivariateTaylorModel(TaylorModel<DATA_TYPE> & result, const unsigned int numVars) const
+{
+	expansion.toMultivariatePolynomial(result.expansion, numVars);
+	result.remainder = remainder;
+}
+
+
+template <class DATA_TYPE>
 void UnivariateTaylorModel<DATA_TYPE>::evaluate(Interval & result) const
 {
 	expansion.evaluate(result, interval_utm_setting.val_exp_table);
@@ -224,6 +250,14 @@ template <class DATA_TYPE2>
 void UnivariateTaylorModel<DATA_TYPE>::evaluate(Interval & result, const std::vector<DATA_TYPE2> & val_exp_table) const
 {
 	expansion.evaluate(result, val_exp_table);
+	result += remainder;
+}
+
+template <class DATA_TYPE>
+template <class DATA_TYPE2>
+void UnivariateTaylorModel<DATA_TYPE>::evaluate(Interval & result, const DATA_TYPE2 & val) const
+{
+	expansion.evaluate(result, val);
 	result += remainder;
 }
 
@@ -281,6 +315,26 @@ void UnivariateTaylorModel<DATA_TYPE>::evaluate(UnivariateTaylorModel<DATA_TYPE>
 
 template <class DATA_TYPE>
 template <class DATA_TYPE2>
+void UnivariateTaylorModel<DATA_TYPE>::evaluate(UnivariateTaylorModel<DATA_TYPE> & result, const DATA_TYPE2 & val) const
+{
+	DATA_TYPE2 c;
+	expansion.evaluate(c, val);
+
+	result.expansion = c;
+}
+
+template <class DATA_TYPE>
+template <class DATA_TYPE2>
+void UnivariateTaylorModel<DATA_TYPE>::evaluate_assign(const DATA_TYPE2 & val)
+{
+	DATA_TYPE2 c;
+	expansion.evaluate(c, val);
+
+	expansion = c;
+}
+
+template <class DATA_TYPE>
+template <class DATA_TYPE2>
 void UnivariateTaylorModel<DATA_TYPE>::ctrunc(const unsigned int order, const std::vector<DATA_TYPE2> & val_exp_table)
 {
 	Interval tmp;
@@ -308,6 +362,36 @@ void UnivariateTaylorModel<DATA_TYPE>::integral(const DATA_TYPE2 & val)
 {
 	expansion.integral();
 	remainder *= val;
+}
+
+template <class DATA_TYPE>
+void UnivariateTaylorModel<DATA_TYPE>::intIntegral(const Interval & sup)
+{
+	UnivariateTaylorModel<DATA_TYPE> utm_sup(sup);
+
+	expansion.integral();
+	remainder *= sup;
+
+	UnivariateTaylorModel<DATA_TYPE> utm_exp_sup;
+	expansion.evaluate(utm_exp_sup, utm_sup);
+
+	*this = utm_exp_sup - (*this);
+}
+
+template <class DATA_TYPE>
+void UnivariateTaylorModel<DATA_TYPE>::invIntegral(const Interval & sup)
+{
+	Real t_end;
+	sup.sup(t_end);
+
+	expansion.integral();
+	remainder *= sup;
+
+	Real r;
+	expansion.evaluate(r, t_end);
+	*this *= -1;
+
+	this->expansion.coefficients[0] += r;
 }
 
 template <class DATA_TYPE>

@@ -301,6 +301,8 @@ public:
 	void integral_time(TaylorModel<DATA_TYPE> & result, const Interval & I) const;				// Integral with respect to t
 	void integral_time(TaylorModel<DATA_TYPE> & result) const;
 
+	void integral(TaylorModel<DATA_TYPE> & result, const unsigned int x_id, const Interval & I) const;
+
 	void linearCoefficients(Matrix<DATA_TYPE> & coefficients, const unsigned int row) const;
 	void linearCoefficients(std::vector<DATA_TYPE> & coefficients) const;
 
@@ -813,13 +815,13 @@ void TaylorModel<DATA_TYPE>::mul_ctrunc_normal_assign(const TaylorModel<DATA_TYP
 
 	if(tm.remainder != 0)
 	{
-		expansion.evaluate_normal(P1xI2, step_exp_table);
+		expansion.intEvalNormal(P1xI2, step_exp_table);
 		P1xI2 *= tm.remainder;
 	}
 
 	if(remainder != 0)
 	{
-		tm.expansion.evaluate_normal(P2xI1, step_exp_table);
+		tm.expansion.intEvalNormal(P2xI1, step_exp_table);
 		P2xI1 *= remainder;
 	}
 
@@ -1017,6 +1019,18 @@ void TaylorModel<DATA_TYPE>::integral_time(TaylorModel<DATA_TYPE> & result) cons
 	result.expansion = expansion;
 	result.expansion.integral_time();
 //	result.remainder = 0;
+}
+
+template <class DATA_TYPE>
+void TaylorModel<DATA_TYPE>::integral(TaylorModel<DATA_TYPE> & result, const unsigned int x_id, const Interval & I) const
+{
+	Real lo, up;
+	I.inf(lo);
+	I.sup(up);
+
+	result.expansion = expansion;
+	result.expansion.integral(x_id, lo, up);
+	result.remainder = remainder * I;
 }
 
 template <class DATA_TYPE>
@@ -2387,6 +2401,8 @@ public:
 	void integral_time(TaylorModelVec<DATA_TYPE> & result, const Interval & I) const;
 	void integral_time(TaylorModelVec<DATA_TYPE> & result) const;
 
+	void integral(TaylorModelVec<DATA_TYPE> & result, const unsigned int x_id, const Interval & I) const;
+
 	void linearCoefficients(Matrix<DATA_TYPE> & coefficients) const;
 	void linearCoefficients(std::vector<std::vector<DATA_TYPE> > & coefficients) const;
 
@@ -3147,6 +3163,18 @@ void TaylorModelVec<DATA_TYPE>::integral_time(TaylorModelVec<DATA_TYPE> & result
 	{
 		TaylorModel<DATA_TYPE> tmTmp;
 		tms[i].integral_time(tmTmp);
+		result.tms.push_back(tmTmp);
+	}
+}
+
+template <class DATA_TYPE>
+void TaylorModelVec<DATA_TYPE>::integral(TaylorModelVec<DATA_TYPE> & result, const unsigned int x_id, const Interval & I) const
+{
+	result.clear();
+	for(unsigned int i=0; i<tms.size(); ++i)
+	{
+		TaylorModel<DATA_TYPE> tmTmp;
+		tms[i].integral(tmTmp, x_id, I);
 		result.tms.push_back(tmTmp);
 	}
 }

@@ -12238,7 +12238,7 @@ void Plot_Setting::plot_2D_interval_MATLAB(const std::string & path, const std::
 	}
 
 	std::string name = path + fileName + ".m";
-	FILE *plotFile = fopen(name.c_str(), "w");
+	FILE *plotFile = fopen(name.c_str(), "a+");
 
 	if(plotFile == NULL)
 	{

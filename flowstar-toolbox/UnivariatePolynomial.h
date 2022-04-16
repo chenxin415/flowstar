@@ -8,6 +8,7 @@
 
 #include "Interval.h"
 #include "settings.h"
+#include "Term.h"
 
 void parseUnivariatePolynomial(const std::string & strPolynomial);
 
@@ -44,6 +45,8 @@ public:
 	~UnivariatePolynomial();
 
 	void toPolynomial(Polynomial<DATA_TYPE> & result, const unsigned int numVars, const DATA_TYPE & x_lb);
+
+	void toMultivariatePolynomial(Polynomial<DATA_TYPE> & result, const unsigned int numVars) const;
 
 	void clear();
 	unsigned int degree() const;
@@ -233,6 +236,24 @@ void UnivariatePolynomial<DATA_TYPE>::toPolynomial(Polynomial<DATA_TYPE> & resul
 		{
 			Polynomial<DATA_TYPE> tmp2(coefficients[i], numVars);
 			result = result * term + tmp2;
+		}
+	}
+}
+
+template <class DATA_TYPE>
+void UnivariatePolynomial<DATA_TYPE>::toMultivariatePolynomial(Polynomial<DATA_TYPE> & result, const unsigned int numVars) const
+{
+	result.terms.clear();
+
+	for(int i=0; i<coefficients.size(); ++i)
+	{
+		if(coefficients[i] != 0)
+		{
+			Term<DATA_TYPE> term(coefficients[i], numVars);
+			term.degrees[0] = i;
+			term.d = i;
+
+			result.terms.push_back(term);
 		}
 	}
 }

@@ -6,7 +6,7 @@
 #ifndef POLYNOMIAL_H_
 #define POLYNOMIAL_H_
 
-#include "Term.h"
+//#include "Term.h"
 #include "Matrix.h"
 
 void parseMultivariatePolynomial();
@@ -70,6 +70,9 @@ public:
 
 	template <class DATA_TYPE2>
 	void evaluate_time(Polynomial<DATA_TYPE> & result, const std::vector<DATA_TYPE2> & step_exp_table) const;
+
+	template <class DATA_TYPE2>
+	void evaluate_x(Polynomial<DATA_TYPE> & result, const unsigned int x_id, const std::vector<DATA_TYPE2> & val_exp_table) const;
 
 	template <class DATA_TYPE2>
 	void intEvalNormal(Interval & result, const std::vector<DATA_TYPE2> & step_exp_table) const;
@@ -136,6 +139,7 @@ public:
 	void rmZeroTerms(const std::vector<unsigned int> & indices);
 
 	void integral_time();
+	void integral(const unsigned int x_id, const DATA_TYPE & lo, const DATA_TYPE & up);
 
 	template <class DATA_TYPE2>
 	void cutoff_normal(Interval & intRem, const std::vector<DATA_TYPE2> & step_exp_table, const Interval & cutoff_threshold);
@@ -520,6 +524,46 @@ void Polynomial<DATA_TYPE>::evaluate_time(Polynomial<DATA_TYPE> & result, const 
 				term.coefficient *= step_exp_table[tmp];
 				term.d -= tmp;
 				term.degrees[0] = 0;
+			}
+
+			result += term;
+		}
+	}
+}
+
+template <class DATA_TYPE>
+template <class DATA_TYPE2>
+void Polynomial<DATA_TYPE>::evaluate_x(Polynomial<DATA_TYPE> & result, const unsigned int x_id, const std::vector<DATA_TYPE2> & val_exp_table) const
+{
+	result.clear();
+
+	if(terms.size() == 0)
+		return;
+
+	typename std::list<Term<DATA_TYPE> >::const_iterator iter;
+
+	if(val_exp_table.size() == 0 || val_exp_table[1] == 0)		// t = 0
+	{
+		for(iter = terms.begin(); iter != terms.end(); ++iter)
+		{
+			if(iter->degrees[x_id] == 0)
+			{
+				result += *iter;
+			}
+		}
+	}
+	else
+	{
+		for(iter = terms.begin(); iter != terms.end(); ++iter)
+		{
+			Term<DATA_TYPE> term = *iter;
+			unsigned int tmp = term.degrees[x_id];
+
+			if(tmp > 0)
+			{
+				term.coefficient *= val_exp_table[tmp];
+				term.d -= tmp;
+				term.degrees[x_id] = 0;
 			}
 
 			result += term;
@@ -1390,6 +1434,57 @@ void Polynomial<DATA_TYPE>::integral_time()
 			iter->d += 1;
 		}
 	}
+}
+
+template <class DATA_TYPE>
+void Polynomial<DATA_TYPE>::integral(const unsigned int x_id, const DATA_TYPE & lo, const DATA_TYPE & up)
+{
+	typename std::list<Term<DATA_TYPE> >::iterator iter = terms.begin();
+
+	for(; iter != terms.end(); ++iter)
+	{
+		if(iter->degrees[x_id] > 0)
+		{
+			iter->degrees[x_id] += 1;
+			iter->d += 1;
+			iter->coefficient /= iter->degrees[x_id];
+		}
+		else
+		{
+			iter->degrees[x_id] += 1;
+			iter->d += 1;
+		}
+	}
+
+	unsigned int order = terms.back().d;
+	std::vector<DATA_TYPE> lo_exp_table;
+	std::vector<DATA_TYPE> up_exp_table;
+
+	lo_exp_table.push_back(1);
+	lo_exp_table.push_back(lo);
+
+	up_exp_table.push_back(1);
+	up_exp_table.push_back(up);
+
+
+	DATA_TYPE tmp1 = lo, tmp2 = up;
+
+	for(int i=2; i<=order; ++i)
+	{
+		tmp1 *= lo;
+		lo_exp_table.push_back(tmp1);
+
+		tmp2 *= up;
+		up_exp_table.push_back(tmp2);
+	}
+
+	Polynomial<DATA_TYPE> polyLo;
+	this->evaluate_x(polyLo, x_id, lo_exp_table);
+
+	Polynomial<DATA_TYPE> polyUp;
+	this->evaluate_x(polyUp, x_id, up_exp_table);
+
+	*this = polyUp - polyLo;
 }
 
 template <class DATA_TYPE>
