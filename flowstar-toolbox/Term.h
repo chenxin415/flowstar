@@ -12,10 +12,12 @@
 namespace flowstar
 {
 
+class TaylorModelFlowpipe;
+
 template <class DATA_TYPE>
 class Term
 {
-public:
+protected:
 	DATA_TYPE coefficient;					// the coefficient of the term
 	std::vector<unsigned int> degrees;		// the degrees of the variables, e.g., [2,0,4] is the notation for x1^2 x3^4
 	unsigned int d;			        		// the degree of the term, it is the sum of the values in degrees.
@@ -62,16 +64,6 @@ public:
 	int cutoff(Term<DATA_TYPE> & remainder, const Interval & cutoff_threshold);
 	int cutoff(const Interval & cutoff_threshold);
 
-/*
-	void substitute(const int varID, const DATA_TYPE & value);											// substitute a variable by an Interval
-	void substitute(const std::vector<unsigned int> & varIDs, const std::vector<DATA_TYPE> & values);	// substitute a set of variables by intervals
-
-	bool substitute_with_precond(const std::vector<bool> & substitution);
-
-	void substitute(Term & result, const int varID, const Interval & intVal) const;
-	void substitute(Term & result, const std::vector<int> & varIDs, const std::vector<Interval> & intVals) const;
-*/
-
 	void extend(const unsigned int num);
 	void extend();
 
@@ -81,11 +73,7 @@ public:
 	template <class DATA_TYPE2>
 	friend class TaylorModel;
 
-
-//	friend class TaylorModelVec;
-//	friend class UnivariatePolynomial;
-//	friend class Matrix;
-//	friend class Flowpipe;
+	friend void eliminate_t(TaylorModelFlowpipe & flowpipe);
 };
 
 template <class DATA_TYPE>

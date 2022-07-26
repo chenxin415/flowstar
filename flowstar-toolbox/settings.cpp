@@ -118,7 +118,7 @@ bool Taylor_Model_Setting::setStepsize(const double step, const unsigned int k)
 {
 	if(step < 0 || k < 2)
 	{
-		std::cout << "The stepsize should be a positive number and the order should be an integer > 1." <<std::endl;
+		std::cout << "The stepsize should be positive and the order should be an integer > 1." <<std::endl;
 		return false;
 	}
 

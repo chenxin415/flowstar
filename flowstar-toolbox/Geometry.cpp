@@ -473,6 +473,43 @@ Zonotope::Zonotope(const Matrix<Real> & c, const std::list<Matrix<Real> > & G)
 	generators = G;
 }
 
+Zonotope::Zonotope(const std::vector<Real> & c, const std::vector<std::vector<Real> > & G)
+{
+	if(c.size() > 0)
+	{
+		Matrix<Real> rm_c(c.size(), 1);
+
+		for(int i=0; i<c.size(); ++i)
+		{
+			rm_c[i][0] = c[i];
+		}
+
+		center = rm_c;
+
+		if(G.size() > 0)
+		{
+			if(G[0].size() != c.size())
+			{
+				printf("Creating a Zonotope: Generators should have the same dimension as the center.\n");
+			}
+			else
+			{
+				for(int i=0; i<G.size(); ++i)
+				{
+					Matrix<Real> rm_g(c.size(), 1);
+
+					for(int j=0; j<G[i].size(); ++j)
+					{
+						rm_g[j][0] = G[i][j];
+					}
+
+					generators.push_back(rm_g);
+				}
+			}
+		}
+	}
+}
+
 Zonotope::Zonotope(const Zonotope & zonotope)
 {
 	center = zonotope.center;

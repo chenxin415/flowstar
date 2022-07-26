@@ -83,6 +83,22 @@ unsigned int Variables::size() const
 	return varNames.size();
 }
 
+bool Variables::merge(const Variables & vars)
+{
+	for(int i=0; i<vars.varNames.size(); ++i)
+	{
+		int res = declareVar(vars.varNames[i]);
+
+		if(res == -1)
+		{
+			printf("Merging Variables: Duplicated Variable Names.\n");
+			return false;
+		}
+	}
+
+	return true;
+}
+
 void Variables::output(std::ostream & os) const
 {
 	for(unsigned int i=0; i<varNames.size(); ++i)

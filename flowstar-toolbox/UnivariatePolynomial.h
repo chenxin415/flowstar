@@ -55,8 +55,8 @@ public:
 	template <class DATA_TYPE2, class DATA_TYPE3>
 	void round(DATA_TYPE2 & remainder, const DATA_TYPE3 & val);
 
-	template <class DATA_TYPE2, class DATA_TYPE3>
-	void evaluate(DATA_TYPE2 & result, const std::vector<DATA_TYPE3> & val_exp_table) const;
+//	template <class DATA_TYPE2, class DATA_TYPE3>
+//	void evaluate(DATA_TYPE2 & result, const std::vector<DATA_TYPE3> & val_exp_table) const;
 
 	template <class DATA_TYPE2, class DATA_TYPE3>
 	void evaluate(DATA_TYPE2 & result, const DATA_TYPE3 & val) const;
@@ -64,23 +64,24 @@ public:
 	void integral();
 	void times_x(const unsigned int order);
 
+	void centerize_domain(Interval & domain);
+
 	void pow(UnivariatePolynomial<DATA_TYPE> & result, const unsigned int exponent) const;
 
-	template <class DATA_TYPE2, class DATA_TYPE3>
-	void ctrunc(DATA_TYPE2 & remainder, const unsigned int order, const std::vector<DATA_TYPE3> & val_exp_table);
+//	template <class DATA_TYPE2, class DATA_TYPE3>
+//	void ctrunc(DATA_TYPE2 & remainder, const unsigned int order, const std::vector<DATA_TYPE3> & val_exp_table);
 
 	template <class DATA_TYPE2, class DATA_TYPE3>
 	void ctrunc(DATA_TYPE2 & remainder, const unsigned int order, const DATA_TYPE3 & val);
 
-	template <class DATA_TYPE2, class DATA_TYPE3>
-	void ctrunc(DATA_TYPE3 & remainder1, DATA_TYPE3 & remainder2, const unsigned int order, const std::vector<DATA_TYPE3> & val1_exp_table, const std::vector<DATA_TYPE3> & val2_exp_table);
+//	template <class DATA_TYPE2, class DATA_TYPE3>
+//	void ctrunc(DATA_TYPE3 & remainder1, DATA_TYPE3 & remainder2, const unsigned int order, const std::vector<DATA_TYPE3> & val1_exp_table, const std::vector<DATA_TYPE3> & val2_exp_table);
 
 //	template <class DATA_TYPE2, class DATA_TYPE3>
 //	void ctrunc(DATA_TYPE2 & remainder1, DATA_TYPE3 & remainder2, const unsigned int order, const DATA_TYPE3 & val1, const DATA_TYPE3 & val2);
 
 	void nctrunc(const unsigned int order);
 
-//	void substitute(UnivariatePolynomial<DATA_TYPE> & result, const std::vector<UnivariatePolynomial<DATA_TYPE> > & x_exp_table) const;
 	void substitute(UnivariatePolynomial<DATA_TYPE> & result, const UnivariatePolynomial<DATA_TYPE> & x) const;
 
 
@@ -313,7 +314,7 @@ void UnivariatePolynomial<DATA_TYPE>::round(DATA_TYPE2 & remainder, const DATA_T
 
 	upTemp.evaluate(remainder, val);
 }
-
+/*
 template <class DATA_TYPE>
 template <class DATA_TYPE2, class DATA_TYPE3>
 void UnivariatePolynomial<DATA_TYPE>::evaluate(DATA_TYPE2 & result, const std::vector<DATA_TYPE3> & val_exp_table) const
@@ -332,7 +333,7 @@ void UnivariatePolynomial<DATA_TYPE>::evaluate(DATA_TYPE2 & result, const std::v
 		}
 	}
 }
-
+*/
 template <class DATA_TYPE>
 template <class DATA_TYPE2, class DATA_TYPE3>
 void UnivariatePolynomial<DATA_TYPE>::evaluate(DATA_TYPE2 & result, const DATA_TYPE3 & val) const
@@ -399,6 +400,24 @@ void UnivariatePolynomial<DATA_TYPE>::times_x(const unsigned int order)
 }
 
 template <class DATA_TYPE>
+void UnivariatePolynomial<DATA_TYPE>::centerize_domain(Interval & domain)
+{
+	if(-domain.inf() == domain.sup())
+		return;
+
+	UnivariatePolynomial<Real> t;
+
+	double midpoint = domain.remove_midpoint();
+	t.coefficients.push_back(midpoint);
+	t.coefficients.push_back(1);
+
+	UnivariatePolynomial<Real> result;
+	substitute(result, t);
+
+	*this = result;
+}
+
+template <class DATA_TYPE>
 void UnivariatePolynomial<DATA_TYPE>::pow(UnivariatePolynomial<DATA_TYPE> & result, const unsigned int exponent) const
 {
 	if(exponent == 0)
@@ -427,7 +446,7 @@ void UnivariatePolynomial<DATA_TYPE>::pow(UnivariatePolynomial<DATA_TYPE> & resu
 		}
 	}
 }
-
+/*
 template <class DATA_TYPE>
 template <class DATA_TYPE2, class DATA_TYPE3>
 void UnivariatePolynomial<DATA_TYPE>::ctrunc(DATA_TYPE2 & remainder, const unsigned int order, const std::vector<DATA_TYPE3> & val_exp_table)
@@ -458,7 +477,7 @@ void UnivariatePolynomial<DATA_TYPE>::ctrunc(DATA_TYPE2 & remainder, const unsig
 		remainder = intZero;
 	}
 }
-
+*/
 template <class DATA_TYPE>
 template <class DATA_TYPE2, class DATA_TYPE3>
 void UnivariatePolynomial<DATA_TYPE>::ctrunc(DATA_TYPE2 & remainder, const unsigned int order, const DATA_TYPE3 & val)
@@ -485,7 +504,7 @@ void UnivariatePolynomial<DATA_TYPE>::ctrunc(DATA_TYPE2 & remainder, const unsig
 
 	remainder *= tmp;
 }
-
+/*
 template <class DATA_TYPE>
 template <class DATA_TYPE2, class DATA_TYPE3>
 void UnivariatePolynomial<DATA_TYPE>::ctrunc(DATA_TYPE3 & remainder1, DATA_TYPE3 & remainder2, const unsigned int order, const std::vector<DATA_TYPE3> & val1_exp_table, const std::vector<DATA_TYPE3> & val2_exp_table)
@@ -520,7 +539,7 @@ void UnivariatePolynomial<DATA_TYPE>::ctrunc(DATA_TYPE3 & remainder1, DATA_TYPE3
 		remainder2 = intZero;
 	}
 }
-
+*/
 template <class DATA_TYPE>
 void UnivariatePolynomial<DATA_TYPE>::nctrunc(const unsigned int order)
 {

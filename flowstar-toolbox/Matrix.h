@@ -12,11 +12,13 @@
 #include <gsl/gsl_linalg.h>
 #include "UnivariateTaylorModel.h"
 
+
 namespace flowstar
 {
 
 class Real;
 class Interval;
+
 
 template <class DATA_TYPE>
 class TaylorModelVec;
@@ -56,6 +58,7 @@ public:
 	DATA_TYPE norm(const int n);							// only valid when the matrix represents a vector
 
 	void toCenterForm(Matrix<Real> & center, Matrix<Interval> & remainder);
+	void bound(Matrix<Real> & rm_bound);
 
 	void sortColumns();										// Sort the columns by size in descending order.
 	unsigned int rank() const;
@@ -94,11 +97,11 @@ public:
 	void times_x(const unsigned int order);
 	unsigned int degree() const;
 
-	template <class DATA_TYPE2>
-	void ctrunc(Matrix<DATA_TYPE2> & rem1, Matrix<DATA_TYPE2> & rem2, const unsigned int order, const std::vector<DATA_TYPE2> & val1_exp_table, const std::vector<DATA_TYPE2> & val2_exp_table);
+//	template <class DATA_TYPE2>
+//	void ctrunc(Matrix<DATA_TYPE2> & rem1, Matrix<DATA_TYPE2> & rem2, const unsigned int order, const std::vector<DATA_TYPE2> & val1_exp_table, const std::vector<DATA_TYPE2> & val2_exp_table);
 
-	template <class DATA_TYPE2, class DATA_TYPE3>
-	void evaluate(Matrix<DATA_TYPE2> & result, const std::vector<DATA_TYPE3> & val_exp_table) const;
+//	template <class DATA_TYPE2, class DATA_TYPE3>
+//	void evaluate(Matrix<DATA_TYPE2> & result, const std::vector<DATA_TYPE3> & val_exp_table) const;
 
 	template <class DATA_TYPE2, class DATA_TYPE3>
 	void evaluate(Matrix<DATA_TYPE2> & result, const DATA_TYPE3 & val) const;
@@ -188,6 +191,8 @@ public:
 	friend std::ostream & operator << <DATA_TYPE> (std::ostream & os, const Matrix<DATA_TYPE> & A);
 
 	friend TaylorModelVec<DATA_TYPE> operator * (const Matrix<DATA_TYPE> & A, const TaylorModelVec<DATA_TYPE> & tmv);
+
+	friend void evaluate(Matrix<UnivariateTaylorModel<Real> > & result, const Matrix<Expression<Real> > & A, const UnivariateTaylorModel<Real> & t, const unsigned int order, const Global_Setting & setting);
 
 	template <class DATA_TYPE2>
 	friend class Matrix;
@@ -389,6 +394,47 @@ void inline Matrix<Interval>::toCenterForm(Matrix<Real> & center, Matrix<Interva
 		Interval tmp = data[i];
 		tmp.remove_midpoint(center.data[i]);
 		remainder.data[i] = tmp;
+	}
+}
+
+template <>
+inline void Matrix<UnivariateTaylorModel<Real> >::bound(Matrix<Real> & rm_bound)
+{
+	unsigned int wholeSize = size1 * size2;
+
+	for(unsigned int i=0; i<wholeSize; ++i)
+	{
+		if(data[i].expansion.coefficients[0] >= 0)
+		{
+			rm_bound.data[i] = data[i].expansion.coefficients[0] + data[i].remainder.sup();
+		}
+		else
+		{
+			rm_bound.data[i] = data[i].expansion.coefficients[0] + data[i].remainder.inf();
+		}
+	}
+}
+
+template <>
+inline void Matrix<Interval>::bound(Matrix<Real> & rm_bound)
+{
+	unsigned int wholeSize = size1 * size2;
+
+	for(unsigned int i=0; i<wholeSize; ++i)
+	{
+		Interval I = data[i];
+
+		Real c;
+		I.remove_midpoint(c);
+
+		if(c >= 0)
+		{
+			rm_bound.data[i] = c + I.sup();
+		}
+		else
+		{
+			rm_bound.data[i] = c - I.inf();
+		}
 	}
 }
 
@@ -970,7 +1016,7 @@ unsigned int Matrix<DATA_TYPE>::degree() const
 
 	return max;
 }
-
+/*
 template <class DATA_TYPE>
 template <class DATA_TYPE2>
 void Matrix<DATA_TYPE>::ctrunc(Matrix<DATA_TYPE2> & rem1, Matrix<DATA_TYPE2> & rem2, const unsigned int order, const std::vector<DATA_TYPE2> & val1_exp_table, const std::vector<DATA_TYPE2> & val2_exp_table)
@@ -1001,11 +1047,11 @@ void Matrix<DATA_TYPE>::evaluate(Matrix<DATA_TYPE2> & result, const std::vector<
 
 	for(unsigned int i=0; i<wholeSize; ++i)
 	{
-		DATA_TYPE2 tmp;
+//		DATA_TYPE2 tmp;
 		data[i].evaluate(result.data[i], val_exp_table);
 	}
 }
-
+*/
 template <class DATA_TYPE>
 template <class DATA_TYPE2, class DATA_TYPE3>
 void Matrix<DATA_TYPE>::evaluate(Matrix<DATA_TYPE2> & result, const DATA_TYPE3 & val) const
@@ -1014,7 +1060,6 @@ void Matrix<DATA_TYPE>::evaluate(Matrix<DATA_TYPE2> & result, const DATA_TYPE3 &
 
 	for(unsigned int i=0; i<wholeSize; ++i)
 	{
-		DATA_TYPE2 tmp;
 		data[i].evaluate(result.data[i], val);
 	}
 }
@@ -1187,8 +1232,7 @@ void Matrix<DATA_TYPE>::evaluate(Matrix<DATA_TYPE2> & result) const
 
 	for(unsigned int i=0; i<wholeSize; ++i)
 	{
-		DATA_TYPE2 tmp;
-		data[i].evaluate(result.data[i], interval_utm_setting.val_exp_table);
+		data[i].evaluate(result.data[i], interval_utm_setting.val);
 	}
 }
 

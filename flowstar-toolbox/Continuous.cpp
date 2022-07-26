@@ -61,23 +61,34 @@ Symbolic_Remainder & Symbolic_Remainder::operator = (const Symbolic_Remainder & 
 
 
 
-Computational_Setting::Computational_Setting()
+Computational_Setting::Computational_Setting(const Variables & vars)
 {
-	time = 0;
-	bPrint = false;
+	bPrint = true;
+
+	// default setting for reachability computation
+	// adaptive stepsize: 0.002 ~ 0.1
+	// fixed TM order: 4
+	setAdaptiveStepsize(0.002, 0.1, 4);
+	max_order = 4;
+
 
 	// default size of the cutoff threshold
 	Interval cutoff_threshold(-1e-10,1e-10);
 	tm_setting.setCutoff(cutoff_threshold);
+
+
+	// default remainder estimation
+	Interval I(-0.001,0.001);
+	std::vector<Interval> estimation(vars.size(), I);
+	setRemainderEstimation(estimation);
 }
 
 Computational_Setting::Computational_Setting(const Computational_Setting & setting)
 {
 	tm_setting			= setting.tm_setting;
 	g_setting			= setting.g_setting;
-	symbolic_remainder	= setting.symbolic_remainder;
-	time				= setting.time;
 	bPrint				= setting.bPrint;
+	max_order			= setting.max_order;
 }
 
 Computational_Setting::~Computational_Setting()
@@ -89,44 +100,79 @@ void Computational_Setting::clear()
 	tm_setting.clear();
 }
 
-bool Computational_Setting::setTime(const double t)
+bool Computational_Setting::setFixedStepsize(const double step, const unsigned int order)
 {
-	if(t < 0)
+	if(step <= 0)
 	{
+		printf("Stepsize should be positive.\n");
 		return false;
 	}
 
-	time = t;
+	if(order < 2)
+	{
+		printf("Order should be an integer > 1.\n");
+		return false;
+	}
+
+	tm_setting.step_min = -1;
+	tm_setting.setStepsize(step, order);
+
+	max_order = order;
+	g_setting.prepareForReachability(max_order);
 
 	return true;
 }
 
-bool Computational_Setting::setFixedStepsize(const double step, const unsigned int order)
-{
-	tm_setting.step_min = -1;
-	return tm_setting.setStepsize(step, order);
-}
-
 bool Computational_Setting::setFixedStepsize(const double step, const unsigned int order_min, const unsigned int order_max)
 {
-	if(step <= 0 || order_min <= 1 || order_max <= 1 || order_min > order_max)
+	if(step <= 0)
 	{
+		printf("Stepsize should be positive.\n");
 		return false;
 	}
 
+	if(order_min < 2 || order_max < 2)
+	{
+		printf("Order should be an integer > 1.\n");
+		return false;
+	}
+
+	if(order_min >= order_max)
+	{
+		printf("The min order should be smaller than the max order.\n");
+		return false;
+	}
+
+	tm_setting.step_min = -1;
 	tm_setting.setStepsize(step, order_max);
 
 	tm_setting.order = order_min;
 	tm_setting.order_min = order_min;
 	tm_setting.order_max = order_max;
 
+	max_order = order_max;
+	g_setting.prepareForReachability(max_order);
+
 	return true;
 }
 
 bool Computational_Setting::setAdaptiveStepsize(const double step_min, const double step_max, const unsigned int order)
 {
-	if(step_min <= 0 || step_max < 0 || step_min > step_max || order <= 1)
+	if(step_min <= 0 || step_max <= 0)
 	{
+		printf("Stepsize should be positive.\n");
+		return false;
+	}
+
+	if(step_min >= step_max)
+	{
+		printf("The min stepsize should be smaller than the max stepsize.\n");
+		return false;
+	}
+
+	if(order < 2)
+	{
+		printf("Order should be an integer > 1.\n");
 		return false;
 	}
 
@@ -135,6 +181,9 @@ bool Computational_Setting::setAdaptiveStepsize(const double step_min, const dou
 	tm_setting.order = order;
 
 	tm_setting.setStepsize(step_max, order);
+
+	max_order = order;
+	g_setting.prepareForReachability(max_order);
 
 	return true;
 }
@@ -157,29 +206,15 @@ void Computational_Setting::setRemainderEstimation(const std::vector<Interval> &
 	tm_setting.remainder_estimation = estimation;
 }
 
-bool Computational_Setting::resetOrder(const unsigned int order)
+bool Computational_Setting::setMaxOrder(const unsigned int order)
 {
-	bool bValid = tm_setting.resetOrder(order);
-
-	if(!bValid)
+	if(order < 2)
 	{
+		printf("Order should be an integer > 1.\n");
 		return false;
 	}
 
-	bValid = g_setting.resetOrder(order);
-	return bValid;
-}
-
-bool Computational_Setting::resetOrder(const unsigned int order_min, const unsigned int order_max)
-{
-	if(order_min < 2 || order_max < 2 || order_min > order_max)
-	{
-		return false;
-	}
-
-	tm_setting.resetOrder(order_max);
-	g_setting.resetOrder(order_max);
-
+	g_setting.resetOrder(order);
 	return true;
 }
 
@@ -193,15 +228,6 @@ void Computational_Setting::printOff()
 	bPrint = false;
 }
 
-void Computational_Setting::prepare()
-{
-	unsigned int maxOrder = tm_setting.order_min > tm_setting.order_max ? tm_setting.order_min : tm_setting.order_max;
-
-	maxOrder = tm_setting.order > maxOrder ? tm_setting.order : maxOrder;
-
-	g_setting.prepareForReachability(maxOrder);
-}
-
 Computational_Setting & Computational_Setting::operator = (const Computational_Setting & setting)
 {
 	if(this == &setting)
@@ -209,9 +235,8 @@ Computational_Setting & Computational_Setting::operator = (const Computational_S
 
 	tm_setting			= setting.tm_setting;
 	g_setting			= setting.g_setting;
-	symbolic_remainder	= setting.symbolic_remainder;
-	time				= setting.time;
 	bPrint				= setting.bPrint;
+	max_order			= setting.max_order;
 
 	return *this;
 }
@@ -221,8 +246,20 @@ Computational_Setting & Computational_Setting::operator = (const Computational_S
 
 
 
+
+
+
+
+
+
+
+
+
+
 Flowpipe::Flowpipe()
 {
+	safety = SAFE;
+	bConstrained = false;
 }
 
 Flowpipe::Flowpipe(const std::vector<Interval> & box)
@@ -232,6 +269,74 @@ Flowpipe::Flowpipe(const std::vector<Interval> & box)
 
 	tmvPre = tmv1;
 	tmv = tmv2;
+
+	safety = SAFE;
+	bConstrained = false;
+}
+
+Flowpipe::Flowpipe(Zonotope & zonotope)
+{
+	int rangeDim = zonotope.center.rows();
+	int numOfGens = zonotope.generators.size();
+
+	if(rangeDim > 0)
+	{
+		int domainDim = numOfGens + 1;
+
+		if(domainDim == 0)
+			domainDim = rangeDim + 1;
+
+		Matrix<Real> generators(rangeDim, numOfGens+1);
+
+		std::list<Matrix<Real> >::iterator genIter = zonotope.generators.begin();
+
+		for(int j=1; genIter != zonotope.generators.end(); ++genIter, ++j)
+		{
+			for(int i=0; i<rangeDim; ++i)
+			{
+				generators[i][j] = (*genIter)[i][0];
+			}
+		}
+
+		TaylorModelVec<Real> tmvZono(generators);
+
+		for(int i=0; i<rangeDim; ++i)
+		{
+			TaylorModel<Real> zono_center(zonotope.center[i][0], domainDim);
+			tmvZono.tms[i] += zono_center;
+		}
+
+		tmvPre = tmvZono;
+
+		Interval I(-1,1);
+		std::vector<Interval> intVec(domainDim, I);
+		domain = intVec;
+		domain[0] = 0;
+
+		TaylorModelVec<Real> tmvTmp(domainDim - 1);
+		tmv = tmvTmp;
+	}
+
+	safety = SAFE;
+	bConstrained = false;
+}
+
+Flowpipe::Flowpipe(const TaylorModelFlowpipe & fp) : Flowpipe(fp.tmv_flowpipe, fp.domain)
+{
+/*
+	tmvPre = fp.tmv_flowpipe;
+	domain = fp.domain;
+
+	Interval cutoff_threshold(-1e-10,1e-10);
+
+	tmvPre.normalize(domain, cutoff_threshold);
+
+	TaylorModelVec<Real> tmvTmp(domain.size() - 1);
+	tmv = tmvTmp;
+
+	safety = SAFE;
+	bConstrained = false;
+*/
 }
 
 Flowpipe::Flowpipe(const TaylorModelVec<Real> & tmv_flowpipe, const std::vector<Interval> & flowpipe_domain)
@@ -245,6 +350,9 @@ Flowpipe::Flowpipe(const TaylorModelVec<Real> & tmv_flowpipe, const std::vector<
 
 	TaylorModelVec<Real> tmvTmp(domain.size() - 1);
 	tmv = tmvTmp;
+
+	safety = SAFE;
+	bConstrained = false;
 }
 
 Flowpipe::Flowpipe(const TaylorModelVec<Real> & tmv_flowpipe, const std::vector<Interval> & flowpipe_domain, const Interval & cutoff_threshold)
@@ -255,6 +363,9 @@ Flowpipe::Flowpipe(const TaylorModelVec<Real> & tmv_flowpipe, const std::vector<
 
 	TaylorModelVec<Real> tmvTmp(domain.size() - 1);
 	tmv = tmvTmp;
+
+	safety = SAFE;
+	bConstrained = false;
 }
 
 Flowpipe::Flowpipe(const Flowpipe & flowpipe)
@@ -262,6 +373,8 @@ Flowpipe::Flowpipe(const Flowpipe & flowpipe)
 	tmvPre = flowpipe.tmvPre;
 	tmv = flowpipe.tmv;
 	domain = flowpipe.domain;
+	safety = flowpipe.safety;
+	bConstrained = flowpipe.bConstrained;
 }
 
 Flowpipe::~Flowpipe()
@@ -405,53 +518,54 @@ void Flowpipe::normalize(const Interval & cutoff_threshold)
 	}
 }
 
-int Flowpipe::safetyChecking(const std::vector<Constraint> & unsafeSet, const Taylor_Model_Setting & tm_setting, const Global_Setting & g_setting) const
+int Flowpipe::safetyChecking(const std::vector<Constraint> & safeSet, const Taylor_Model_Setting & tm_setting, const Global_Setting & g_setting) const
 {
-	if(unsafeSet.size() == 0)
+	// no safety constraint, the whole state space is safe
+	if(safeSet.size() == 0)
 	{
 		return SAFE;
 	}
 
-	unsigned int rangeDim = tmvPre.tms.size();
 	int result = UNKNOWN;
 	bool bContained = true;
 
 	std::vector<Interval> tmvRange;
 	tmvPre.intEvalNormal(tmvRange, tm_setting.step_exp_table);
 
-	for(unsigned int i=0; i<unsafeSet.size(); ++i)
+	for(unsigned int i=0; i<safeSet.size(); ++i)
 	{
 		Interval I;
 
-		// interval evaluation on the constraint
-		unsafeSet[i].expression.evaluate(I, tmvRange);
+		// interval evaluation of the constraint
+		safeSet[i].expression.evaluate(I, tmvRange);
 
-		if(unsafeSet[i].bound < I.inf())
+		if(safeSet[i].bound < I.inf())
 		{
-			// no intersection with the unsafe set
-			result = SAFE;
+			// no intersection with the safe set
+			result = UNSAFE;
 			break;
 		}
 		else
 		{
-			if(!(unsafeSet[i].bound >= I.sup()) && bContained)
+			if(!(safeSet[i].bound >= I.sup()) && bContained)
 			{
 				bContained = false;
 			}
 		}
 	}
 
-	if(result == UNKNOWN)
+	if(result != UNSAFE)
 	{
 		if(bContained)
 		{
-			return UNSAFE;
+			return SAFE;
 		}
 		else
 		{
 			if(domain[0].width() <= REFINEMENT_PREC)
 				return UNKNOWN;
 
+			result = SAFE;
 
 			// do a simple branch & bound for safety checking
 			TaylorModelVec<Real> tmvFlowpipe;
@@ -460,14 +574,12 @@ int Flowpipe::safetyChecking(const std::vector<Constraint> & unsafeSet, const Ta
 			std::vector<HornerForm<Real> > obj_hfs;
 			std::vector<Interval> obj_rems;
 
-			result = SAFE;
-
-			for(unsigned int i=0; i<unsafeSet.size(); ++i)
+			for(unsigned int i=0; i<safeSet.size(); ++i)
 			{
 				TaylorModel<Real> tmTmp;
 
 				// interval evaluation on the constraint
-				unsafeSet[i].expression.evaluate(tmTmp, tmvFlowpipe.tms, tm_setting.order, domain, tm_setting.cutoff_threshold, g_setting);
+				safeSet[i].expression.evaluate(tmTmp, tmvFlowpipe.tms, tm_setting.order, domain, tm_setting.cutoff_threshold, g_setting);
 
 				HornerForm<Real> obj_hf;
 				tmTmp.expansion.toHornerForm(obj_hf);
@@ -479,10 +591,7 @@ int Flowpipe::safetyChecking(const std::vector<Constraint> & unsafeSet, const Ta
 
 			std::list<Interval> subdivisions;
 
-			if(domain[0].width() > REFINEMENT_PREC)
-			{
-				subdivisions.push_back(domain[0]);
-			}
+			subdivisions.push_back(domain[0]);
 
 			for(; subdivisions.size() > 0; )
 			{
@@ -494,65 +603,49 @@ int Flowpipe::safetyChecking(const std::vector<Constraint> & unsafeSet, const Ta
 
 				refined_domain[0] = subdivision;
 
-				for(int i=0; i<unsafeSet.size(); ++i)
+				for(int i=0; i<safeSet.size(); ++i)
 				{
 					Interval I;
 					obj_hfs[i].evaluate(I, refined_domain);
 
 					I += obj_rems[i];
 
-					if(unsafeSet[i].bound < I.inf())
+					if(safeSet[i].bound < I.inf())
 					{
-						// no intersection with the unsafe set
-						result_iter = SAFE;
+						// no intersection with the safe set
+						result_iter = UNSAFE;
 						break;
 					}
 					else
 					{
-						if(!(unsafeSet[i].bound >= I.sup()) && bContained_iter)
+						if(!(safeSet[i].bound >= I.sup()) && bContained_iter)
 						{
 							bContained_iter = false;
 						}
 					}
 				}
 
-				if(result_iter == UNKNOWN)
+				if(result_iter != UNSAFE)
 				{
-					if(bContained_iter)
-					{
-						return UNSAFE;
-					}
-					else
+					if(!bContained_iter)
 					{
 						if(subdivision.width() <= REFINEMENT_PREC)
 						{
-							return UNKNOWN;
-						}
-
-						// split the domain
-						Interval I1, I2;
-						subdivision.split(I1, I2);
-
-						if(I1.width() <= REFINEMENT_PREC)
-						{
-							if(result == SAFE)
-								result = UNKNOWN;
+							result = UNKNOWN;
 						}
 						else
 						{
+							Interval I1, I2;
+							subdivision.split(I1, I2);
+
 							subdivisions.push_back(I1);
-						}
-
-						if(I2.width() <= REFINEMENT_PREC)
-						{
-							if(result == SAFE)
-								result = UNKNOWN;
-						}
-						else
-						{
 							subdivisions.push_back(I2);
 						}
 					}
+				}
+				else
+				{
+					return UNSAFE;
 				}
 			}
 
@@ -561,14 +654,12 @@ int Flowpipe::safetyChecking(const std::vector<Constraint> & unsafeSet, const Ta
 	}
 	else
 	{
-		return SAFE;
+		return UNSAFE;
 	}
 }
 
 bool Flowpipe::isInTarget(const std::vector<Constraint> & targetSet, const Taylor_Model_Setting & tm_setting, const Global_Setting & g_setting) const
 {
-	unsigned int rangeDim = tmvPre.tms.size();
-
 	std::vector<Interval> tmvRange;
 	tmvPre.intEvalNormal(tmvRange, tm_setting.step_exp_table);
 
@@ -602,11 +693,13 @@ Flowpipe & Flowpipe::operator = (const Flowpipe & flowpipe)
 	tmvPre = flowpipe.tmvPre;
 	tmv = flowpipe.tmv;
 	domain = flowpipe.domain;
+	safety = flowpipe.safety;
+	bConstrained = flowpipe.bConstrained;
 
 	return *this;
 }
 
-int Flowpipe::advance_deterministic(Flowpipe & result, const std::vector<Expression<Real> > & ode, const Taylor_Model_Setting & tm_setting, const std::vector<Constraint> & invariant, const Global_Setting & g_setting) const
+int Flowpipe::advance(Flowpipe & result, const std::vector<Expression<Real> > & ode, const Taylor_Model_Setting & tm_setting, const std::vector<Constraint> & invariant, const Global_Setting & g_setting) const
 {
 	unsigned int rangeDim = ode.size();
 	unsigned int rangeDimExt = rangeDim + 1;
@@ -797,7 +890,7 @@ int Flowpipe::advance_deterministic(Flowpipe & result, const std::vector<Express
 	return 1;
 }
 
-int Flowpipe::advance_nondeterministic(Flowpipe & result, const std::vector<Expression<Interval> > & ode, const Taylor_Model_Setting & tm_setting, const std::vector<Constraint> & invariant, const Global_Setting & g_setting) const
+int Flowpipe::advance(Flowpipe & result, const std::vector<Expression<Interval> > & ode, const Taylor_Model_Setting & tm_setting, const std::vector<Constraint> & invariant, const Global_Setting & g_setting) const
 {
 	unsigned int rangeDim = ode.size();
 	unsigned int rangeDimExt = rangeDim + 1;
@@ -988,7 +1081,7 @@ int Flowpipe::advance_nondeterministic(Flowpipe & result, const std::vector<Expr
 	return 1;
 }
 
-int Flowpipe::advance_deterministic_adaptive_stepsize(Flowpipe & result, const std::vector<Expression<Real> > & ode, const double new_stepsize, Taylor_Model_Setting & tm_setting, const std::vector<Constraint> & invariant, const Global_Setting & g_setting) const
+int Flowpipe::advance_adaptive_stepsize(Flowpipe & result, const std::vector<Expression<Real> > & ode, const double new_stepsize, Taylor_Model_Setting & tm_setting, const std::vector<Constraint> & invariant, const Global_Setting & g_setting) const
 {
 	unsigned int rangeDim = ode.size();
 	unsigned int rangeDimExt = rangeDim + 1;
@@ -1211,7 +1304,7 @@ int Flowpipe::advance_deterministic_adaptive_stepsize(Flowpipe & result, const s
 	return 1;
 }
 
-int Flowpipe::advance_nondeterministic_adaptive_stepsize(Flowpipe & result, const std::vector<Expression<Interval> > & ode, const double new_stepsize, Taylor_Model_Setting & tm_setting, const std::vector<Constraint> & invariant, const Global_Setting & g_setting) const
+int Flowpipe::advance_adaptive_stepsize(Flowpipe & result, const std::vector<Expression<Interval> > & ode, const double new_stepsize, Taylor_Model_Setting & tm_setting, const std::vector<Constraint> & invariant, const Global_Setting & g_setting) const
 {
 	unsigned int rangeDim = ode.size();
 	unsigned int rangeDimExt = rangeDim + 1;
@@ -1429,7 +1522,7 @@ int Flowpipe::advance_nondeterministic_adaptive_stepsize(Flowpipe & result, cons
 	return 1;
 }
 
-int Flowpipe::advance_deterministic_adaptive_order(Flowpipe & result, const std::vector<Expression<Real> > & ode, Taylor_Model_Setting & tm_setting, const std::vector<Constraint> & invariant, const Global_Setting & g_setting) const
+int Flowpipe::advance_adaptive_order(Flowpipe & result, const std::vector<Expression<Real> > & ode, Taylor_Model_Setting & tm_setting, const std::vector<Constraint> & invariant, const Global_Setting & g_setting) const
 {
 	unsigned int rangeDim = ode.size();
 	unsigned int rangeDimExt = rangeDim + 1;
@@ -1653,7 +1746,7 @@ int Flowpipe::advance_deterministic_adaptive_order(Flowpipe & result, const std:
 	return 1;
 }
 
-int Flowpipe::advance_nondeterministic_adaptive_order(Flowpipe & result, const std::vector<Expression<Interval> > & ode, Taylor_Model_Setting & tm_setting, const std::vector<Constraint> & invariant, const Global_Setting & g_setting) const
+int Flowpipe::advance_adaptive_order(Flowpipe & result, const std::vector<Expression<Interval> > & ode, Taylor_Model_Setting & tm_setting, const std::vector<Constraint> & invariant, const Global_Setting & g_setting) const
 {
 	unsigned int rangeDim = ode.size();
 	unsigned int rangeDimExt = rangeDim + 1;
@@ -1882,7 +1975,7 @@ int Flowpipe::advance_nondeterministic_adaptive_order(Flowpipe & result, const s
 
 
 
-int Flowpipe::advance_deterministic(Flowpipe & result, const std::vector<Expression<Real> > & ode, const Taylor_Model_Setting & tm_setting, const std::vector<Constraint> & invariant, const Global_Setting & g_setting, Symbolic_Remainder & symbolic_remainder) const
+int Flowpipe::advance(Flowpipe & result, const std::vector<Expression<Real> > & ode, const Taylor_Model_Setting & tm_setting, const std::vector<Constraint> & invariant, const Global_Setting & g_setting, Symbolic_Remainder & symbolic_remainder) const
 {
 	unsigned int rangeDim = ode.size();
 	unsigned int rangeDimExt = rangeDim + 1;
@@ -1952,11 +2045,7 @@ int Flowpipe::advance_deterministic(Flowpipe & result, const std::vector<Express
 		x0_other.insert_ctrunc_normal(result.tmv, tmv, tmvPolyRange, tm_setting.step_end_exp_table, domain.size(), tm_setting.order, tm_setting.cutoff_threshold);
 
 		result.tmv.Remainder(J_ip1);
-/*
-		Matrix<Interval> x0_rem(rangeDim, 1);
-		tmv_of_x0.Remainder(x0_rem);
-		J_ip1 += x0_rem;
-*/
+
 		for(int i=0; i<rangeDim; ++i)
 		{
 			result.tmv.tms[i].expansion += initial_linear[i];
@@ -2176,7 +2265,7 @@ int Flowpipe::advance_deterministic(Flowpipe & result, const std::vector<Express
 	return 1;
 }
 
-int Flowpipe::advance_nondeterministic(Flowpipe & result, const std::vector<Expression<Interval> > & ode, const Taylor_Model_Setting & tm_setting, const std::vector<Constraint> & invariant, const Global_Setting & g_setting, Symbolic_Remainder & symbolic_remainder) const
+int Flowpipe::advance(Flowpipe & result, const std::vector<Expression<Interval> > & ode, const Taylor_Model_Setting & tm_setting, const std::vector<Constraint> & invariant, const Global_Setting & g_setting, Symbolic_Remainder & symbolic_remainder) const
 {
 	unsigned int rangeDim = ode.size();
 	unsigned int rangeDimExt = rangeDim + 1;
@@ -2246,11 +2335,7 @@ int Flowpipe::advance_nondeterministic(Flowpipe & result, const std::vector<Expr
 		x0_other.insert_ctrunc_normal(result.tmv, tmv, tmvPolyRange, tm_setting.step_end_exp_table, domain.size(), tm_setting.order, tm_setting.cutoff_threshold);
 
 		result.tmv.Remainder(J_ip1);
-/*
-		Matrix<Interval> x0_rem(rangeDim, 1);
-		tmv_of_x0.Remainder(x0_rem);
-		J_ip1 += x0_rem;
-*/
+
 		for(int i=0; i<rangeDim; ++i)
 		{
 			result.tmv.tms[i].expansion += initial_linear[i];
@@ -2470,7 +2555,7 @@ int Flowpipe::advance_nondeterministic(Flowpipe & result, const std::vector<Expr
 	return 1;
 }
 
-int Flowpipe::advance_deterministic_adaptive_stepsize(Flowpipe & result, const std::vector<Expression<Real> > & ode, const double new_stepsize, Taylor_Model_Setting & tm_setting, const std::vector<Constraint> & invariant, const Global_Setting & g_setting, Symbolic_Remainder & symbolic_remainder) const
+int Flowpipe::advance_adaptive_stepsize(Flowpipe & result, const std::vector<Expression<Real> > & ode, const double new_stepsize, Taylor_Model_Setting & tm_setting, const std::vector<Constraint> & invariant, const Global_Setting & g_setting, Symbolic_Remainder & symbolic_remainder) const
 {
 	unsigned int rangeDim = ode.size();
 	unsigned int rangeDimExt = rangeDim + 1;
@@ -2540,11 +2625,7 @@ int Flowpipe::advance_deterministic_adaptive_stepsize(Flowpipe & result, const s
 		x0_other.insert_ctrunc_normal(result.tmv, tmv, tmvPolyRange, tm_setting.step_end_exp_table, domain.size(), tm_setting.order, tm_setting.cutoff_threshold);
 
 		result.tmv.Remainder(J_ip1);
-/*
-		Matrix<Interval> x0_rem(rangeDim, 1);
-		tmv_of_x0.Remainder(x0_rem);
-		J_ip1 += x0_rem;
-*/
+
 		for(int i=0; i<rangeDim; ++i)
 		{
 			result.tmv.tms[i].expansion += initial_linear[i];
@@ -2794,7 +2875,7 @@ int Flowpipe::advance_deterministic_adaptive_stepsize(Flowpipe & result, const s
 	return 1;
 }
 
-int Flowpipe::advance_nondeterministic_adaptive_stepsize(Flowpipe & result, const std::vector<Expression<Interval> > & ode, const double new_stepsize, Taylor_Model_Setting & tm_setting, const std::vector<Constraint> & invariant, const Global_Setting & g_setting, Symbolic_Remainder & symbolic_remainder) const
+int Flowpipe::advance_adaptive_stepsize(Flowpipe & result, const std::vector<Expression<Interval> > & ode, const double new_stepsize, Taylor_Model_Setting & tm_setting, const std::vector<Constraint> & invariant, const Global_Setting & g_setting, Symbolic_Remainder & symbolic_remainder) const
 {
 	unsigned int rangeDim = ode.size();
 	unsigned int rangeDimExt = rangeDim + 1;
@@ -2864,11 +2945,7 @@ int Flowpipe::advance_nondeterministic_adaptive_stepsize(Flowpipe & result, cons
 		x0_other.insert_ctrunc_normal(result.tmv, tmv, tmvPolyRange, tm_setting.step_end_exp_table, domain.size(), tm_setting.order, tm_setting.cutoff_threshold);
 
 		result.tmv.Remainder(J_ip1);
-/*
-		Matrix<Interval> x0_rem(rangeDim, 1);
-		tmv_of_x0.Remainder(x0_rem);
-		J_ip1 += x0_rem;
-*/
+
 		for(int i=0; i<rangeDim; ++i)
 		{
 			result.tmv.tms[i].expansion += initial_linear[i];
@@ -3118,7 +3195,7 @@ int Flowpipe::advance_nondeterministic_adaptive_stepsize(Flowpipe & result, cons
 	return 1;
 }
 
-int Flowpipe::advance_deterministic_adaptive_order(Flowpipe & result, const std::vector<Expression<Real> > & ode, Taylor_Model_Setting & tm_setting, const std::vector<Constraint> & invariant, const Global_Setting & g_setting, Symbolic_Remainder & symbolic_remainder) const
+int Flowpipe::advance_adaptive_order(Flowpipe & result, const std::vector<Expression<Real> > & ode, Taylor_Model_Setting & tm_setting, const std::vector<Constraint> & invariant, const Global_Setting & g_setting, Symbolic_Remainder & symbolic_remainder) const
 {
 	unsigned int rangeDim = ode.size();
 	unsigned int rangeDimExt = rangeDim + 1;
@@ -3188,11 +3265,7 @@ int Flowpipe::advance_deterministic_adaptive_order(Flowpipe & result, const std:
 		x0_other.insert_ctrunc_normal(result.tmv, tmv, tmvPolyRange, tm_setting.step_end_exp_table, domain.size(), tm_setting.order, tm_setting.cutoff_threshold);
 
 		result.tmv.Remainder(J_ip1);
-/*
-		Matrix<Interval> x0_rem(rangeDim, 1);
-		tmv_of_x0.Remainder(x0_rem);
-		J_ip1 += x0_rem;
-*/
+
 		for(int i=0; i<rangeDim; ++i)
 		{
 			result.tmv.tms[i].expansion += initial_linear[i];
@@ -3447,7 +3520,7 @@ int Flowpipe::advance_deterministic_adaptive_order(Flowpipe & result, const std:
 	return 1;
 }
 
-int Flowpipe::advance_nondeterministic_adaptive_order(Flowpipe & result, const std::vector<Expression<Interval> > & ode, Taylor_Model_Setting & tm_setting, const std::vector<Constraint> & invariant, const Global_Setting & g_setting, Symbolic_Remainder & symbolic_remainder) const
+int Flowpipe::advance_adaptive_order(Flowpipe & result, const std::vector<Expression<Interval> > & ode, Taylor_Model_Setting & tm_setting, const std::vector<Constraint> & invariant, const Global_Setting & g_setting, Symbolic_Remainder & symbolic_remainder) const
 {
 	unsigned int rangeDim = ode.size();
 	unsigned int rangeDimExt = rangeDim + 1;
@@ -3517,11 +3590,7 @@ int Flowpipe::advance_nondeterministic_adaptive_order(Flowpipe & result, const s
 		x0_other.insert_ctrunc_normal(result.tmv, tmv, tmvPolyRange, tm_setting.step_end_exp_table, domain.size(), tm_setting.order, tm_setting.cutoff_threshold);
 
 		result.tmv.Remainder(J_ip1);
-/*
-		Matrix<Interval> x0_rem(rangeDim, 1);
-		tmv_of_x0.Remainder(x0_rem);
-		J_ip1 += x0_rem;
-*/
+
 		for(int i=0; i<rangeDim; ++i)
 		{
 			result.tmv.tms[i].expansion += initial_linear[i];
@@ -3789,27 +3858,143 @@ int Flowpipe::advance_nondeterministic_adaptive_order(Flowpipe & result, const s
 
 
 
-LinearFlowpipe::LinearFlowpipe()
+
+
+
+
+TaylorModelFlowpipe::TaylorModelFlowpipe()
+{
+	safety = SAFE;
+	bConstrained = false;
+}
+
+TaylorModelFlowpipe::TaylorModelFlowpipe(const TaylorModelFlowpipe & flowpipe)
+{
+	tmv_flowpipe = flowpipe.tmv_flowpipe;
+	domain = flowpipe.domain;
+	safety = flowpipe.safety;
+	bConstrained = flowpipe.bConstrained;
+}
+
+TaylorModelFlowpipe::~TaylorModelFlowpipe()
 {
 }
 
-LinearFlowpipe::LinearFlowpipe(const LinearFlowpipe & flowpipe)
+TaylorModelFlowpipe & TaylorModelFlowpipe::operator = (const TaylorModelFlowpipe & flowpipe)
 {
-	Phi		= flowpipe.Phi;
-	Psi		= flowpipe.Psi;
+	if(&flowpipe == this)
+		return *this;
 
-	tv_remainder = flowpipe.tv_remainder;
-	remainder_constraints = flowpipe.remainder_constraints;
+	tmv_flowpipe = flowpipe.tmv_flowpipe;
+	domain = flowpipe.domain;
+	safety = flowpipe.safety;
+	bConstrained = flowpipe.bConstrained;
+
+	return *this;
 }
 
-LinearFlowpipe::~LinearFlowpipe()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+TaylorModelFlowpipes::TaylorModelFlowpipes()
 {
 }
 
-int LinearFlowpipe::safetyChecking(const std::vector<Constraint> & unsafeSet, const Taylor_Model_Setting & tm_setting, const Global_Setting & g_setting,
+TaylorModelFlowpipes::TaylorModelFlowpipes(const TaylorModelFlowpipes & flowpipes)
+{
+	tmv_flowpipes = flowpipes.tmv_flowpipes;
+}
+
+TaylorModelFlowpipes::~TaylorModelFlowpipes()
+{
+}
+
+TaylorModelFlowpipes & TaylorModelFlowpipes::operator = (const TaylorModelFlowpipes & flowpipes)
+{
+	if(&flowpipes == this)
+		return *this;
+
+	tmv_flowpipes = flowpipes.tmv_flowpipes;
+
+	return *this;
+}
+
+void TaylorModelFlowpipes::clear()
+{
+	tmv_flowpipes.clear();
+}
+
+unsigned int TaylorModelFlowpipes::size() const
+{
+	return tmv_flowpipes.size();
+}
+
+void TaylorModelFlowpipes::merge(const TaylorModelFlowpipes & flowpipes)
+{
+	if(&flowpipes != this)
+	{
+		tmv_flowpipes.insert(tmv_flowpipes.end(), flowpipes.tmv_flowpipes.begin(), flowpipes.tmv_flowpipes.end());
+	}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+LinearFlowmap::LinearFlowmap()
+{
+}
+
+LinearFlowmap::LinearFlowmap(const LinearFlowmap & flowmap)
+{
+	Phi		= flowmap.Phi;
+	Psi		= flowmap.Psi;
+	Omega 	= flowmap.Omega;
+
+	tv_remainder = flowmap.tv_remainder;
+	interval_remainder = flowmap.interval_remainder;
+}
+
+LinearFlowmap::~LinearFlowmap()
+{
+}
+
+int LinearFlowmap::safetyChecking(const std::vector<Constraint> & safeSet, const Taylor_Model_Setting & tm_setting, const Global_Setting & g_setting,
 		const TaylorModelVec<Real> & tmv_of_X0, const std::vector<Interval> & polyRangeX0, const std::vector<Interval> & range_of_X0, const std::vector<Interval> & domain)
 {
-	if(unsafeSet.size() == 0)
+	if(safeSet.size() == 0)
 	{
 		return SAFE;
 	}
@@ -3819,17 +4004,55 @@ int LinearFlowpipe::safetyChecking(const std::vector<Constraint> & unsafeSet, co
 	bool bContained = true;
 
 	Matrix<Interval> range_of_Phi(rangeDim, rangeDim);
-	Phi.evaluate(range_of_Phi, interval_utm_setting.val_exp_table);
+	Phi.evaluate(range_of_Phi, interval_utm_setting.val);
 
 	Matrix<Interval> range_of_Psi(rangeDim, 1);
-	Psi.evaluate(range_of_Psi, interval_utm_setting.val_exp_table);
-
-
-	std::vector<Interval> range_of_x = range_of_Phi * range_of_X0;
-
-	for(unsigned int i=0; i<rangeDim; ++i)
+	if(Psi.rows() > 0)
 	{
-		range_of_x[i] += range_of_Psi[i][0];
+		Psi.evaluate(range_of_Psi, interval_utm_setting.val);
+	}
+
+	std::vector<Interval> stateVar_range, constPar_range;
+
+	int constParNum = Omega.cols();
+
+	Matrix<Interval> range_of_Omega(rangeDim, constParNum);
+
+	if(constParNum > 0)
+	{
+		Omega.evaluate(range_of_Omega, interval_utm_setting.val);
+
+		for(int i=0; i<constParNum; ++i)
+		{
+			constPar_range.push_back(range_of_X0[i + rangeDim]);
+		}
+
+		constPar_range = range_of_Omega * constPar_range;
+	}
+
+
+	for(int i=0; i<rangeDim; ++i)
+	{
+		stateVar_range.push_back(range_of_X0[i]);
+	}
+
+
+	std::vector<Interval> range_of_x = range_of_Phi * stateVar_range;
+
+	if(Psi.rows() > 0)
+	{
+		for(unsigned int i=0; i<rangeDim; ++i)
+		{
+			range_of_x[i] += range_of_Psi[i][0];
+		}
+	}
+
+	if(constParNum > 0)
+	{
+		for(unsigned int i=0; i<rangeDim; ++i)
+		{
+			range_of_x[i] += constPar_range[i];
+		}
 	}
 
 
@@ -3846,38 +4069,40 @@ int LinearFlowpipe::safetyChecking(const std::vector<Constraint> & unsafeSet, co
 	}
 
 
-	for(unsigned int i=0; i<unsafeSet.size(); ++i)
+	for(unsigned int i=0; i<safeSet.size(); ++i)
 	{
 		Interval I;
 
 		// interval evaluation on the constraint
-		unsafeSet[i].expression.evaluate(I, range_of_x);
+		safeSet[i].expression.evaluate(I, range_of_x);
 
-		if(unsafeSet[i].bound < I.inf())
+		if(safeSet[i].bound < I.inf())
 		{
-			// no intersection with the unsafe set
-			result = SAFE;
+			// no intersection with the safe set
+			result = UNSAFE;
 			break;
 		}
 		else
 		{
-			if(!(unsafeSet[i].bound >= I.sup()) && bContained)
+			if(!(safeSet[i].bound >= I.sup()) && bContained)
 			{
 				bContained = false;
 			}
 		}
 	}
 
-	if(result == UNKNOWN)
+	if(result != UNSAFE)
 	{
 		if(bContained)
 		{
-			return UNSAFE;
+			return SAFE;
 		}
 		else
 		{
 			if(domain[0].width() <= REFINEMENT_PREC)
 				return UNKNOWN;
+
+			result = SAFE;
 
 			// do a simple branch & bound for safety checking
 			TaylorModelVec<Real> tmvFlowpipe;
@@ -3886,14 +4111,12 @@ int LinearFlowpipe::safetyChecking(const std::vector<Constraint> & unsafeSet, co
 			std::vector<HornerForm<Real> > obj_hfs;
 			std::vector<Interval> obj_rems;
 
-			result = SAFE;
-
-			for(unsigned int i=0; i<unsafeSet.size(); ++i)
+			for(unsigned int i=0; i<safeSet.size(); ++i)
 			{
 				TaylorModel<Real> tmTmp;
 
 				// interval evaluation on the constraint
-				unsafeSet[i].expression.evaluate(tmTmp, tmvFlowpipe.tms, tm_setting.order, domain, tm_setting.cutoff_threshold, g_setting);
+				safeSet[i].expression.evaluate(tmTmp, tmvFlowpipe.tms, tm_setting.order, domain, tm_setting.cutoff_threshold, g_setting);
 
 				HornerForm<Real> obj_hf;
 				tmTmp.expansion.toHornerForm(obj_hf);
@@ -3905,10 +4128,7 @@ int LinearFlowpipe::safetyChecking(const std::vector<Constraint> & unsafeSet, co
 
 			std::list<Interval> subdivisions;
 
-			if(domain[0].width() > REFINEMENT_PREC)
-			{
-				subdivisions.push_back(domain[0]);
-			}
+			subdivisions.push_back(domain[0]);
 
 			for(; subdivisions.size() > 0; )
 			{
@@ -3920,65 +4140,49 @@ int LinearFlowpipe::safetyChecking(const std::vector<Constraint> & unsafeSet, co
 
 				refined_domain[0] = subdivision;
 
-				for(int i=0; i<unsafeSet.size(); ++i)
+				for(int i=0; i<safeSet.size(); ++i)
 				{
 					Interval I;
 					obj_hfs[i].evaluate(I, refined_domain);
 
 					I += obj_rems[i];
 
-					if(unsafeSet[i].bound < I.inf())
+					if(safeSet[i].bound < I.inf())
 					{
-						// no intersection with the unsafe set
-						result_iter = SAFE;
+						// no intersection with the safe set
+						result_iter = UNSAFE;
 						break;
 					}
 					else
 					{
-						if(!(unsafeSet[i].bound >= I.sup()) && bContained_iter)
+						if(!(safeSet[i].bound >= I.sup()) && bContained_iter)
 						{
 							bContained_iter = false;
 						}
 					}
 				}
 
-				if(result_iter == UNKNOWN)
+				if(result_iter != UNSAFE)
 				{
-					if(bContained_iter)
-					{
-						return UNSAFE;
-					}
-					else
+					if(!bContained_iter)
 					{
 						if(subdivision.width() <= REFINEMENT_PREC)
 						{
 							return UNKNOWN;
 						}
-
-						// split the domain
-						Interval I1, I2;
-						subdivision.split(I1, I2);
-
-						if(I1.width() <= REFINEMENT_PREC)
-						{
-							if(result == SAFE)
-								result = UNKNOWN;
-						}
 						else
 						{
+							Interval I1, I2;
+							subdivision.split(I1, I2);
+
 							subdivisions.push_back(I1);
-						}
-
-						if(I2.width() <= REFINEMENT_PREC)
-						{
-							if(result == SAFE)
-								result = UNKNOWN;
-						}
-						else
-						{
 							subdivisions.push_back(I2);
 						}
 					}
+				}
+				else
+				{
+					return UNSAFE;
 				}
 			}
 
@@ -3987,14 +4191,16 @@ int LinearFlowpipe::safetyChecking(const std::vector<Constraint> & unsafeSet, co
 	}
 	else
 	{
-		return SAFE;
+		return UNSAFE;
 	}
 }
 
-void LinearFlowpipe::evaluate(TaylorModelVec<Real> & result, const TaylorModelVec<Real> & tmv_of_X0, const std::vector<Interval> & polyRangeX0, const std::vector<Interval> & range_of_X0, const std::vector<Interval> & domain, const Taylor_Model_Setting & tm_setting)
+void LinearFlowmap::evaluate(TaylorModelVec<Real> & result, const TaylorModelVec<Real> & tmv_of_X0, const std::vector<Interval> & polyRangeX0, const std::vector<Interval> & range_of_X0, const std::vector<Interval> & domain, const Taylor_Model_Setting & tm_setting)
 {
 	unsigned int rangeDim = Phi.rows();
 	unsigned int domainDim = domain.size();
+
+	int parStart = rangeDim + 1;
 
 	result.clear();
 
@@ -4006,7 +4212,7 @@ void LinearFlowpipe::evaluate(TaylorModelVec<Real> & result, const TaylorModelVe
 
 		for(int j=0; j<rangeDim; ++j)
 		{
-			TaylorModel<Real> tmTmp2(Phi[i][j], rangeDim+1, true);
+			TaylorModel<Real> tmTmp2(Phi[i][j], rangeDim + 1, true);
 			tmTmp2.mul_assign(j+1, range_of_X0[j]);
 
 			tmTmp1 += tmTmp2;
@@ -4027,6 +4233,29 @@ void LinearFlowpipe::evaluate(TaylorModelVec<Real> & result, const TaylorModelVe
 		}
 	}
 
+	if(Omega.rows() > 0)
+	{
+		int numOfPars = Omega.cols();
+
+		for(int i=0; i<rangeDim; ++i)
+		{
+			TaylorModel<Real> tmTmp1;
+
+			for(int j=0; j<numOfPars; ++j)
+			{
+				TaylorModel<Real> tmTmp2(Omega[i][j], rangeDim + 1, true);
+				tmTmp2.mul_assign(parStart + j, range_of_X0[parStart + j - 1]);
+
+				tmTmp1 += tmTmp2;
+			}
+
+			TaylorModel<Real> tmTmp3;
+			tmTmp1.insert_ctrunc(tmTmp3, tmv_of_X0, polyRangeX0, domain, tm_setting.order, tm_setting.cutoff_threshold);
+
+			result.tms[i] += tmTmp3;
+		}
+	}
+
 	if(!tv_remainder.isEmpty())
 	{
 		Matrix<Interval> im_tv_remainder(rangeDim, 1);
@@ -4038,8 +4267,8 @@ void LinearFlowpipe::evaluate(TaylorModelVec<Real> & result, const TaylorModelVe
 		}
 	}
 }
-
-void LinearFlowpipe::evaluate(TaylorModelVec<Real> & result, const TaylorModelVec<Real> & initialSet, const std::vector<Interval> & domain, const unsigned int order, const Interval & cutoff_threshold)
+/*
+void LinearFlowmap::evaluate(TaylorModelVec<Real> & result, const TaylorModelVec<Real> & initialSet, const std::vector<Interval> & domain, const unsigned int order, const Interval & cutoff_threshold)
 {
 	unsigned int rangeDim = Phi.rows();
 	unsigned int domainDim = domain.size();
@@ -4099,7 +4328,7 @@ void LinearFlowpipe::evaluate(TaylorModelVec<Real> & result, const TaylorModelVe
 	}
 }
 
-void LinearFlowpipe::evaluate(TaylorModelVec<Real> & result, const std::vector<unsigned int> & outputAxes, const TaylorModelVec<Real> & tmv_of_X0, const std::vector<Interval> & polyRangeX0, const std::vector<Interval> & range_of_X0, const std::vector<Interval> & domain, const Taylor_Model_Setting & tm_setting)
+void LinearFlowmap::evaluate(TaylorModelVec<Real> & result, const std::vector<unsigned int> & outputAxes, const TaylorModelVec<Real> & tmv_of_X0, const std::vector<Interval> & polyRangeX0, const std::vector<Interval> & range_of_X0, const std::vector<Interval> & domain, const Taylor_Model_Setting & tm_setting)
 {
 	unsigned int rangeDim = Phi.rows();
 	unsigned int domainDim = domain.size();
@@ -4146,17 +4375,18 @@ void LinearFlowpipe::evaluate(TaylorModelVec<Real> & result, const std::vector<u
 		}
 	}
 }
+*/
 
-
-LinearFlowpipe & LinearFlowpipe::operator = (const LinearFlowpipe & flowpipe)
+LinearFlowmap & LinearFlowmap::operator = (const LinearFlowmap & flowmap)
 {
-	if(this == &flowpipe)
+	if(this == &flowmap)
 		return *this;
 
-	Phi = flowpipe.Phi;
-	Psi = flowpipe.Psi;
-	tv_remainder = flowpipe.tv_remainder;
-	remainder_constraints = flowpipe.remainder_constraints;
+	Phi = flowmap.Phi;
+	Psi = flowmap.Psi;
+	Omega = flowmap.Omega;
+	tv_remainder = flowmap.tv_remainder;
+	interval_remainder = flowmap.interval_remainder;
 
 	return *this;
 }
@@ -4170,25 +4400,554 @@ LinearFlowpipe & LinearFlowpipe::operator = (const LinearFlowpipe & flowpipe)
 
 
 
+FlowmapAbstraction::FlowmapAbstraction()
+{
+	stepsize = 0;
+}
+
+FlowmapAbstraction::FlowmapAbstraction(const FlowmapAbstraction & abstraction)
+{
+	flowmaps = abstraction.flowmaps;
+	stepsize = abstraction.stepsize;
+}
+
+FlowmapAbstraction::~FlowmapAbstraction()
+{
+}
+
+FlowmapAbstraction & FlowmapAbstraction::operator = (const FlowmapAbstraction & abstraction)
+{
+	if(&abstraction == this)
+		return *this;
+
+	flowmaps = abstraction.flowmaps;
+	stepsize = abstraction.stepsize;
+
+	return *this;
+}
+
+void FlowmapAbstraction::clear()
+{
+	flowmaps.clear();
+	stepsize = 0;
+}
+
+void FlowmapAbstraction::compose(FlowmapAbstraction & result, const FlowmapAbstraction & abstraction, const Computational_Setting & setting, const int zono_order)
+{
+	if(abstraction.flowmaps.size() == 0 || flowmaps.size() == 0)
+	{
+		result = *this;
+		return;
+	}
+
+	Interval intStep(0, abstraction.stepsize);
+	interval_utm_setting.val = intStep;
+
+	int rangeDim = flowmaps[0].Phi.rows();
+
+	LinearFlowmap last = abstraction.flowmaps.back();
+
+	Matrix<UnivariateTaylorModel<Real> > Phi_init(rangeDim, rangeDim);
+	last.Phi.evaluate(Phi_init, abstraction.stepsize);
+
+
+	Matrix<UnivariateTaylorModel<Real> > Psi_init(last.Psi.rows(), last.Psi.cols());
+
+	if(last.Psi.rows() > 0)
+	{
+		last.Psi.evaluate(Psi_init, abstraction.stepsize);
+	}
+
+
+	Matrix<UnivariateTaylorModel<Real> > Omega_init(last.Omega.rows(), last.Omega.cols());
+
+	if(last.Omega.rows() > 0)
+	{
+		last.Omega.evaluate(Omega_init, abstraction.stepsize);
+	}
+
+	result.clear();
+	result.stepsize = stepsize;
+
+	for(int i=0; i<flowmaps.size(); ++i)
+	{
+		LinearFlowmap flowmap;
+
+		// composing the state-transition matrices
+		flowmap.Phi = flowmaps[i].Phi * Phi_init;
+
+		// composing the transformation for the constant part
+		if(flowmaps[i].Psi.rows() > 0)
+		{
+			if(last.Psi.rows() > 0)
+			{
+				flowmap.Psi = flowmaps[i].Psi + flowmaps[i].Phi * last.Psi;
+			}
+			else
+			{
+				flowmap.Psi = flowmaps[i].Psi;
+			}
+		}
+		else if(last.Psi.rows() > 0)
+		{
+			flowmap.Psi = flowmaps[i].Phi * last.Psi;
+		}
+
+		// composing the transformation for the constant parameters
+		if(flowmaps[i].Omega.rows() > 0)
+		{
+			if(last.Omega.rows() > 0)
+			{
+				flowmap.Omega = flowmaps[i].Omega + flowmaps[i].Phi * last.Omega;
+			}
+			else
+			{
+				flowmap.Omega = flowmaps[i].Omega;
+			}
+		}
+		else if(last.Omega.rows() > 0)
+		{
+			flowmap.Omega = flowmaps[i].Phi * last.Omega;
+		}
+
+		// composing the transformation for the time-varying uncertainties
+		if(!flowmaps[i].tv_remainder.isEmpty())
+		{
+			if(!last.tv_remainder.isEmpty())
+			{
+				Matrix<Interval> im_Phi(rangeDim, rangeDim);
+				flowmaps[i].Phi.evaluate(im_Phi, abstraction.stepsize);
+
+				Matrix<Real> Phi_bound(rangeDim, rangeDim);
+				im_Phi.bound(Phi_bound);
+
+				flowmap.tv_remainder = flowmaps[i].tv_remainder + Phi_bound * last.tv_remainder;
+
+				if(zono_order >= 0 && flowmap.tv_remainder.numOfGen()/rangeDim > zono_order)
+				{
+					flowmap.tv_remainder.simplify();
+				}
+			}
+			else
+			{
+				flowmap.tv_remainder = flowmaps[i].tv_remainder;
+			}
+		}
+		else if(!last.tv_remainder.isEmpty())
+		{
+			Matrix<Interval> im_Phi(rangeDim, rangeDim);
+			flowmaps[i].Phi.evaluate(im_Phi, abstraction.stepsize);
+
+			Matrix<Real> Phi_bound(rangeDim, rangeDim);
+			im_Phi.bound(Phi_bound);
+
+			flowmap.tv_remainder = Phi_bound * last.tv_remainder;
+		}
+
+		result.flowmaps.push_back(flowmap);
+	}
+}
+
+int FlowmapAbstraction::reach(TaylorModelFlowpipes & flowpipes, const Flowpipe & initialSet, const Computational_Setting & setting, const std::vector<Constraint> & safeSet)
+{
+	std::vector<Interval> newDomain = initialSet.domain;
+
+	Interval step(0, stepsize);
+	newDomain[0] = step;
+
+	std::vector<Interval> polyRangeX0;
+	initialSet.tmvPre.polyRange(polyRangeX0, initialSet.domain);
+
+	unsigned int rangeDim = initialSet.tmvPre.tms.size();
+	std::vector<Interval> range_of_X0(rangeDim);
+
+	for(int k=0; k<rangeDim; ++k)
+	{
+		range_of_X0[k] = polyRangeX0[k] + initialSet.tmvPre.tms[k].remainder;
+	}
+
+
+	bool bSafetyChecking = false;
+
+	if(safeSet.size() > 0)
+	{
+		bSafetyChecking = true;
+	}
+
+	int checking_result = COMPLETED_SAFE;
+
+
+	std::vector<LinearFlowmap>::iterator iter = flowmaps.begin();
+
+	for(; iter != flowmaps.end(); ++iter)
+	{
+		TaylorModelVec<Real> tmvTmp;
+
+		iter->evaluate(tmvTmp, initialSet.tmvPre, polyRangeX0, range_of_X0, newDomain, setting.tm_setting);
+
+		TaylorModelFlowpipe tmv_flowpipe;
+		tmv_flowpipe.tmv_flowpipe = tmvTmp;
+		tmv_flowpipe.domain = newDomain;
+
+		if(bSafetyChecking)
+		{
+			int safety = safetyChecking(tmvTmp, newDomain, safeSet, setting.tm_setting, setting.g_setting);
+
+			tmv_flowpipe.safety = safety;
+			flowpipes.tmv_flowpipes.push_back(tmv_flowpipe);
+
+			if(safety == UNSAFE)
+			{
+				return COMPLETED_UNSAFE;
+			}
+			else if(safety == UNKNOWN && checking_result == COMPLETED_SAFE)
+			{
+				checking_result = COMPLETED_UNKNOWN;
+			}
+		}
+		else
+		{
+			tmv_flowpipe.safety = SAFE;
+			flowpipes.tmv_flowpipes.push_back(tmv_flowpipe);
+		}
+	}
+
+	return checking_result;
+}
+
+int FlowmapAbstraction::reach_inv(TaylorModelFlowpipes & flowpipes, Flowpipe & initialSet, const std::vector<Constraint> & invariant, const Computational_Setting & setting, const std::vector<Constraint> & safeSet)
+{
+	std::vector<Interval> newDomain = initialSet.domain;
+
+	Interval step(0, stepsize);
+	newDomain[0] = step;
+
+	std::vector<Interval> polyRangeX0;
+	initialSet.tmvPre.polyRange(polyRangeX0, initialSet.domain);
+
+	unsigned int rangeDim = initialSet.tmvPre.tms.size();
+	std::vector<Interval> range_of_X0(rangeDim);
+
+	for(int k=0; k<rangeDim; ++k)
+	{
+		range_of_X0[k] = polyRangeX0[k] + initialSet.tmvPre.tms[k].remainder;
+	}
+
+	std::vector<LinearFlowmap>::iterator iter = flowmaps.begin();
+	bool previous_flowpipe_contracted = false, bContracted = false;
+	Matrix<Interval> previous_remainder(rangeDim, 1);
+
+
+	bool bSafetyChecking = false;
+
+	if(safeSet.size() > 0)
+	{
+		bSafetyChecking = true;
+	}
+
+	int checking_result = COMPLETED_SAFE;
+
+
+	for(; iter != flowmaps.end(); ++iter)
+	{
+		if(previous_flowpipe_contracted)
+		{
+			polyRangeX0.clear();
+			initialSet.tmvPre.polyRange(polyRangeX0, initialSet.domain);
+
+			for(int k=0; k<rangeDim; ++k)
+			{
+				range_of_X0[k] = polyRangeX0[k] + initialSet.tmvPre.tms[k].remainder;
+			}
+
+			previous_flowpipe_contracted = false;
+		}
+
+		TaylorModelVec<Real> tmvTmp;
+
+		iter->evaluate(tmvTmp, initialSet.tmvPre, polyRangeX0, range_of_X0, newDomain, setting.tm_setting);
+
+		// contracting the Taylor model flowpipe using the invariant
+
+		if(bContracted)
+		{
+			Matrix<Interval> Phi_end(rangeDim, rangeDim);
+			iter->Phi.evaluate(Phi_end, step);
+
+			Matrix<Interval> refinement = Phi_end * previous_remainder;
+
+			if(!iter->tv_remainder.isEmpty())
+			{
+				Matrix<Interval> im_temp;
+				iter->tv_remainder.intEval(im_temp);
+				refinement += im_temp;
+			}
+
+			for(int j=0; j<rangeDim; ++j)
+			{
+				tmvTmp.tms[j].remainder.intersect_assign(refinement[j][0]);
+			}
+		}
+
+
+		// contract the remainder firstly
+		std::vector<Interval> tmv_flowpipe_polyRange;
+		tmvTmp.polyRange(tmv_flowpipe_polyRange, newDomain);
+
+		std::vector<Interval> contracted_remainders(rangeDim);
+
+		for(int k=0; k<rangeDim; ++k)
+		{
+			contracted_remainders[k] = tmvTmp.tms[k].remainder;
+		}
+
+		remainder_contraction_int(tmv_flowpipe_polyRange, contracted_remainders, invariant);
+
+		for(int k=0; k<rangeDim; ++k)
+		{
+			tmvTmp.tms[k].remainder = contracted_remainders[k];
+		}
+
+		std::vector<Interval> contracted_domain = newDomain;
+		int type = domain_contraction_int(tmvTmp, contracted_domain, invariant, setting.tm_setting.order, setting.tm_setting.cutoff_threshold, setting.g_setting);
+
+
+		switch(type)
+		{
+		case UNSAT:		// the intersection is empty
+			return checking_result;
+		case SAT:		// the domain is not contracted
+		{
+			TaylorModelFlowpipe flowpipe;
+			flowpipe.tmv_flowpipe = tmvTmp;
+			flowpipe.domain = newDomain;
+
+			if(bSafetyChecking)
+			{
+				int safety = safetyChecking(tmvTmp, newDomain, safeSet, setting.tm_setting, setting.g_setting);
+
+				if(safety == SAFE)
+				{
+					flowpipe.safety = SAFE;
+					flowpipes.tmv_flowpipes.push_back(flowpipe);
+				}
+				else if(safety == UNSAFE && !bContracted)
+				{
+					flowpipe.safety = UNSAFE;
+					flowpipes.tmv_flowpipes.push_back(flowpipe);
+					return COMPLETED_UNSAFE;
+				}
+				else
+				{
+					flowpipe.safety = UNKNOWN;
+					flowpipes.tmv_flowpipes.push_back(flowpipe);
+
+					if(checking_result == COMPLETED_SAFE)
+					{
+						checking_result = COMPLETED_UNKNOWN;
+					}
+				}
+			}
+			else
+			{
+				flowpipe.safety = SAFE;
+				flowpipes.tmv_flowpipes.push_back(flowpipe);
+			}
+
+			break;
+		}
+		case CONTRACTED: 	// the domain is contracted but the time interval is not
+		{
+			bContracted = true;
+			previous_flowpipe_contracted = true;
+			newDomain = contracted_domain;
+
+			initialSet.domain = contracted_domain;
+			initialSet.domain[0] = 0;
+
+			TaylorModelFlowpipe flowpipe;
+			flowpipe.tmv_flowpipe = tmvTmp;
+			flowpipe.domain = newDomain;
+			flowpipe.bConstrained = true;
+
+			if(bSafetyChecking)
+			{
+				int safety = safetyChecking(tmvTmp, newDomain, safeSet, setting.tm_setting, setting.g_setting);
+
+				if(safety == SAFE)
+				{
+					flowpipe.safety = SAFE;
+					flowpipes.tmv_flowpipes.push_back(flowpipe);
+				}
+				else if(safety == UNSAFE)
+				{
+					flowpipe.safety = UNKNOWN;
+					flowpipes.tmv_flowpipes.push_back(flowpipe);
+					return COMPLETED_UNKNOWN;
+				}
+				else
+				{
+					flowpipe.safety = UNKNOWN;
+					flowpipes.tmv_flowpipes.push_back(flowpipe);
+
+					if(checking_result == COMPLETED_SAFE)
+					{
+						checking_result = COMPLETED_UNKNOWN;
+					}
+				}
+			}
+			else
+			{
+				flowpipe.safety = SAFE;
+				flowpipes.tmv_flowpipes.push_back(flowpipe);
+			}
+
+			break;
+		}
+		case TIME_RANGE_CONTRACTED: 	// time interval is contracted
+		{
+			Real zero(0);
+
+			if(contracted_domain[0].greaterThan(zero))
+			{
+				return checking_result;
+			}
+			else
+			{
+				bContracted = true;
+				newDomain = contracted_domain;
+
+				initialSet.domain = contracted_domain;
+				initialSet.domain[0] = 0;
+
+				TaylorModelFlowpipe flowpipe;
+				flowpipe.tmv_flowpipe = tmvTmp;
+				flowpipe.domain = newDomain;
+				flowpipe.bConstrained = true;
+
+				if(bSafetyChecking)
+				{
+					int safety = safetyChecking(tmvTmp, newDomain, safeSet, setting.tm_setting, setting.g_setting);
+
+					if(safety == SAFE)
+					{
+						flowpipe.safety = SAFE;
+						flowpipes.tmv_flowpipes.push_back(flowpipe);
+					}
+					else
+					{
+						flowpipe.safety = UNKNOWN;
+						flowpipes.tmv_flowpipes.push_back(flowpipe);
+
+						if(checking_result == COMPLETED_SAFE)
+						{
+							checking_result = COMPLETED_UNKNOWN;
+						}
+					}
+				}
+				else
+				{
+					flowpipe.safety = SAFE;
+					flowpipes.tmv_flowpipes.push_back(flowpipe);
+				}
+
+				return checking_result;
+			}
+		}
+		}
+
+		if(bContracted)
+		{
+			for(int k=0; k<rangeDim; ++k)
+			{
+				previous_remainder[k][0] = tmvTmp.tms[k].remainder;
+			}
+		}
+	}
+
+	return checking_result;
+}
+
+int FlowmapAbstraction::safetychecking(std::vector<int> & safety, const Flowpipe & initialSet, const std::vector<Constraint> & safeSet, const Computational_Setting & setting)
+{
+	if(flowmaps.size() == 0)
+	{
+		safety.clear();
+		return SAFE;
+	}
+
+	int totalDim = initialSet.tmvPre.tms.size();
+
+	Interval intStep(0, stepsize);
+	interval_utm_setting.order = setting.max_order;
+	interval_utm_setting.val = intStep;
+
+	std::vector<Interval> polyRangeX0;
+	std::vector<Interval> range_of_X0(totalDim);
+
+	std::vector<Interval> domain = initialSet.domain;
+	domain[0] = intStep;
+
+	initialSet.tmvPre.polyRangeNormal(polyRangeX0, setting.tm_setting.step_exp_table);
+
+	for(int k=0; k<totalDim; ++k)
+	{
+		range_of_X0[k] = polyRangeX0[k] + initialSet.tmvPre.tms[k].remainder;
+	}
+
+	int result = SAFE;
+
+	for(int i=0; i<flowmaps.size(); ++i)
+	{
+		int res = flowmaps[i].safetyChecking(safeSet, setting.tm_setting, setting.g_setting, initialSet.tmvPre, polyRangeX0, range_of_X0, domain);
+
+		if(res == UNSAFE)
+		{
+			safety.push_back(res);
+			return UNSAFE;
+		}
+		else if(res == UNKNOWN && result != UNKNOWN)
+		{
+			result = UNKNOWN;
+		}
+	}
+
+	return result;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 Result_of_Reachability::Result_of_Reachability()
 {
 	status = -1;
-	num_of_flowpipes = 0;
 }
 
 Result_of_Reachability::Result_of_Reachability(const Result_of_Reachability & result)
 {
 	status					= result.status;
-	num_of_flowpipes		= result.num_of_flowpipes;
 	fp_end_of_time			= result.fp_end_of_time;
-	tmv_end_of_time			= result.tmv_end_of_time;
-	linear_flowpipes		= result.linear_flowpipes;
-	nonlinear_flowpipes		= result.nonlinear_flowpipes;
-	orders_of_flowpipes		= result.orders_of_flowpipes;
-	safety_of_flowpipes		= result.safety_of_flowpipes;
-	contraction_of_flowpipes= result.contraction_of_flowpipes;
+	tmv_fp_end_of_time		= result.tmv_fp_end_of_time;
+	flowpipes				= result.flowpipes;
 	tmv_flowpipes			= result.tmv_flowpipes;
-	tmv_flowpipes_domains	= result.tmv_flowpipes_domains;
 }
 
 Result_of_Reachability::~Result_of_Reachability()
@@ -4198,64 +4957,21 @@ Result_of_Reachability::~Result_of_Reachability()
 void Result_of_Reachability::clear()
 {
 	status = -1;
-	num_of_flowpipes = 0;
 
-	linear_flowpipes.clear();
-	nonlinear_flowpipes.clear();
+	flowpipes.clear();
 	tmv_flowpipes.clear();
-	tmv_flowpipes_domains.clear();
-	orders_of_flowpipes.clear();
-	safety_of_flowpipes.clear();
-	contraction_of_flowpipes.clear();
 }
 
 void Result_of_Reachability::merge(const Result_of_Reachability & result)
 {
-	tmv_flowpipes.insert(tmv_flowpipes.end(), result.tmv_flowpipes.begin(), result.tmv_flowpipes.end());
-	tmv_flowpipes_domains.insert(tmv_flowpipes_domains.end(), result.tmv_flowpipes_domains.begin(), result.tmv_flowpipes_domains.end());
-	orders_of_flowpipes.insert(orders_of_flowpipes.end(), result.orders_of_flowpipes.begin(), result.orders_of_flowpipes.end());
-	safety_of_flowpipes.insert(safety_of_flowpipes.end(), result.safety_of_flowpipes.begin(), result.safety_of_flowpipes.end());
-}
-
-void Result_of_Reachability::transformToTaylorModels(const Taylor_Model_Setting & tm_setting, const bool bPrint)
-{
-	if(nonlinear_flowpipes.size() == 0)
-		return;
-
-	unsigned int prog = 0, total_size = nonlinear_flowpipes.size();
-
-	if(bPrint)
+	if(flowpipes.size() > 0)
 	{
-		printf("Translating the flowpipes...\n");
+		flowpipes.insert(flowpipes.end(), result.flowpipes.begin(), result.flowpipes.end());
 	}
 
-	std::list<Flowpipe>::const_iterator fpIter = nonlinear_flowpipes.begin();
-	std::list<unsigned int>::const_iterator orderIter = orders_of_flowpipes.begin();
-
-	for(; fpIter != nonlinear_flowpipes.end(); ++fpIter, ++orderIter)
+	if(tmv_flowpipes.size() > 0)
 	{
-		TaylorModelVec<Real> tmvTmp;
-
-		fpIter->compose(tmvTmp, *orderIter, tm_setting.cutoff_threshold);
-
-		tmv_flowpipes.push_back(tmvTmp);
-		tmv_flowpipes_domains.push_back(fpIter->domain);
-
-		if(bPrint)
-		{
-			++prog;
-			printf("\b\b\b");
-			printf(BOLD_FONT "%%" RESET_COLOR);
-			printf(BOLD_FONT "%2d" RESET_COLOR, (int)(prog*100/total_size));
-			fflush(stdout);
-		}
-	}
-
-	nonlinear_flowpipes.clear();
-
-	if(bPrint)
-	{
-		printf("\nDone.\n");
+		tmv_flowpipes.merge(result.tmv_flowpipes);
 	}
 }
 
@@ -4263,7 +4979,7 @@ void Result_of_Reachability::transformToTaylorModels(const Computational_Setting
 {
 	transformToTaylorModels(c_setting.tm_setting, c_setting.bPrint);
 }
-
+/*
 void Result_of_Reachability::computeBoxOverapproximations(std::list<std::vector<Interval> > & boxes, const Taylor_Model_Setting & tm_setting, const bool bPrint)
 {
 	unsigned int prog = 0, total_size = nonlinear_flowpipes.size();
@@ -4346,8 +5062,8 @@ void Result_of_Reachability::computeDiscreteBoxOverapproximations(std::list<std:
 {
 	computeDiscreteBoxOverapproximations(boxes, c_setting.tm_setting, c_setting.bPrint);
 }
-
-
+*/
+/*
 void Result_of_Reachability::transformToTaylorModels(const Taylor_Model_Setting & tm_setting, const bool bPrint, const Flowpipe & initialSet)
 {
 	if(linear_flowpipes.size() == 0)
@@ -4411,6 +5127,42 @@ void Result_of_Reachability::transformToTaylorModels(const Computational_Setting
 {
 	transformToTaylorModels(c_setting.tm_setting, c_setting.bPrint, initialSet);
 }
+*/
+bool Result_of_Reachability::isSafe() const
+{
+	if(status == COMPLETED_SAFE || status == UNCOMPLETED_SAFE)
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+bool Result_of_Reachability::isUnsafe() const
+{
+	if(status == COMPLETED_UNSAFE || status == UNCOMPLETED_UNSAFE)
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+bool Result_of_Reachability::isCompleted() const
+{
+	if(status >= 1 && status <= 3)
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
 
 Result_of_Reachability & Result_of_Reachability::operator = (const Result_of_Reachability & result)
 {
@@ -4418,18 +5170,59 @@ Result_of_Reachability & Result_of_Reachability::operator = (const Result_of_Rea
 		return *this;
 
 	status					= result.status;
-	num_of_flowpipes		= result.num_of_flowpipes;
 	fp_end_of_time			= result.fp_end_of_time;
-	tmv_end_of_time			= result.tmv_end_of_time;
-	linear_flowpipes		= result.linear_flowpipes;
-	nonlinear_flowpipes		= result.nonlinear_flowpipes;
-	orders_of_flowpipes		= result.orders_of_flowpipes;
-	safety_of_flowpipes		= result.safety_of_flowpipes;
-	contraction_of_flowpipes= result.contraction_of_flowpipes;
+	tmv_fp_end_of_time		= result.tmv_fp_end_of_time;
+	flowpipes				= result.flowpipes;
 	tmv_flowpipes			= result.tmv_flowpipes;
-	tmv_flowpipes_domains	= result.tmv_flowpipes_domains;
 
 	return *this;
+}
+
+void Result_of_Reachability::transformToTaylorModels(const Taylor_Model_Setting & tm_setting, const bool bPrint)
+{
+	if(flowpipes.size() == 0)
+		return;
+
+	unsigned int prog = 0, total_size = flowpipes.size();
+
+	if(bPrint)
+	{
+		printf("Translating the flowpipes...\n");
+	}
+
+	unsigned int order = tm_setting.order > tm_setting.order_max ? tm_setting.order : tm_setting.order_max;
+
+	std::list<Flowpipe>::const_iterator fpIter = flowpipes.begin();
+
+	for(; fpIter != flowpipes.end(); ++fpIter)
+	{
+		TaylorModelVec<Real> tmvTmp;
+
+		fpIter->compose(tmvTmp, order, tm_setting.cutoff_threshold);
+
+		TaylorModelFlowpipe tmv_flowpipe;
+		tmv_flowpipe.tmv_flowpipe = tmvTmp;
+		tmv_flowpipe.domain = fpIter->domain;
+		tmv_flowpipe.safety = fpIter->safety;
+
+		tmv_flowpipes.tmv_flowpipes.push_back(tmv_flowpipe);
+
+		if(bPrint)
+		{
+			++prog;
+			printf("\b\b\b");
+			printf(BOLD_FONT "%%" RESET_COLOR);
+			printf(BOLD_FONT "%2d" RESET_COLOR, (int)(prog*100/total_size));
+			fflush(stdout);
+		}
+	}
+
+	flowpipes.clear();
+
+	if(bPrint)
+	{
+		printf("\nDone.\n");
+	}
 }
 
 
@@ -4437,13 +5230,9 @@ Result_of_Reachability & Result_of_Reachability::operator = (const Result_of_Rea
 
 
 
-
-
-
-Linear_Time_Invariant_Dynamics::Linear_Time_Invariant_Dynamics(const Matrix<Real> & A, const Matrix<UnivariateTaylorModel<Real> > & B)
+LTI_ODE::LTI_ODE(const Matrix<Real> & A)
 {
 	rm_dyn_A = A;
-	utm_dyn_B = B;
 
 	unsigned int n = A.rows();
 	Matrix<bool> conMatrix(n, n), adjMatrix(n, n);
@@ -4463,10 +5252,33 @@ Linear_Time_Invariant_Dynamics::Linear_Time_Invariant_Dynamics(const Matrix<Real
 	connectivity = conMatrix;
 }
 
-Linear_Time_Invariant_Dynamics::Linear_Time_Invariant_Dynamics(const Matrix<Real> & A, const Matrix<UnivariateTaylorModel<Real> > & B, const Matrix<Real> & C)
+LTI_ODE::LTI_ODE(const Matrix<Real> & A, const Matrix<Real> & B)
 {
 	rm_dyn_A = A;
-	utm_dyn_B = B;
+	rm_dyn_B = B;
+
+	unsigned int n = A.rows();
+	Matrix<bool> conMatrix(n, n), adjMatrix(n, n);
+
+	for(unsigned int i=0; i<n; ++i)
+	{
+		for(unsigned int j=0; j<n; ++j)
+		{
+			if(rm_dyn_A[i][j] != 0)
+			{
+				adjMatrix[i][j] = true;
+			}
+		}
+	}
+
+	check_connectivities(conMatrix, adjMatrix);
+	connectivity = conMatrix;
+}
+
+LTI_ODE::LTI_ODE(const Matrix<Real> & A, const Matrix<Real> & B, const Matrix<Real> & C)
+{
+	rm_dyn_A = A;
+	rm_dyn_B = B;
 	rm_dyn_C = C;
 
 	unsigned int n = A.rows();
@@ -4487,31 +5299,55 @@ Linear_Time_Invariant_Dynamics::Linear_Time_Invariant_Dynamics(const Matrix<Real
 	connectivity = conMatrix;
 }
 
-Linear_Time_Invariant_Dynamics::Linear_Time_Invariant_Dynamics(const Linear_Time_Invariant_Dynamics & dynamics)
+LTI_ODE::LTI_ODE(const Matrix<Real> & A, const Matrix<Real> & B, const Matrix<Real> & C, const Matrix<Real> & D)
 {
-	rm_dyn_A		= dynamics.rm_dyn_A;
-	utm_dyn_B		= dynamics.utm_dyn_B;
-	connectivity	= dynamics.connectivity;
+	rm_dyn_A = A;
+	rm_dyn_B = B;
+	rm_dyn_C = C;
+	rm_dyn_D = D;
+
+	unsigned int n = A.rows();
+	Matrix<bool> conMatrix(n, n), adjMatrix(n, n);
+
+	for(unsigned int i=0; i<n; ++i)
+	{
+		for(unsigned int j=0; j<n; ++j)
+		{
+			if(rm_dyn_A[i][j] != 0)
+			{
+				adjMatrix[i][j] = true;
+			}
+		}
+	}
+
+	check_connectivities(conMatrix, adjMatrix);
+	connectivity = conMatrix;
 }
 
-Linear_Time_Invariant_Dynamics::~Linear_Time_Invariant_Dynamics()
+LTI_ODE::LTI_ODE(const LTI_ODE & lti_ode)
 {
+	rm_dyn_A		= lti_ode.rm_dyn_A;
+	rm_dyn_B		= lti_ode.rm_dyn_B;
+	rm_dyn_C		= lti_ode.rm_dyn_C;
+	rm_dyn_D		= lti_ode.rm_dyn_D;
+	connectivity	= lti_ode.connectivity;
 }
 
-Linear_Time_Invariant_Dynamics & Linear_Time_Invariant_Dynamics::operator = (const Linear_Time_Invariant_Dynamics & dynamics)
+LTI_ODE & LTI_ODE::operator = (const LTI_ODE & lti_ode)
 {
-	if(this == &dynamics)
+	if(this == &lti_ode)
 		return *this;
 
-	rm_dyn_A		= dynamics.rm_dyn_A;
-	utm_dyn_B		= dynamics.utm_dyn_B;
-	rm_dyn_C		= dynamics.rm_dyn_C;
-	connectivity	= dynamics.connectivity;
+	rm_dyn_A		= lti_ode.rm_dyn_A;
+	rm_dyn_B		= lti_ode.rm_dyn_B;
+	rm_dyn_C		= lti_ode.rm_dyn_C;
+	rm_dyn_D		= lti_ode.rm_dyn_D;
+	connectivity	= lti_ode.connectivity;
 
 	return *this;
 }
-
-void Linear_Time_Invariant_Dynamics::evaluate(Interval & result, const unsigned int varID, const TaylorModelVec<Real> & tmv_range, const std::vector<Interval> & domain)
+/*
+void LTI_ODE::evaluate(Interval & result, const unsigned int varID, const TaylorModelVec<Real> & tmv_range, const std::vector<Interval> & domain)
 {
 	TaylorModel<Real> tmTemp;
 
@@ -4542,7 +5378,7 @@ void Linear_Time_Invariant_Dynamics::evaluate(Interval & result, const unsigned 
 	}
 }
 
-void Linear_Time_Invariant_Dynamics::evaluate(Interval & result, const std::vector<Expression<Real> > & coeff_of_Lie_deriv, const TaylorModelVec<Real> & tmv_range, const std::vector<Interval> & domain, const unsigned int order, const Computational_Setting & setting)
+void LTI_ODE::evaluate(Interval & result, const std::vector<Expression<Real> > & coeff_of_Lie_deriv, const TaylorModelVec<Real> & tmv_range, const std::vector<Interval> & domain, const unsigned int order, const Computational_Setting & setting)
 {
 	TaylorModelVec<Real> tmDerivRng;
 
@@ -4594,18 +5430,19 @@ void Linear_Time_Invariant_Dynamics::evaluate(Interval & result, const std::vect
 		result += I;
 	}
 }
+*/
 
-
-int Linear_Time_Invariant_Dynamics::reach(std::list<LinearFlowpipe> & flowpipes, std::list<unsigned int> & flowpipe_orders, std::list<int> & flowpipes_safety,
-		unsigned long & num_of_flowpipes, const double time, const int zono_order, const Flowpipe & initialSet, const Taylor_Model_Setting & tm_setting,
-		const Global_Setting & g_setting, const bool bPrint, const std::vector<Constraint> & unsafeSet, const bool bSafetyChecking,
-		const bool bPlot, const bool bTMOutput)
+void LTI_ODE::abstract(FlowmapAbstraction & abstraction, const int N, const int zono_order, const Taylor_Model_Setting & tm_setting,
+		const Global_Setting & g_setting)
 {
 	// find a proper parameter r = 2^n such that |A*delta/r| < 0.1
 	Real A_max = rm_dyn_A.max_norm();
 	Real threshold = 0.1;
 	double step = tm_setting.step_exp_table[1].sup();
 	Real rStep = step;
+
+	abstraction.clear();
+	abstraction.stepsize = step;
 
 	unsigned int r = 1, n = 0;
 	while(A_max >= threshold)
@@ -4623,19 +5460,9 @@ int Linear_Time_Invariant_Dynamics::reach(std::list<LinearFlowpipe> & flowpipes,
 
 	unsigned int approx_order = findProperOrder(error, A_max, A_min, tolerance, tm_setting.order);
 
-
-	unsigned int nec_order = 2*approx_order + 1;
-	std::vector<Real> step_end_exp_table(nec_order + 1, 1);
-	step_end_exp_table[1] = step;
-
-	for(unsigned int i=2; i<=nec_order; ++i)
-	{
-		step_end_exp_table[i] = step_end_exp_table[i-1] * rStep;
-	}
-
-
 	Interval intStep(0, step);
-	interval_utm_setting.setValue(intStep, approx_order);
+	interval_utm_setting.order = tm_setting.order;
+	interval_utm_setting.val = intStep;
 
 	int rangeDim = rm_dyn_A.rows();
 
@@ -4690,210 +5517,129 @@ int Linear_Time_Invariant_Dynamics::reach(std::list<LinearFlowpipe> & flowpipes,
 	}
 
 	// evaluate the one-step mapping matrix
-	Matrix<Real> rm_Phi(rangeDim, rangeDim);
-	utm_Phi_0.evaluate(rm_Phi, step_end_exp_table);
+	Matrix<Real> rm_Phi_end(rangeDim, rangeDim);
+	expansion_exp_A_t_k.evaluate(rm_Phi_end, rStep);
+
+	for(unsigned int i=0; i<n; ++i)
+	{
+		rm_Phi_end *= rm_Phi_end;
+	}
 
 
 	// compute the linear mapping for the constant part
 	Matrix<UnivariateTaylorModel<Real> > utm_Psi_0;
 	Matrix<UnivariateTaylorModel<Real> > utm_Psi(rangeDim, 1);
 
-	LinearFlowpipe flowpipe;
+	LinearFlowmap flowmap;
 
-	if(utm_dyn_B.rows() > 0)
+	if(rm_dyn_B.cols() > 0)
 	{
-		utm_Psi_0 = utm_Phi_0 * utm_dyn_B;
+		utm_Psi_0 = utm_Phi_0 * rm_dyn_B;
 		utm_Psi_0.integral(intStep);
-		utm_Psi_0.evaluate(utm_Psi, step_end_exp_table);
+		utm_Psi_0.evaluate(utm_Psi, step);
 		utm_Psi_0.ctrunc(tm_setting.order);
-		flowpipe.Psi = utm_Psi_0;
+		flowmap.Psi = utm_Psi_0;
 	}
 
+	// compute the linear mapping for the constant parameters
+	Matrix<UnivariateTaylorModel<Real> > utm_Omega_0;
+	Matrix<UnivariateTaylorModel<Real> > utm_Omega(rangeDim, 1);
+
+	if(rm_dyn_C.cols() > 0)
+	{
+		utm_Omega_0 = utm_Phi_0 * rm_dyn_C;
+		utm_Omega_0.integral(intStep);
+		utm_Omega_0.evaluate(utm_Omega, step);
+		utm_Omega_0.ctrunc(tm_setting.order);
+		flowmap.Omega = utm_Omega_0;
+	}
+
+
 	Zonotope global_tv_remainder(rangeDim);
-	Matrix<UnivariateTaylorModel<Real> > utm_Omega;
+	Matrix<UnivariateTaylorModel<Real> > utm_Pi_0;
 
 	Interval intUnit(-1,1);
-	Matrix<Interval> uncertain_range(rm_dyn_C.cols(), 1, intUnit);
+	Matrix<Interval> uncertain_range(rm_dyn_D.cols(), 1, intUnit);
 	Zonotope zono_step;
 
-	if(rm_dyn_C.rows() > 0)
-	{
-		utm_Omega = utm_Phi_0 * rm_dyn_C;
-		utm_Omega.integral(intStep);
 
-		Matrix<Interval> im_temp(rangeDim, utm_Omega.cols());
-		utm_Omega.evaluate(im_temp, step_end_exp_table);
+	// compute the zonotope enclosure for the time-varying uncertainties
+	if(rm_dyn_D.cols() > 0)
+	{
+		utm_Pi_0 = utm_Phi_0 * rm_dyn_D;
+		utm_Pi_0.integral(intStep);
+
+		Matrix<Interval> im_temp(rangeDim, rm_dyn_D.cols());
+		utm_Pi_0.evaluate(im_temp, step);
+
 		im_temp *= uncertain_range;
 
 		Zonotope zonoTmp(im_temp);
 		zono_step = zonoTmp;
 
-		flowpipe.tv_remainder = global_tv_remainder + zono_step;
-
-		global_tv_remainder = rm_Phi * flowpipe.tv_remainder;
+		global_tv_remainder = zono_step;
+		flowmap.tv_remainder = global_tv_remainder;
 	}
-
 
 
 	utm_Phi_0.ctrunc(tm_setting.order);
-	flowpipe.Phi = utm_Phi_0;
-
-	interval_utm_setting.setOrder(tm_setting.order);
+	flowmap.Phi = utm_Phi_0;
 
 
-	// perform the safety checking on the first flowpipe
-	int checking_result = COMPLETED_SAFE;
-	std::vector<Interval> polyRangeX0;
-	std::vector<Interval> range_of_X0(rangeDim);
-
-	std::vector<Interval> domain = initialSet.domain;
-	domain[0] = intStep;
+	abstraction.flowmaps.push_back(flowmap);
 
 
-	if(bSafetyChecking)
-	{
-		initialSet.tmvPre.polyRangeNormal(polyRangeX0, interval_utm_setting.val_exp_table);
-
-		for(int k=0; k<rangeDim; ++k)
-		{
-			range_of_X0[k] = polyRangeX0[k] + initialSet.tmvPre.tms[k].remainder;
-		}
-
-		if(bTMOutput || bPlot)
-		{
-			flowpipes.push_back(flowpipe);
-		}
-
-		int safety;
-
-		safety = flowpipe.safetyChecking(unsafeSet, tm_setting, g_setting, initialSet.tmvPre, polyRangeX0, range_of_X0, domain);
-
-		if(bTMOutput || bPlot)
-		{
-			flowpipes_safety.push_back(safety);
-		}
-
-		if(safety == UNSAFE)
-		{
-			return COMPLETED_UNSAFE;
-		}
-		else if(safety == UNKNOWN && checking_result == COMPLETED_SAFE)
-		{
-			checking_result = COMPLETED_UNKNOWN;
-		}
-	}
-	else
-	{
-		if(bTMOutput || bPlot)
-		{
-			flowpipes.push_back(flowpipe);
-			flowpipes_safety.push_back(SAFE);
-		}
-	}
-
-
-	Matrix<UnivariateTaylorModel<Real> > utm_global_Psi = utm_Psi;
-	Matrix<Real> rm_global_Phi = rm_Phi;
-
-
-	int N = (int)ceil(time/step);
-
-	if(bPrint)
-	{
-		printf("time = %f,\t", step);
-		printf("step = %f,\t", step);
-		printf("order = %d\n", tm_setting.order);
-	}
+	Matrix<UnivariateTaylorModel<Real> > utm_global_Psi = utm_Psi, utm_global_Omega = utm_Omega;
+	Matrix<Real> rm_global_Phi = rm_Phi_end;
 
 
 	for(int i=1; i<N; ++i)
 	{
-		LinearFlowpipe newFlowpipe;
+		LinearFlowmap newFlowmap;
 
-		newFlowpipe.Phi = rm_global_Phi * utm_Phi_0;
+		newFlowmap.Phi = rm_global_Phi * utm_Phi_0;
 
-		if(utm_dyn_B.rows() > 0)
+		if(rm_dyn_B.cols() > 0)
 		{
-			newFlowpipe.Psi = utm_Phi_0 * utm_global_Psi + utm_Psi_0;
+			newFlowmap.Psi = utm_Phi_0 * utm_global_Psi + utm_Psi_0;
 			utm_global_Psi += rm_global_Phi * utm_Psi;
 		}
 
-		if(rm_dyn_C.rows() > 0)
+		if(rm_dyn_C.cols() > 0)
+		{
+			newFlowmap.Omega = utm_Phi_0 * utm_global_Omega + utm_Omega_0;
+			utm_global_Omega += rm_global_Phi * utm_Omega;
+		}
+
+		if(rm_dyn_D.cols() > 0)
 		{
 			if(zono_order >= 0 && global_tv_remainder.numOfGen()/rangeDim > zono_order)
 			{
 				global_tv_remainder.simplify();
 			}
 
-			newFlowpipe.tv_remainder = global_tv_remainder + zono_step;
-
-			global_tv_remainder = rm_Phi * newFlowpipe.tv_remainder;
+			global_tv_remainder = global_tv_remainder + rm_global_Phi * zono_step;
+			newFlowmap.tv_remainder = global_tv_remainder;
 		}
 
-		newFlowpipe.Phi.evaluate(rm_global_Phi, step_end_exp_table);
+		rm_global_Phi *= rm_Phi_end;
 
-		++num_of_flowpipes;
-
-		if(bSafetyChecking)
-		{
-			if(bTMOutput || bPlot)
-			{
-				flowpipes.push_back(newFlowpipe);
-			}
-
-			int safety;
-
-			safety = newFlowpipe.safetyChecking(unsafeSet, tm_setting, g_setting, initialSet.tmvPre, polyRangeX0, range_of_X0, domain);
-
-			if(bTMOutput || bPlot)
-			{
-				flowpipes_safety.push_back(safety);
-			}
-
-			if(safety == UNSAFE)
-			{
-				if(true)
-				{
-					printf("time = %f,\t", (i+1)*step);
-					printf("step = %f,\t", step);
-					printf("order = %d\n", tm_setting.order);
-				}
-
-				return COMPLETED_UNSAFE;
-			}
-			else if(safety == UNKNOWN && checking_result == COMPLETED_SAFE)
-			{
-				checking_result = COMPLETED_UNKNOWN;
-			}
-		}
-		else
-		{
-			if(bTMOutput || bPlot)
-			{
-				flowpipes.push_back(newFlowpipe);
-				flowpipes_safety.push_back(SAFE);
-			}
-		}
-
-		if(bPrint)
-		{
-			printf("time = %f,\t", (i+1)*step);
-			printf("step = %f,\t", step);
-			printf("order = %d\n", tm_setting.order);
-		}
+		abstraction.flowmaps.push_back(newFlowmap);
 	}
-
-	return checking_result;
 }
 
-int Linear_Time_Invariant_Dynamics::reach_one_step(TaylorModelVec<Real> & result, const double stepsize, const TaylorModelVec<Real> & initialSet,
-		std::vector<Interval> & domain, const unsigned int order, const Interval & cutoff_threshold)
+void LTI_ODE::abstract(FlowmapAbstraction & abstraction, const int N, Computational_Setting & setting, const int zono_order)
+{
+	abstract(abstraction, N, zono_order, setting.tm_setting, setting.g_setting);
+}
+
+int LTI_ODE::compute_one_flowpipe(TaylorModelFlowpipe & result, const Real & stepsize, const TaylorModelFlowpipe & initialSet, const unsigned int order, const Taylor_Model_Setting & tm_setting)
 {
 	// find a proper parameter r = 2^n such that |A*delta/r| < 0.1
 	Real A_max = rm_dyn_A.max_norm();
 	Real threshold = 0.1;
-	double step = stepsize;
-	Real rStep = step;
+
+	Interval intStep(0, stepsize.toDouble());
 
 	unsigned int r = 1, n = 0;
 	while(A_max >= threshold)
@@ -4912,19 +5658,6 @@ int Linear_Time_Invariant_Dynamics::reach_one_step(TaylorModelVec<Real> & result
 	unsigned int approx_order = findProperOrder(error, A_max, A_min, tolerance, order);
 
 
-	unsigned int nec_order = 2*approx_order + 1;
-	std::vector<Real> step_end_exp_table(nec_order + 1, 1);
-	step_end_exp_table[1] = step;
-
-	for(unsigned int i=2; i<=nec_order; ++i)
-	{
-		step_end_exp_table[i] = step_end_exp_table[i-1] * rStep;
-	}
-
-
-	Interval intStep(0, step);
-	interval_utm_setting.setValue(intStep, approx_order);
-
 	int rangeDim = rm_dyn_A.rows();
 
 	// identity matrix
@@ -4977,70 +5710,92 @@ int Linear_Time_Invariant_Dynamics::reach_one_step(TaylorModelVec<Real> & result
 		utm_Phi_0 *= utm_Phi_0;
 	}
 
+
 	// evaluate the one-step mapping matrix
-	Matrix<Real> rm_Phi(rangeDim, rangeDim);
-	utm_Phi_0.evaluate(rm_Phi, step_end_exp_table);
+	Matrix<UnivariateTaylorModel<Real> > utm_Phi_end(rangeDim, rangeDim);
+	utm_Phi_0.evaluate(utm_Phi_end, stepsize);
 
 
 	// compute the linear mapping for the constant part
 	Matrix<UnivariateTaylorModel<Real> > utm_Psi_0;
 	Matrix<UnivariateTaylorModel<Real> > utm_Psi(rangeDim, 1);
 
-	LinearFlowpipe flowpipe;
+	LinearFlowmap flowmap;
 
-	if(utm_dyn_B.rows() > 0)
+	if(rm_dyn_B.cols() > 0)
 	{
-		utm_Psi_0 = utm_Phi_0 * utm_dyn_B;
+		utm_Psi_0 = utm_Phi_0 * rm_dyn_B;
 		utm_Psi_0.integral(intStep);
-		utm_Psi_0.evaluate(utm_Psi, step_end_exp_table);
+		utm_Psi_0.evaluate(utm_Psi, stepsize);
 		utm_Psi_0.ctrunc(order);
-		flowpipe.Psi = utm_Psi_0;
+		flowmap.Psi = utm_Psi_0;
 	}
 
+	// compute the linear mapping for the constant parameters
+	Matrix<UnivariateTaylorModel<Real> > utm_Omega_0;
+	Matrix<UnivariateTaylorModel<Real> > utm_Omega(rangeDim, 1);
+
+	if(rm_dyn_C.cols() > 0)
+	{
+		utm_Omega_0 = utm_Phi_0 * rm_dyn_C;
+		utm_Omega_0.integral(intStep);
+		utm_Omega_0.evaluate(utm_Omega, stepsize);
+		utm_Omega_0.ctrunc(order);
+		flowmap.Omega = utm_Omega_0;
+	}
+
+
 	Zonotope global_tv_remainder(rangeDim);
-	Matrix<UnivariateTaylorModel<Real> > utm_Omega;
+	Matrix<UnivariateTaylorModel<Real> > utm_Pi_0;
 
 	Interval intUnit(-1,1);
-	Matrix<Interval> uncertain_range(rm_dyn_C.cols(), 1, intUnit);
+	Matrix<Interval> uncertain_range(rm_dyn_D.cols(), 1, intUnit);
 	Zonotope zono_step;
 
-	if(rm_dyn_C.rows() > 0)
-	{
-		utm_Omega = utm_Phi_0 * rm_dyn_C;
-		utm_Omega.integral(intStep);
 
-		Matrix<Interval> im_temp(rangeDim, utm_Omega.cols());
-		utm_Omega.evaluate(im_temp, step_end_exp_table);
+	// compute the zonotope enclosure for the time-varying uncertainties
+	if(rm_dyn_D.cols() > 0)
+	{
+		utm_Pi_0 = utm_Phi_0 * rm_dyn_D;
+		utm_Pi_0.integral(intStep);
+
+		Matrix<Interval> im_temp(rangeDim, rm_dyn_D.cols());
+		utm_Pi_0.evaluate(im_temp, stepsize);
+
 		im_temp *= uncertain_range;
 
 		Zonotope zonoTmp(im_temp);
 		zono_step = zonoTmp;
 
-		flowpipe.tv_remainder = global_tv_remainder + zono_step;
-
-		global_tv_remainder = rm_Phi * flowpipe.tv_remainder;
+		global_tv_remainder = zono_step;
+		flowmap.tv_remainder = global_tv_remainder;
 	}
-
 
 
 	utm_Phi_0.ctrunc(order);
-	flowpipe.Phi = utm_Phi_0;
+	flowmap.Phi = utm_Phi_0;
 
-	domain[0] = intStep;
-	flowpipe.evaluate(result, initialSet, domain, order, cutoff_threshold);
-/*
-	std::vector<Interval> range_x;
-	initialSet.intEval(range_x, domain);
 
-	for(int i=0; i<range_x.size(); ++i)
+
+	std::vector<Interval> polyRangeX0;
+	initialSet.tmv_flowpipe.polyRange(polyRangeX0, initialSet.domain);
+
+	std::vector<Interval> range_of_X0(rangeDim);
+
+	for(int k=0; k<rangeDim; ++k)
 	{
-		std::cout << range_x[i] << std::endl;
+		range_of_X0[k] = polyRangeX0[k] + initialSet.tmv_flowpipe.tms[k].remainder;
 	}
-*/
+
+
+	result.domain = initialSet.domain;
+	result.domain[0] = intStep;
+
+	flowmap.evaluate(result.tmv_flowpipe, initialSet.tmv_flowpipe, polyRangeX0, range_of_X0, result.domain, tm_setting);
 
 	return 0;
 }
-
+/*
 int Linear_Time_Invariant_Dynamics::reach(std::list<LinearFlowpipe> & flowpipes, std::list<unsigned int> & flowpipe_orders, std::list<int> & flowpipes_safety,
 		unsigned long & num_of_flowpipes, const double time, const int zono_order, LinearFlowpipe & l_initial_set, const Flowpipe & g_initial_set,
 		const Taylor_Model_Setting & tm_setting, const Global_Setting & g_setting, const bool bPrint, const std::vector<Constraint> & unsafeSet, const bool bSafetyChecking,
@@ -6746,7 +7501,7 @@ int Linear_Time_Invariant_Dynamics::reach_inv(std::list<TaylorModelVec<Real> > &
 	return checking_result;
 }
 
-void Linear_Time_Invariant_Dynamics::reach(Result_of_Reachability & result, Computational_Setting & setting, const Flowpipe & initialSet, const std::vector<Constraint> & unsafeSet, const int zono_order)
+void Linear_Time_Invariant_Dynamics::reach(Result_of_Reachability & result, const Flowpipe & initialSet, const double T, Computational_Setting & setting, const std::vector<Constraint> & unsafeSet, const int zono_order)
 {
 	bool bSafetyChecking = false;
 
@@ -6756,7 +7511,7 @@ void Linear_Time_Invariant_Dynamics::reach(Result_of_Reachability & result, Comp
 	}
 
 	result.status = reach(result.linear_flowpipes, result.orders_of_flowpipes, result.safety_of_flowpipes,
-			result.num_of_flowpipes, setting.time, zono_order, initialSet, setting.tm_setting,
+			result.num_of_flowpipes, T, zono_order, initialSet, setting.tm_setting,
 			setting.g_setting, setting.bPrint, unsafeSet, bSafetyChecking, true, true);
 
 
@@ -6815,7 +7570,7 @@ void Linear_Time_Invariant_Dynamics::reach(Result_of_Reachability & result, Comp
 	}
 }
 
-void Linear_Time_Invariant_Dynamics::reach(Result_of_Reachability & result, Computational_Setting & setting, LinearFlowpipe & l_initial_set, const Flowpipe & g_initial_set, const std::vector<Constraint> & unsafeSet, const int zono_order)
+void Linear_Time_Invariant_Dynamics::reach(Result_of_Reachability & result, LinearFlowpipe & l_initial_set, const Flowpipe & g_initial_set, const double T, Computational_Setting & setting, const std::vector<Constraint> & unsafeSet, const int zono_order)
 {
 	bool bSafetyChecking = false;
 
@@ -6825,7 +7580,7 @@ void Linear_Time_Invariant_Dynamics::reach(Result_of_Reachability & result, Comp
 	}
 
 	result.status = reach(result.linear_flowpipes, result.orders_of_flowpipes, result.safety_of_flowpipes,
-			result.num_of_flowpipes, setting.time, zono_order, l_initial_set, g_initial_set, setting.tm_setting,
+			result.num_of_flowpipes, T, zono_order, l_initial_set, g_initial_set, setting.tm_setting,
 			setting.g_setting, setting.bPrint, unsafeSet, bSafetyChecking, true, true);
 
 
@@ -6883,7 +7638,7 @@ void Linear_Time_Invariant_Dynamics::reach(Result_of_Reachability & result, Comp
 	}
 }
 
-void Linear_Time_Invariant_Dynamics::reach_inv(Result_of_Reachability & result, Computational_Setting & setting, const Flowpipe & initialSet, Flowpipe & contracted_initialSet, const std::vector<Constraint> & invariant, const std::vector<Constraint> & unsafeSet, const int zono_order)
+void Linear_Time_Invariant_Dynamics::reach_inv(Result_of_Reachability & result, const Flowpipe & initialSet, Flowpipe & contracted_initialSet, const double T, const std::vector<Constraint> & invariant, Computational_Setting & setting, const std::vector<Constraint> & unsafeSet, const int zono_order)
 {
 	bool bSafetyChecking = false;
 
@@ -6893,7 +7648,7 @@ void Linear_Time_Invariant_Dynamics::reach_inv(Result_of_Reachability & result, 
 	}
 
 	result.status = reach_inv(result.tmv_flowpipes, result.tmv_flowpipes_domains, result.lfp_end_of_time, contracted_initialSet, result.orders_of_flowpipes, result.safety_of_flowpipes,
-			result.contraction_of_flowpipes, result.num_of_flowpipes, setting.time, zono_order, initialSet, invariant, setting.tm_setting, setting.g_setting,
+			result.contraction_of_flowpipes, result.num_of_flowpipes, T, zono_order, initialSet, invariant, setting.tm_setting, setting.g_setting,
 			setting.bPrint, unsafeSet, bSafetyChecking, true, true);
 
 
@@ -6954,7 +7709,7 @@ void Linear_Time_Invariant_Dynamics::reach_inv(Result_of_Reachability & result, 
 	}
 }
 
-void Linear_Time_Invariant_Dynamics::reach_inv(Result_of_Reachability & result, Computational_Setting & setting, LinearFlowpipe & l_initial_set, const Flowpipe & g_initial_set, Flowpipe & contracted_initialSet, const std::vector<Constraint> & invariant, const std::vector<Constraint> & unsafeSet, const int zono_order)
+void Linear_Time_Invariant_Dynamics::reach_inv(Result_of_Reachability & result, LinearFlowpipe & l_initial_set, const Flowpipe & g_initial_set, Flowpipe & contracted_initialSet, const double T, const std::vector<Constraint> & invariant, Computational_Setting & setting, const std::vector<Constraint> & unsafeSet, const int zono_order)
 {
 	bool bSafetyChecking = false;
 
@@ -6964,7 +7719,7 @@ void Linear_Time_Invariant_Dynamics::reach_inv(Result_of_Reachability & result, 
 	}
 
 	result.status = reach_inv(result.tmv_flowpipes, result.tmv_flowpipes_domains, result.lfp_end_of_time, contracted_initialSet, result.orders_of_flowpipes, result.safety_of_flowpipes,
-			result.contraction_of_flowpipes, result.num_of_flowpipes, setting.time, zono_order, l_initial_set, g_initial_set, invariant, setting.tm_setting, setting.g_setting,
+			result.contraction_of_flowpipes, result.num_of_flowpipes, T, zono_order, l_initial_set, g_initial_set, invariant, setting.tm_setting, setting.g_setting,
 			setting.bPrint, unsafeSet, bSafetyChecking, true, true);
 
 
@@ -7023,6 +7778,7 @@ void Linear_Time_Invariant_Dynamics::reach_inv(Result_of_Reachability & result, 
 		}
 	}
 }
+*/
 
 
 
@@ -7031,24 +7787,11 @@ void Linear_Time_Invariant_Dynamics::reach_inv(Result_of_Reachability & result, 
 
 
 
-Linear_Time_Varying_Dynamics::Linear_Time_Varying_Dynamics(const Matrix<UnivariatePolynomial<Real> > & A, const Matrix<UnivariatePolynomial<Real> > & B, const Matrix<UnivariatePolynomial<Real> > & C)
+
+
+LTV_ODE::LTV_ODE(const Matrix<Expression<Real> > & A)
 {
-	upm_dyn_A			= A;
-	upm_dyn_B			= B;
-	upm_dyn_tv			= C;
-
-	if(B.isZero())
-	{
-		bAuto = true;
-	}
-	else
-	{
-		bAuto = false;
-	}
-
-	Interval intUnit(-1,1);
-	Matrix<Interval> tmp(C.cols(), 1, intUnit);
-	uncertain_range	= tmp;
+	expr_dyn_A			= A;
 
 	unsigned int n = A.rows();
 	Matrix<bool> conMatrix(n, n), adjMatrix(n, n);
@@ -7057,7 +7800,7 @@ Linear_Time_Varying_Dynamics::Linear_Time_Varying_Dynamics(const Matrix<Univaria
 	{
 		for(unsigned int j=0; j<n; ++j)
 		{
-			if(!(upm_dyn_A[i][j].isZero()))
+			if(!(expr_dyn_A[i][j].isZero()))
 			{
 				adjMatrix[i][j] = true;
 			}
@@ -7068,33 +7811,201 @@ Linear_Time_Varying_Dynamics::Linear_Time_Varying_Dynamics(const Matrix<Univaria
 	connectivity = conMatrix;
 }
 
-Linear_Time_Varying_Dynamics::Linear_Time_Varying_Dynamics(const Linear_Time_Varying_Dynamics & dynamics)
+
+LTV_ODE::LTV_ODE(const Matrix<Expression<Real> > & A, const Matrix<Expression<Real> > & B)
 {
-	upm_dyn_A			= dynamics.upm_dyn_A;
-	upm_dyn_B			= dynamics.upm_dyn_B;
-	upm_dyn_tv			= dynamics.upm_dyn_tv;
-	uncertain_range		= dynamics.uncertain_range;
-	bAuto				= dynamics.bAuto;
+	expr_dyn_A			= A;
+	expr_dyn_B			= B;
+
+	unsigned int n = A.rows();
+	Matrix<bool> conMatrix(n, n), adjMatrix(n, n);
+
+	for(unsigned int i=0; i<n; ++i)
+	{
+		for(unsigned int j=0; j<n; ++j)
+		{
+			if(!(expr_dyn_A[i][j].isZero()))
+			{
+				adjMatrix[i][j] = true;
+			}
+		}
+	}
+
+	check_connectivities(conMatrix, adjMatrix);
+	connectivity = conMatrix;
 }
 
-Linear_Time_Varying_Dynamics::~Linear_Time_Varying_Dynamics()
+LTV_ODE::LTV_ODE(const Matrix<Expression<Real> > & A, const Matrix<Expression<Real> > & B, const Matrix<Expression<Real> > & C)
+{
+	expr_dyn_A			= A;
+	expr_dyn_B			= B;
+	expr_dyn_C			= C;
+
+
+	unsigned int n = A.rows();
+	Matrix<bool> conMatrix(n, n), adjMatrix(n, n);
+
+	for(unsigned int i=0; i<n; ++i)
+	{
+		for(unsigned int j=0; j<n; ++j)
+		{
+			if(!(expr_dyn_A[i][j].isZero()))
+			{
+				adjMatrix[i][j] = true;
+			}
+		}
+	}
+
+	check_connectivities(conMatrix, adjMatrix);
+	connectivity = conMatrix;
+}
+
+LTV_ODE::LTV_ODE(const Matrix<Expression<Real> > & A, const Matrix<Expression<Real> > & B, const Matrix<Expression<Real> > & C, const Matrix<Expression<Real> > & D)
+{
+	expr_dyn_A			= A;
+	expr_dyn_B			= B;
+	expr_dyn_C			= C;
+	expr_dyn_D			= D;
+
+
+	unsigned int n = A.rows();
+	Matrix<bool> conMatrix(n, n), adjMatrix(n, n);
+
+	for(unsigned int i=0; i<n; ++i)
+	{
+		for(unsigned int j=0; j<n; ++j)
+		{
+			if(!(expr_dyn_A[i][j].isZero()))
+			{
+				adjMatrix[i][j] = true;
+			}
+		}
+	}
+
+	check_connectivities(conMatrix, adjMatrix);
+	connectivity = conMatrix;
+}
+
+LTV_ODE::LTV_ODE(const LTV_ODE & ltv_ode)
+{
+	expr_dyn_A			= ltv_ode.expr_dyn_A;
+	expr_dyn_B			= ltv_ode.expr_dyn_B;
+	expr_dyn_C			= ltv_ode.expr_dyn_C;
+	expr_dyn_D			= ltv_ode.expr_dyn_D;
+	connectivity		= ltv_ode.connectivity;
+}
+
+LTV_ODE::~LTV_ODE()
 {
 }
 
-Linear_Time_Varying_Dynamics & Linear_Time_Varying_Dynamics::operator = (const Linear_Time_Varying_Dynamics & dynamics)
+LTV_ODE & LTV_ODE::operator = (const LTV_ODE & ltv_ode)
 {
-	if(this == &dynamics)
+	if(this == &ltv_ode)
 		return *this;
 
-	upm_dyn_A			= dynamics.upm_dyn_A;
-	upm_dyn_B			= dynamics.upm_dyn_B;
-	upm_dyn_tv			= dynamics.upm_dyn_tv;
-	uncertain_range		= dynamics.uncertain_range;
-	bAuto				= dynamics.bAuto;
+	expr_dyn_A			= ltv_ode.expr_dyn_A;
+	expr_dyn_B			= ltv_ode.expr_dyn_B;
+	expr_dyn_C			= ltv_ode.expr_dyn_C;
+	expr_dyn_D			= ltv_ode.expr_dyn_D;
+	connectivity		= ltv_ode.connectivity;
 
 	return *this;
 }
 
+void LTV_ODE::abstract(FlowmapAbstraction & abstraction, const double t0, const int N, const int zono_order, const Taylor_Model_Setting & tm_setting,
+		const Global_Setting & g_setting)
+{
+	double step = tm_setting.step_exp_table[1].sup();
+	Real rStep = step;
+	const int rangeDim = expr_dyn_A.rows();
+	Interval intStep(0, step);
+
+	abstraction.clear();
+	abstraction.stepsize = step;
+
+	int maxOrder = 2*tm_setting.step_exp_table.size() + 1;
+	interval_utm_setting.order = tm_setting.order;
+	interval_utm_setting.val = intStep;
+
+
+	Matrix<UnivariateTaylorModel<Real> > Phi_t_0(rangeDim), Psi_t_0(rangeDim, 1), Omega_t_0(rangeDim, expr_dyn_C.cols());
+	Zonotope global_tv_remainder(rangeDim);
+	Matrix<Interval> tv_part(rangeDim, expr_dyn_D.cols());
+
+	Interval intUnit(-1,1);
+	Matrix<Interval> uncertain_range(expr_dyn_D.cols(), 1, intUnit);
+
+
+	for(int i=0; i<N; ++i)
+	{
+		UnivariateTaylorModel<Real> utm_t0;
+		utm_t0.expansion.coefficients.push_back(t0 + i*step);
+		utm_t0.expansion.coefficients.push_back(1);
+
+
+		LinearFlowmap flowmap;
+		Matrix<UnivariateTaylorModel<Real> > Phi_step_end(rangeDim, rangeDim);
+		Matrix<UnivariateTaylorModel<Real> > Psi_step_end(rangeDim, 1);
+		Matrix<UnivariateTaylorModel<Real> > Omega_step_end(rangeDim, expr_dyn_C.cols());
+
+
+		compute_one_step_trans(flowmap.Phi, Phi_step_end, flowmap.Psi, Psi_step_end, flowmap.Omega, Omega_step_end,
+				tv_part, *this, utm_t0, tm_setting.order, step, g_setting);
+
+		if(expr_dyn_B.cols() > 0)
+		{
+			Matrix<UnivariateTaylorModel<Real> > utm_tmp = flowmap.Phi * Psi_t_0;
+			flowmap.Psi = utm_tmp + flowmap.Psi;
+			utm_tmp.evaluate(Psi_t_0, step);
+			Psi_t_0 += Psi_step_end;
+		}
+
+
+		if(expr_dyn_C.cols() > 0)
+		{
+			Matrix<UnivariateTaylorModel<Real> > utm_tmp = flowmap.Phi * Omega_t_0;
+			flowmap.Omega = utm_tmp + flowmap.Omega;
+			utm_tmp.evaluate(Omega_t_0, step);
+			Omega_t_0 += Omega_step_end;
+		}
+
+
+		if(expr_dyn_D.cols() > 0)
+		{
+			if(zono_order >= 0 && global_tv_remainder.numOfGen()/rangeDim > zono_order)
+			{
+				global_tv_remainder.simplify();
+			}
+
+			Matrix<Interval> im_Phi(rangeDim, rangeDim);
+			flowmap.Phi.evaluate(im_Phi, intStep);
+
+			Matrix<Interval> im_temp = im_Phi * tv_part * uncertain_range;
+			im_temp *= intStep;
+			Zonotope zonoTmp(im_temp);
+			flowmap.tv_remainder = global_tv_remainder + zonoTmp;
+
+			Matrix<Real> Phi_bound(rangeDim, rangeDim);
+			Phi_step_end.bound(Phi_bound);
+			global_tv_remainder = Phi_bound * flowmap.tv_remainder;
+		}
+
+
+		flowmap.Phi *= Phi_t_0;
+		Phi_t_0 = Phi_step_end * Phi_t_0;
+
+		abstraction.flowmaps.push_back(flowmap);
+	}
+}
+
+
+void LTV_ODE::abstract(FlowmapAbstraction & abstraction, const double t0, const int N, Computational_Setting & setting, const int zono_order)
+{
+	abstract(abstraction, t0, N, zono_order, setting.tm_setting, setting.g_setting);
+}
+
+/*
 void Linear_Time_Varying_Dynamics::evaluate(Interval & result, const unsigned int varID, const TaylorModelVec<Real> & tmv_range, const std::vector<Interval> & domain, const Real & t_lb, const unsigned int order, const Interval & cutoff_threshold)
 {
 	TaylorModel<Real> tmTemp;
@@ -7139,12 +8050,6 @@ void Linear_Time_Varying_Dynamics::evaluate(Interval & result, const unsigned in
 		result += J;
 	}
 }
-/*
-void Linear_Time_Varying_Dynamics::evaluate(Interval & result, const std::vector<Expression<Real> > & coeff_of_Lie_deriv, const TaylorModelVec<Real> & tmv_range, const std::vector<Interval> & domain, const Interval & t, const unsigned int order, const Computational_Setting & setting)
-{
-
-}
-*/
 
 int Linear_Time_Varying_Dynamics::reach(std::list<LinearFlowpipe> & flowpipes, std::list<unsigned int> & flowpipe_orders, std::list<int> & flowpipes_safety,
 		unsigned long & num_of_flowpipes, const double time, const Flowpipe & initialSet, const int zono_order, const Taylor_Model_Setting & tm_setting,
@@ -7691,7 +8596,7 @@ int Linear_Time_Varying_Dynamics::reach_inv(std::list<TaylorModelVec<Real> > & t
 	return checking_result;
 }
 
-void Linear_Time_Varying_Dynamics::reach(Result_of_Reachability & result, Computational_Setting & setting, const Flowpipe & initialSet, const std::vector<Constraint> & unsafeSet, const int zono_order)
+void Linear_Time_Varying_Dynamics::reach(Result_of_Reachability & result, const Flowpipe & initialSet, const double T, Computational_Setting & setting, const std::vector<Constraint> & unsafeSet, const int zono_order)
 {
 	bool bSafetyChecking = false;
 
@@ -7701,7 +8606,7 @@ void Linear_Time_Varying_Dynamics::reach(Result_of_Reachability & result, Comput
 	}
 
 	result.status = reach(result.linear_flowpipes, result.orders_of_flowpipes, result.safety_of_flowpipes,
-			result.num_of_flowpipes, setting.time, initialSet, zono_order, setting.tm_setting,
+			result.num_of_flowpipes, T, initialSet, zono_order, setting.tm_setting,
 			setting.g_setting, setting.bPrint, unsafeSet, bSafetyChecking, true, true);
 
 	// evaluate the Taylor model overapproximation at the end of the time
@@ -7732,7 +8637,7 @@ void Linear_Time_Varying_Dynamics::reach(Result_of_Reachability & result, Comput
 	}
 }
 
-void Linear_Time_Varying_Dynamics::reach_inv(Result_of_Reachability & result, Computational_Setting & setting, const Flowpipe & initialSet, const std::vector<Constraint> & invariant, const std::vector<Constraint> & unsafeSet, const int zono_order)
+void Linear_Time_Varying_Dynamics::reach_inv(Result_of_Reachability & result, const Flowpipe & initialSet, const double T, const std::vector<Constraint> & invariant, Computational_Setting & setting, const std::vector<Constraint> & unsafeSet, const int zono_order)
 {
 	bool bSafetyChecking = false;
 
@@ -7742,7 +8647,7 @@ void Linear_Time_Varying_Dynamics::reach_inv(Result_of_Reachability & result, Co
 	}
 
 	result.status = reach_inv(result.tmv_flowpipes, result.nonlinear_flowpipes, result.orders_of_flowpipes, result.safety_of_flowpipes,
-			result.contraction_of_flowpipes, result.num_of_flowpipes, setting.time, initialSet, zono_order, invariant, setting.tm_setting, setting.g_setting,
+			result.contraction_of_flowpipes, result.num_of_flowpipes, T, initialSet, zono_order, invariant, setting.tm_setting, setting.g_setting,
 			setting.bPrint, unsafeSet, bSafetyChecking, true, true);
 
 
@@ -7775,4309 +8680,10 @@ void Linear_Time_Varying_Dynamics::reach_inv(Result_of_Reachability & result, Co
 		last_flowpipe.evaluate_time(result.tmv_end_of_time, realVec);
 	}
 }
-
-
-
-
-
-Deterministic_Continuous_Dynamics::Deterministic_Continuous_Dynamics(const std::vector<Expression<Real> > & dynamics)
-{
-	for(unsigned int i=0; i<dynamics.size(); ++i)
-	{
-		expressions.push_back(dynamics[i]);
-	}
-}
-
-Deterministic_Continuous_Dynamics::Deterministic_Continuous_Dynamics(const Deterministic_Continuous_Dynamics & dynamics)
-{
-	expressions		= dynamics.expressions;
-}
-
-Deterministic_Continuous_Dynamics::~Deterministic_Continuous_Dynamics()
-{
-}
-
-Deterministic_Continuous_Dynamics & Deterministic_Continuous_Dynamics::operator = (const Deterministic_Continuous_Dynamics & dynamics)
-{
-	if(this == &dynamics)
-		return *this;
-
-	expressions		= dynamics.expressions;
-
-	return *this;
-}
-
-void Deterministic_Continuous_Dynamics::evaluate(Interval & result, const unsigned int varID, const TaylorModelVec<Real> & tmv_range, const std::vector<Interval> & domain, const unsigned int order, const Computational_Setting & setting)
-{
-	TaylorModel<Real> tm;
-	expressions[varID].evaluate(tm, tmv_range.tms, order, domain, setting.tm_setting.cutoff_threshold, setting.g_setting);
-
-	tm.intEval(result, domain);
-}
-
-int Deterministic_Continuous_Dynamics::reach(std::list<Flowpipe> & flowpipes, std::list<unsigned int> & flowpipe_orders, std::list<int> & flowpipes_safety,
-		unsigned long & num_of_flowpipes, const double time, const Flowpipe & initialSet, const Taylor_Model_Setting & tm_setting,
-		const Global_Setting & g_setting, const bool bPrint, const std::vector<Constraint> & unsafeSet, const bool bSafetyChecking,
-		const bool bPlot, const bool bTMOutput) const
-{
-	std::vector<Constraint> dummy_invariant;
-
-	double step = tm_setting.step_exp_table[1].sup();
-
-	int checking_result = COMPLETED_SAFE;
-
-	Flowpipe newFlowpipe, currentFlowpipe = initialSet;
-
-	for(double t=THRESHOLD_HIGH; t < time;)
-	{
-		int res = currentFlowpipe.advance_deterministic(newFlowpipe, expressions, tm_setting, dummy_invariant, g_setting);
-
-		if(res == 1)
-		{
-			++num_of_flowpipes;
-			flowpipe_orders.push_back(tm_setting.order);
-
-			if(bSafetyChecking)
-			{
-				int safety = newFlowpipe.safetyChecking(unsafeSet, tm_setting, g_setting);
-
-				if(bTMOutput || bPlot)
-				{
-					flowpipes.push_back(newFlowpipe);
-					flowpipes_safety.push_back(safety);
-				}
-
-				if(safety == UNSAFE)
-				{
-					return COMPLETED_UNSAFE;
-				}
-				else if(safety == UNKNOWN && checking_result == COMPLETED_SAFE)
-				{
-					checking_result = COMPLETED_UNKNOWN;
-				}
-			}
-			else
-			{
-				if(bTMOutput || bPlot)
-				{
-					flowpipes.push_back(newFlowpipe);
-					flowpipes_safety.push_back(SAFE);
-				}
-			}
-
-			currentFlowpipe = newFlowpipe;
-
-			t += step;
-
-			if(bPrint)
-			{
-				printf("time = %f,\t", t);
-				printf("step = %f,\t", step);
-				printf("order = %d\n", tm_setting.order);
-			}
-		}
-		else
-		{
-			switch(checking_result)
-			{
-			case COMPLETED_SAFE:
-				return UNCOMPLETED_SAFE;
-			case COMPLETED_UNSAFE:
-				return UNCOMPLETED_UNSAFE;
-			case COMPLETED_UNKNOWN:
-				return UNCOMPLETED_UNKNOWN;
-			}
-		}
-	}
-
-	return checking_result;
-}
-
-int Deterministic_Continuous_Dynamics::reach_adaptive_stepsize(std::list<Flowpipe> & flowpipes, std::list<unsigned int> & flowpipe_orders, std::list<int> & flowpipes_safety,
-		unsigned long & num_of_flowpipes, const double time, const Flowpipe & initialSet, Taylor_Model_Setting & tm_setting,
-		const Global_Setting & g_setting, const bool bPrint, const std::vector<Constraint> & unsafeSet, const bool bSafetyChecking,
-		const bool bPlot, const bool bTMOutput) const
-{
-	std::vector<Constraint> dummy_invariant;
-
-//	double step = tm_setting.step_exp_table[1].sup();
-
-	int checking_result = COMPLETED_SAFE;
-
-	Flowpipe newFlowpipe, currentFlowpipe = initialSet;
-	double new_stepsize = -1;
-
-	for(double t=THRESHOLD_HIGH; t < time;)
-	{
-		int res = currentFlowpipe.advance_deterministic_adaptive_stepsize(newFlowpipe, expressions, new_stepsize, tm_setting, dummy_invariant, g_setting);
-
-		if(res == 1)
-		{
-			++num_of_flowpipes;
-			flowpipe_orders.push_back(tm_setting.order);
-
-			if(bSafetyChecking)
-			{
-				int safety = newFlowpipe.safetyChecking(unsafeSet, tm_setting, g_setting);
-
-				if(bTMOutput || bPlot)
-				{
-					flowpipes.push_back(newFlowpipe);
-					flowpipes_safety.push_back(safety);
-				}
-
-				if(safety == UNSAFE)
-				{
-					return COMPLETED_UNSAFE;
-				}
-				else if(safety == UNKNOWN && checking_result == COMPLETED_SAFE)
-				{
-					checking_result = COMPLETED_UNKNOWN;
-				}
-			}
-			else
-			{
-				if(bTMOutput || bPlot)
-				{
-					flowpipes.push_back(newFlowpipe);
-					flowpipes_safety.push_back(SAFE);
-				}
-			}
-
-			currentFlowpipe = newFlowpipe;
-
-			double current_stepsize = tm_setting.step_exp_table[1].sup();
-			t += current_stepsize;
-
-			if(bPrint)
-			{
-				printf("time = %f,\t", t);
-				printf("step = %f,\t", current_stepsize);
-				printf("order = %d\n", tm_setting.order);
-			}
-
-			new_stepsize = current_stepsize * LAMBDA_UP;
-			if(new_stepsize > tm_setting.step_max - THRESHOLD_HIGH)
-			{
-				new_stepsize = -1;
-			}
-		}
-		else
-		{
-			switch(checking_result)
-			{
-			case COMPLETED_SAFE:
-				return UNCOMPLETED_SAFE;
-			case COMPLETED_UNSAFE:
-				return UNCOMPLETED_UNSAFE;
-			case COMPLETED_UNKNOWN:
-				return UNCOMPLETED_UNKNOWN;
-			}
-		}
-	}
-
-	return checking_result;
-}
-
-int Deterministic_Continuous_Dynamics::reach_adaptive_order(std::list<Flowpipe> & flowpipes, std::list<unsigned int> & flowpipe_orders, std::list<int> & flowpipes_safety,
-		unsigned long & num_of_flowpipes, const double time, const Flowpipe & initialSet, Taylor_Model_Setting & tm_setting,
-		const Global_Setting & g_setting, const bool bPrint, const std::vector<Constraint> & unsafeSet, const bool bSafetyChecking,
-		const bool bPlot, const bool bTMOutput) const
-{
-	std::vector<Constraint> dummy_invariant;
-
-	double step = tm_setting.step_exp_table[1].sup();
-
-	int checking_result = COMPLETED_SAFE;
-
-	Flowpipe newFlowpipe, currentFlowpipe = initialSet;
-
-	for(double t=THRESHOLD_HIGH; t < time;)
-	{
-		int res = currentFlowpipe.advance_deterministic_adaptive_order(newFlowpipe, expressions, tm_setting, dummy_invariant, g_setting);
-
-		if(res == 1)
-		{
-			++num_of_flowpipes;
-			flowpipe_orders.push_back(tm_setting.order);
-
-			if(bSafetyChecking)
-			{
-				int safety = newFlowpipe.safetyChecking(unsafeSet, tm_setting, g_setting);
-
-				if(bTMOutput || bPlot)
-				{
-					flowpipes.push_back(newFlowpipe);
-					flowpipes_safety.push_back(safety);
-				}
-
-				if(safety == UNSAFE)
-				{
-					return COMPLETED_UNSAFE;
-				}
-				else if(safety == UNKNOWN && checking_result == COMPLETED_SAFE)
-				{
-					checking_result = COMPLETED_UNKNOWN;
-				}
-			}
-			else
-			{
-				if(bTMOutput || bPlot)
-				{
-					flowpipes.push_back(newFlowpipe);
-					flowpipes_safety.push_back(SAFE);
-				}
-			}
-
-			currentFlowpipe = newFlowpipe;
-
-			t += step;
-
-			if(bPrint)
-			{
-				printf("time = %f,\t", t);
-				printf("step = %f,\t", step);
-				printf("order = %d\n", tm_setting.order);
-			}
-
-			if(tm_setting.order > tm_setting.order_min)
-			{
-				--tm_setting.order;
-			}
-		}
-		else
-		{
-			switch(checking_result)
-			{
-			case COMPLETED_SAFE:
-				return UNCOMPLETED_SAFE;
-			case COMPLETED_UNSAFE:
-				return UNCOMPLETED_UNSAFE;
-			case COMPLETED_UNKNOWN:
-				return UNCOMPLETED_UNKNOWN;
-			}
-		}
-	}
-
-
-	return checking_result;
-}
-
-int Deterministic_Continuous_Dynamics::reach_symbolic_remainder(std::list<Flowpipe> & flowpipes, std::list<unsigned int> & flowpipe_orders, std::list<int> & flowpipes_safety,
-		unsigned long & num_of_flowpipes, const double time, const Flowpipe & initialSet, Symbolic_Remainder & symbolic_remainder, const Taylor_Model_Setting & tm_setting,
-		const Global_Setting & g_setting, const bool bPrint, const std::vector<Constraint> & unsafeSet, const bool bSafetyChecking,
-		const bool bPlot, const bool bTMOutput) const
-{
-	std::vector<Constraint> dummy_invariant;
-
-//	std::vector<Real> initial_scalars(expressions.size(), 1);
-
-	double step = tm_setting.step_exp_table[1].sup();
-
-	int checking_result = COMPLETED_SAFE;
-
-	Flowpipe newFlowpipe, currentFlowpipe = initialSet;
-
-	for(double t=THRESHOLD_HIGH; t < time;)
-	{
-		int res = currentFlowpipe.advance_deterministic(newFlowpipe, expressions, tm_setting, dummy_invariant, g_setting, symbolic_remainder);
-
-		if(res == 1)
-		{
-			++num_of_flowpipes;
-			flowpipe_orders.push_back(tm_setting.order);
-
-			if(bSafetyChecking)
-			{
-				int safety = newFlowpipe.safetyChecking(unsafeSet, tm_setting, g_setting);
-
-				if(bTMOutput || bPlot)
-				{
-					flowpipes.push_back(newFlowpipe);
-					flowpipes_safety.push_back(safety);
-				}
-
-				if(safety == UNSAFE)
-				{
-					return COMPLETED_UNSAFE;
-				}
-				else if(safety == UNKNOWN && checking_result == COMPLETED_SAFE)
-				{
-					checking_result = COMPLETED_UNKNOWN;
-				}
-			}
-			else
-			{
-				if(bTMOutput || bPlot)
-				{
-					flowpipes.push_back(newFlowpipe);
-					flowpipes_safety.push_back(SAFE);
-				}
-			}
-
-			currentFlowpipe = newFlowpipe;
-
-			t += step;
-
-			if(bPrint)
-			{
-				printf("time = %f,\t", t);
-				printf("step = %f,\t", step);
-				printf("order = %d\n", tm_setting.order);
-			}
-
-			if(symbolic_remainder.J.size() >= symbolic_remainder.max_size)
-			{
-				symbolic_remainder.reset(currentFlowpipe);
-			}
-		}
-		else
-		{
-			switch(checking_result)
-			{
-			case COMPLETED_SAFE:
-				return UNCOMPLETED_SAFE;
-			case COMPLETED_UNSAFE:
-				return UNCOMPLETED_UNSAFE;
-			case COMPLETED_UNKNOWN:
-				return UNCOMPLETED_UNKNOWN;
-			}
-		}
-	}
-
-	return checking_result;
-}
-
-int Deterministic_Continuous_Dynamics::reach_symbolic_remainder_adaptive_stepsize(std::list<Flowpipe> & flowpipes, std::list<unsigned int> & flowpipe_orders, std::list<int> & flowpipes_safety,
-		unsigned long & num_of_flowpipes, const double time, const Flowpipe & initialSet, Symbolic_Remainder & symbolic_remainder, Taylor_Model_Setting & tm_setting,
-		const Global_Setting & g_setting, const bool bPrint, const std::vector<Constraint> & unsafeSet, const bool bSafetyChecking,
-		const bool bPlot, const bool bTMOutput) const
-{
-	std::vector<Constraint> dummy_invariant;
-
-//	std::vector<Real> initial_scalars(expressions.size(), 1);
-
-//	double step = tm_setting.step_exp_table[1].sup();
-
-	int checking_result = COMPLETED_SAFE;
-
-	Flowpipe newFlowpipe, currentFlowpipe = initialSet;
-
-	tm_setting.setStepsize(tm_setting.step_max, tm_setting.order);
-	double new_stepsize = -1;
-
-	for(double t=THRESHOLD_HIGH; t < time;)
-	{
-		int res = currentFlowpipe.advance_deterministic_adaptive_stepsize(newFlowpipe, expressions, new_stepsize, tm_setting, dummy_invariant, g_setting, symbolic_remainder);
-
-		if(res == 1)
-		{
-			++num_of_flowpipes;
-			flowpipe_orders.push_back(tm_setting.order);
-
-			if(bSafetyChecking)
-			{
-				int safety = newFlowpipe.safetyChecking(unsafeSet, tm_setting, g_setting);
-
-				if(bTMOutput || bPlot)
-				{
-					flowpipes.push_back(newFlowpipe);
-					flowpipes_safety.push_back(safety);
-				}
-
-				if(safety == UNSAFE)
-				{
-					return COMPLETED_UNSAFE;
-				}
-				else if(safety == UNKNOWN && checking_result == COMPLETED_SAFE)
-				{
-					checking_result = COMPLETED_UNKNOWN;
-				}
-			}
-			else
-			{
-				if(bTMOutput || bPlot)
-				{
-					flowpipes.push_back(newFlowpipe);
-					flowpipes_safety.push_back(SAFE);
-				}
-			}
-
-			currentFlowpipe = newFlowpipe;
-
-			if(symbolic_remainder.J.size() >= symbolic_remainder.max_size)
-			{
-				symbolic_remainder.reset(currentFlowpipe);
-			}
-
-			double current_stepsize = tm_setting.step_exp_table[1].sup();
-			t += current_stepsize;
-
-			if(bPrint)
-			{
-				printf("time = %f,\t", t);
-				printf("step = %f,\t", current_stepsize);
-				printf("order = %d\n", tm_setting.order);
-			}
-/*
-			double new_stepsize = current_stepsize * LAMBDA_UP;
-			double last_step = time - t;
-
-			if(new_stepsize > last_step)
-			{
-				new_stepsize = last_step + THRESHOLD_LOW;
-			}
-
-			if(new_stepsize <= tm_setting.step_max - THRESHOLD_LOW)
-			{
-				tm_setting.setStepsize(new_stepsize, tm_setting.order);
-			}
-			*/
-
-			new_stepsize = current_stepsize * LAMBDA_UP;
-			if(new_stepsize > tm_setting.step_max - THRESHOLD_HIGH)
-			{
-				new_stepsize = -1;
-			}
-		}
-		else
-		{
-			switch(checking_result)
-			{
-			case COMPLETED_SAFE:
-				return UNCOMPLETED_SAFE;
-			case COMPLETED_UNSAFE:
-				return UNCOMPLETED_UNSAFE;
-			case COMPLETED_UNKNOWN:
-				return UNCOMPLETED_UNKNOWN;
-			}
-		}
-	}
-
-	return checking_result;
-}
-
-int Deterministic_Continuous_Dynamics::reach_symbolic_remainder_adaptive_order(std::list<Flowpipe> & flowpipes, std::list<unsigned int> & flowpipe_orders, std::list<int> & flowpipes_safety,
-		unsigned long & num_of_flowpipes, const double time, const Flowpipe & initialSet, Symbolic_Remainder & symbolic_remainder, Taylor_Model_Setting & tm_setting,
-		const Global_Setting & g_setting, const bool bPrint, const std::vector<Constraint> & unsafeSet, const bool bSafetyChecking,
-		const bool bPlot, const bool bTMOutput) const
-{
-	std::vector<Constraint> dummy_invariant;
-
-//	std::vector<Real> initial_scalars(expressions.size(), 1);
-
-	double step = tm_setting.step_exp_table[1].sup();
-
-	int checking_result = COMPLETED_SAFE;
-
-	Flowpipe newFlowpipe, currentFlowpipe = initialSet;
-
-	for(double t=THRESHOLD_HIGH; t < time;)
-	{
-		int res = currentFlowpipe.advance_deterministic_adaptive_order(newFlowpipe, expressions, tm_setting, dummy_invariant, g_setting, symbolic_remainder);
-
-		if(res == 1)
-		{
-			++num_of_flowpipes;
-			flowpipe_orders.push_back(tm_setting.order);
-
-			if(bSafetyChecking)
-			{
-				int safety = newFlowpipe.safetyChecking(unsafeSet, tm_setting, g_setting);
-
-				if(bTMOutput || bPlot)
-				{
-					flowpipes.push_back(newFlowpipe);
-					flowpipes_safety.push_back(safety);
-				}
-
-				if(safety == UNSAFE)
-				{
-					return COMPLETED_UNSAFE;
-				}
-				else if(safety == UNKNOWN && checking_result == COMPLETED_SAFE)
-				{
-					checking_result = COMPLETED_UNKNOWN;
-				}
-			}
-			else
-			{
-				if(bTMOutput || bPlot)
-				{
-					flowpipes.push_back(newFlowpipe);
-					flowpipes_safety.push_back(SAFE);
-				}
-			}
-
-			currentFlowpipe = newFlowpipe;
-
-			t += step;
-
-			if(bPrint)
-			{
-				printf("time = %f,\t", t);
-				printf("step = %f,\t", step);
-				printf("order = %d\n", tm_setting.order);
-			}
-
-			if(symbolic_remainder.J.size() >= symbolic_remainder.max_size)
-			{
-				symbolic_remainder.reset(currentFlowpipe);
-			}
-
-			if(tm_setting.order > tm_setting.order_min)
-			{
-				--tm_setting.order;
-			}
-		}
-		else
-		{
-			switch(checking_result)
-			{
-			case COMPLETED_SAFE:
-				return UNCOMPLETED_SAFE;
-			case COMPLETED_UNSAFE:
-				return UNCOMPLETED_UNSAFE;
-			case COMPLETED_UNKNOWN:
-				return UNCOMPLETED_UNKNOWN;
-			}
-		}
-	}
-
-	return checking_result;
-}
-
-void Deterministic_Continuous_Dynamics::reach(Result_of_Reachability & result, Computational_Setting & setting, const Flowpipe & initialSet, const std::vector<Constraint> & unsafeSet) const
-{
-	bool bSafetyChecking = false;
-
-	if(unsafeSet.size() > 0)
-	{
-		bSafetyChecking = true;
-	}
-
-	if(setting.tm_setting.step_min > 0)
-	{
-		// adaptive stepsizes
-		result.status = reach_adaptive_stepsize(result.nonlinear_flowpipes, result.orders_of_flowpipes, result.safety_of_flowpipes, result.num_of_flowpipes,
-				setting.time, initialSet, setting.tm_setting, setting.g_setting, setting.bPrint, unsafeSet, bSafetyChecking, true, true);
-	}
-	else if(setting.tm_setting.order_max > 0)
-	{
-		// adaptive orders
-		result.status = reach_adaptive_order(result.nonlinear_flowpipes, result.orders_of_flowpipes, result.safety_of_flowpipes, result.num_of_flowpipes,
-				setting.time, initialSet, setting.tm_setting, setting.g_setting, setting.bPrint, unsafeSet, bSafetyChecking, true, true);
-	}
-	else
-	{
-		// fixed stepsizes and orders
-		result.status = reach(result.nonlinear_flowpipes, result.orders_of_flowpipes, result.safety_of_flowpipes, result.num_of_flowpipes,
-				setting.time, initialSet, setting.tm_setting, setting.g_setting, setting.bPrint, unsafeSet, bSafetyChecking, true, true);
-	}
-
-
-	if(result.nonlinear_flowpipes.size() > 0)
-	{
-		Flowpipe fpTmp = result.nonlinear_flowpipes.back();
-		result.fp_end_of_time = fpTmp;
-
-		fpTmp.tmvPre.evaluate_time(result.fp_end_of_time.tmvPre, setting.tm_setting.step_end_exp_table);
-	}
-}
-
-void Deterministic_Continuous_Dynamics::reach_sr(Result_of_Reachability & result, Computational_Setting & setting, const Flowpipe & initialSet, const std::vector<Constraint> & unsafeSet, Symbolic_Remainder & symbolic_remainder) const
-{
-	bool bSafetyChecking = false;
-
-	if(unsafeSet.size() > 0)
-	{
-		bSafetyChecking = true;
-	}
-
-	if(setting.tm_setting.step_min > 0)
-	{
-		// adaptive stepsizes
-		result.status = reach_symbolic_remainder_adaptive_stepsize(result.nonlinear_flowpipes, result.orders_of_flowpipes, result.safety_of_flowpipes, result.num_of_flowpipes,
-				setting.time, initialSet, symbolic_remainder, setting.tm_setting, setting.g_setting, setting.bPrint, unsafeSet, bSafetyChecking, true, true);
-	}
-	else if(setting.tm_setting.order_max > 0)
-	{
-		// adaptive orders
-		result.status = reach_symbolic_remainder_adaptive_order(result.nonlinear_flowpipes, result.orders_of_flowpipes, result.safety_of_flowpipes, result.num_of_flowpipes,
-				setting.time, initialSet, symbolic_remainder, setting.tm_setting, setting.g_setting, setting.bPrint, unsafeSet, bSafetyChecking, true, true);
-	}
-	else
-	{
-		// fixed stepsizes and orders
-		result.status = reach_symbolic_remainder(result.nonlinear_flowpipes, result.orders_of_flowpipes, result.safety_of_flowpipes, result.num_of_flowpipes,
-				setting.time, initialSet, symbolic_remainder, setting.tm_setting, setting.g_setting, setting.bPrint, unsafeSet, bSafetyChecking, true, true);
-	}
-
-	if(result.nonlinear_flowpipes.size() > 0)
-	{
-		Flowpipe fpTmp = result.nonlinear_flowpipes.back();
-		result.fp_end_of_time = fpTmp;
-
-		fpTmp.tmvPre.evaluate_time(result.fp_end_of_time.tmvPre, setting.tm_setting.step_end_exp_table);
-	}
-}
-
-
-int Deterministic_Continuous_Dynamics::reach_inv(std::list<TaylorModelVec<Real> > & tmv_flowpipes, std::list<std::vector<Interval> > & domains, Flowpipe & last_flowpipe, std::list<unsigned int> & flowpipe_orders, std::list<int> & flowpipes_safety,
-		std::list<bool> & contraction_of_flowpipes, unsigned long & num_of_flowpipes, const double time, const Flowpipe & initialSet, const std::vector<Constraint> & invariant,
-		const Taylor_Model_Setting & tm_setting, const Global_Setting & g_setting, const bool bPrint, const std::vector<Constraint> & unsafeSet, const bool bSafetyChecking, const bool bPlot, const bool bTMOutput) const
-{
-	double step = tm_setting.step_exp_table[1].sup();
-
-	int checking_result = COMPLETED_SAFE;
-
-	Flowpipe new_flowpipe, current_flowpipe = initialSet;
-	bool bContracted = false;
-
-	for(double t=THRESHOLD_HIGH; t < time;)
-	{
-		int res = current_flowpipe.advance_deterministic(new_flowpipe, expressions, tm_setting, invariant, g_setting);
-
-		if(res == 1)
-		{
-			// constrain the flowpipe by the invariant
-			TaylorModelVec<Real> tmv_flowpipe;
-			new_flowpipe.compose_normal(tmv_flowpipe, tm_setting.step_exp_table, tm_setting.order, tm_setting.cutoff_threshold);
-
-			std::vector<Interval> contracted_domain = new_flowpipe.domain;
-			int type = domain_contraction_int(tmv_flowpipe, contracted_domain, invariant, tm_setting.order, tm_setting.cutoff_threshold, g_setting);
-
-			switch(type)
-			{
-			case UNSAT:		// the intersection is empty
-				last_flowpipe = current_flowpipe;
-				return checking_result;
-			case SAT:		// the domain is not contracted
-			{
-				++num_of_flowpipes;
-				flowpipe_orders.push_back(tm_setting.order);
-				contraction_of_flowpipes.push_back(bContracted);
-
-				if(bSafetyChecking)
-				{
-					int safety = safetyChecking(tmv_flowpipe, contracted_domain, unsafeSet, tm_setting, g_setting);
-
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						domains.push_back(contracted_domain);
-					}
-
-					if(safety == SAFE)
-					{
-						flowpipes_safety.push_back(SAFE);
-					}
-					else if(safety == UNSAFE && !bContracted)
-					{
-						flowpipes_safety.push_back(UNSAFE);
-						return COMPLETED_UNSAFE;
-					}
-					else
-					{
-						flowpipes_safety.push_back(UNKNOWN);
-
-						if(checking_result == COMPLETED_SAFE)
-						{
-							checking_result = COMPLETED_UNKNOWN;
-						}
-					}
-				}
-				else
-				{
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						domains.push_back(contracted_domain);
-						flowpipes_safety.push_back(SAFE);
-					}
-				}
-
-				current_flowpipe = new_flowpipe;
-				break;
-			}
-			case CONTRACTED: 	// the domain is contracted but the time interval is not
-			{
-				++num_of_flowpipes;
-				flowpipe_orders.push_back(tm_setting.order);
-
-				bContracted = true;
-				contraction_of_flowpipes.push_back(true);
-
-				new_flowpipe.domain = contracted_domain;
-				new_flowpipe.normalize(tm_setting.cutoff_threshold);
-
-				if(bSafetyChecking)
-				{
-					int safety = safetyChecking(tmv_flowpipe, contracted_domain, unsafeSet, tm_setting, g_setting);
-
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						domains.push_back(contracted_domain);
-					}
-
-					if(safety == SAFE)
-					{
-						flowpipes_safety.push_back(SAFE);
-					}
-					else
-					{
-						flowpipes_safety.push_back(UNKNOWN);
-
-						if(checking_result == COMPLETED_SAFE)
-						{
-							checking_result = COMPLETED_UNKNOWN;
-						}
-					}
-				}
-				else
-				{
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						domains.push_back(contracted_domain);
-						flowpipes_safety.push_back(SAFE);
-					}
-				}
-
-				current_flowpipe = new_flowpipe;
-
-				break;
-			}
-			case 2: 	// time interval is contracted
-			{
-				Real zero(0);
-
-				if(contracted_domain[0].greaterThan(zero))
-				{
-					return checking_result;
-				}
-				else
-				{
-					++num_of_flowpipes;
-
-					bContracted = true;
-					contraction_of_flowpipes.push_back(true);
-
-					new_flowpipe.domain = contracted_domain;
-					new_flowpipe.normalize(tm_setting.cutoff_threshold);
-
-					if(bSafetyChecking)
-					{
-						int safety = safetyChecking(tmv_flowpipe, contracted_domain, unsafeSet, tm_setting, g_setting);
-
-						if(bTMOutput || bPlot)
-						{
-							tmv_flowpipes.push_back(tmv_flowpipe);
-							domains.push_back(contracted_domain);
-						}
-
-						if(safety == SAFE)
-						{
-							flowpipes_safety.push_back(SAFE);
-						}
-						else
-						{
-							flowpipes_safety.push_back(UNKNOWN);
-
-							if(checking_result == COMPLETED_SAFE)
-							{
-								checking_result = COMPLETED_UNKNOWN;
-							}
-						}
-					}
-					else
-					{
-						if(bTMOutput || bPlot)
-						{
-							tmv_flowpipes.push_back(tmv_flowpipe);
-							domains.push_back(contracted_domain);
-							flowpipes_safety.push_back(SAFE);
-						}
-					}
-
-					t += contracted_domain[0].sup();
-
-					if(bPrint)
-					{
-						printf("time = %f,\t", t);
-						printf("step = %f,\t", contracted_domain[0].sup());
-						printf("order = %d\n", tm_setting.order);
-					}
-
-					last_flowpipe = new_flowpipe;
-
-					return checking_result;
-				}
-			}
-			}
-
-
-			t += contracted_domain[0].sup();
-
-			if(bPrint)
-			{
-				printf("time = %f,\t", t);
-				printf("step = %f,\t", step);
-				printf("order = %d\n", tm_setting.order);
-			}
-		}
-		else
-		{
-			switch(checking_result)
-			{
-			case COMPLETED_SAFE:
-				return UNCOMPLETED_SAFE;
-			case COMPLETED_UNSAFE:
-				return UNCOMPLETED_UNSAFE;
-			case COMPLETED_UNKNOWN:
-				return UNCOMPLETED_UNKNOWN;
-			}
-		}
-	}
-
-	last_flowpipe = current_flowpipe;
-
-	return checking_result;
-}
-
-int Deterministic_Continuous_Dynamics::reach_inv_adaptive_stepsize(std::list<TaylorModelVec<Real> > & tmv_flowpipes, std::list<std::vector<Interval> > & domains, Flowpipe & last_flowpipe, std::list<unsigned int> & flowpipe_orders, std::list<int> & flowpipes_safety,
-		std::list<bool> & contraction_of_flowpipes, unsigned long & num_of_flowpipes, const double time, const Flowpipe & initialSet, const std::vector<Constraint> & invariant,
-		Taylor_Model_Setting & tm_setting, const Global_Setting & g_setting, const bool bPrint, const std::vector<Constraint> & unsafeSet, const bool bSafetyChecking, const bool bPlot, const bool bTMOutput) const
-{
-//	double step = tm_setting.step_exp_table[1].sup();
-
-	int checking_result = COMPLETED_SAFE;
-
-	Flowpipe new_flowpipe, current_flowpipe = initialSet;
-	bool bContracted = false;
-	double new_stepsize = -1;
-
-	for(double t=THRESHOLD_HIGH; t < time;)
-	{
-		int res = current_flowpipe.advance_deterministic_adaptive_stepsize(new_flowpipe, expressions, new_stepsize, tm_setting, invariant, g_setting);
-
-		if(res == 1)
-		{
-			// constrain the flowpipe by the invariant
-			TaylorModelVec<Real> tmv_flowpipe;
-			new_flowpipe.compose_normal(tmv_flowpipe, tm_setting.step_exp_table, tm_setting.order, tm_setting.cutoff_threshold);
-
-			std::vector<Interval> contracted_domain = new_flowpipe.domain;
-			int type = domain_contraction_int(tmv_flowpipe, contracted_domain, invariant, tm_setting.order, tm_setting.cutoff_threshold, g_setting);
-
-			switch(type)
-			{
-			case UNSAT:		// the intersection is empty
-				last_flowpipe = current_flowpipe;
-				return checking_result;
-			case SAT:		// the domain is not contracted
-			{
-				++num_of_flowpipes;
-				flowpipe_orders.push_back(tm_setting.order);
-				contraction_of_flowpipes.push_back(bContracted);
-
-				if(bSafetyChecking)
-				{
-					int safety = safetyChecking(tmv_flowpipe, contracted_domain, unsafeSet, tm_setting, g_setting);
-
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						domains.push_back(contracted_domain);
-					}
-
-					if(safety == SAFE)
-					{
-						flowpipes_safety.push_back(SAFE);
-					}
-					else if(safety == UNSAFE && !bContracted)
-					{
-						flowpipes_safety.push_back(UNSAFE);
-						return COMPLETED_UNSAFE;
-					}
-					else
-					{
-						flowpipes_safety.push_back(UNKNOWN);
-
-						if(checking_result == COMPLETED_SAFE)
-						{
-							checking_result = COMPLETED_UNKNOWN;
-						}
-					}
-				}
-				else
-				{
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						domains.push_back(contracted_domain);
-						flowpipes_safety.push_back(SAFE);
-					}
-				}
-
-				current_flowpipe = new_flowpipe;
-				break;
-			}
-			case CONTRACTED: 	// the domain is contracted but the time interval is not
-			{
-				++num_of_flowpipes;
-				flowpipe_orders.push_back(tm_setting.order);
-
-				bContracted = true;
-				contraction_of_flowpipes.push_back(true);
-
-				new_flowpipe.domain = contracted_domain;
-				new_flowpipe.normalize(tm_setting.cutoff_threshold);
-
-				if(bSafetyChecking)
-				{
-					int safety = safetyChecking(tmv_flowpipe, contracted_domain, unsafeSet, tm_setting, g_setting);
-
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						domains.push_back(contracted_domain);
-					}
-
-					if(safety == SAFE)
-					{
-						flowpipes_safety.push_back(SAFE);
-					}
-					else
-					{
-						flowpipes_safety.push_back(UNKNOWN);
-
-						if(checking_result == COMPLETED_SAFE)
-						{
-							checking_result = COMPLETED_UNKNOWN;
-						}
-					}
-				}
-				else
-				{
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						domains.push_back(contracted_domain);
-						flowpipes_safety.push_back(SAFE);
-					}
-				}
-
-				current_flowpipe = new_flowpipe;
-
-				break;
-			}
-			case 2: 	// time interval is contracted
-			{
-				Real zero(0);
-
-				if(contracted_domain[0].greaterThan(zero))
-				{
-					return checking_result;
-				}
-				else
-				{
-					++num_of_flowpipes;
-
-					bContracted = true;
-					contraction_of_flowpipes.push_back(true);
-
-					new_flowpipe.domain = contracted_domain;
-					new_flowpipe.normalize(tm_setting.cutoff_threshold);
-
-					if(bSafetyChecking)
-					{
-						int safety = safetyChecking(tmv_flowpipe, contracted_domain, unsafeSet, tm_setting, g_setting);
-
-						if(bTMOutput || bPlot)
-						{
-							tmv_flowpipes.push_back(tmv_flowpipe);
-							domains.push_back(contracted_domain);
-						}
-
-						if(safety == SAFE)
-						{
-							flowpipes_safety.push_back(SAFE);
-						}
-						else
-						{
-							flowpipes_safety.push_back(UNKNOWN);
-
-							if(checking_result == COMPLETED_SAFE)
-							{
-								checking_result = COMPLETED_UNKNOWN;
-							}
-						}
-					}
-					else
-					{
-						if(bTMOutput || bPlot)
-						{
-							tmv_flowpipes.push_back(tmv_flowpipe);
-							domains.push_back(contracted_domain);
-							flowpipes_safety.push_back(SAFE);
-						}
-					}
-
-					t += contracted_domain[0].sup();
-
-					if(bPrint)
-					{
-						printf("time = %f,\t", t);
-						printf("step = %f,\t", contracted_domain[0].sup());
-						printf("order = %d\n", tm_setting.order);
-					}
-
-					last_flowpipe = new_flowpipe;
-
-					return checking_result;
-				}
-			}
-			}
-
-			double current_stepsize = tm_setting.step_exp_table[1].sup();
-			t += current_stepsize;
-
-			if(bPrint)
-			{
-				printf("time = %f,\t", t);
-				printf("step = %f,\t", current_stepsize);
-				printf("order = %d\n", tm_setting.order);
-			}
-
-			new_stepsize = current_stepsize * LAMBDA_UP;
-			if(new_stepsize > tm_setting.step_max - THRESHOLD_HIGH)
-			{
-				new_stepsize = -1;
-			}
-		}
-		else
-		{
-			switch(checking_result)
-			{
-			case COMPLETED_SAFE:
-				return UNCOMPLETED_SAFE;
-			case COMPLETED_UNSAFE:
-				return UNCOMPLETED_UNSAFE;
-			case COMPLETED_UNKNOWN:
-				return UNCOMPLETED_UNKNOWN;
-			}
-		}
-	}
-
-	last_flowpipe = current_flowpipe;
-
-	return checking_result;
-}
-
-int Deterministic_Continuous_Dynamics::reach_inv_adaptive_order(std::list<TaylorModelVec<Real> > & tmv_flowpipes, std::list<std::vector<Interval> > & domains, Flowpipe & last_flowpipe, std::list<unsigned int> & flowpipe_orders, std::list<int> & flowpipes_safety,
-		std::list<bool> & contraction_of_flowpipes, unsigned long & num_of_flowpipes, const double time, const Flowpipe & initialSet, const std::vector<Constraint> & invariant,
-		Taylor_Model_Setting & tm_setting, const Global_Setting & g_setting, const bool bPrint, const std::vector<Constraint> & unsafeSet, const bool bSafetyChecking, const bool bPlot, const bool bTMOutput) const
-{
-	double step = tm_setting.step_exp_table[1].sup();
-
-	int checking_result = COMPLETED_SAFE;
-
-	Flowpipe new_flowpipe, current_flowpipe = initialSet;
-	bool bContracted = false;
-
-	for(double t=THRESHOLD_HIGH; t < time;)
-	{
-		int res = current_flowpipe.advance_deterministic_adaptive_order(new_flowpipe, expressions, tm_setting, invariant, g_setting);
-
-		if(res == 1)
-		{
-			// constrain the flowpipe by the invariant
-			TaylorModelVec<Real> tmv_flowpipe;
-			new_flowpipe.compose_normal(tmv_flowpipe, tm_setting.step_exp_table, tm_setting.order, tm_setting.cutoff_threshold);
-
-			std::vector<Interval> contracted_domain = new_flowpipe.domain;
-			int type = domain_contraction_int(tmv_flowpipe, contracted_domain, invariant, tm_setting.order, tm_setting.cutoff_threshold, g_setting);
-
-			switch(type)
-			{
-			case UNSAT:		// the intersection is empty
-				last_flowpipe = current_flowpipe;
-				return checking_result;
-			case SAT:		// the domain is not contracted
-			{
-				++num_of_flowpipes;
-				flowpipe_orders.push_back(tm_setting.order);
-				contraction_of_flowpipes.push_back(bContracted);
-
-				if(bSafetyChecking)
-				{
-					int safety = safetyChecking(tmv_flowpipe, contracted_domain, unsafeSet, tm_setting, g_setting);
-
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						domains.push_back(contracted_domain);
-					}
-
-					if(safety == SAFE)
-					{
-						flowpipes_safety.push_back(SAFE);
-					}
-					else if(safety == UNSAFE && !bContracted)
-					{
-						flowpipes_safety.push_back(UNSAFE);
-						return COMPLETED_UNSAFE;
-					}
-					else
-					{
-						flowpipes_safety.push_back(UNKNOWN);
-
-						if(checking_result == COMPLETED_SAFE)
-						{
-							checking_result = COMPLETED_UNKNOWN;
-						}
-					}
-				}
-				else
-				{
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						domains.push_back(contracted_domain);
-						flowpipes_safety.push_back(SAFE);
-					}
-				}
-
-				current_flowpipe = new_flowpipe;
-				break;
-			}
-			case CONTRACTED: 	// the domain is contracted but the time interval is not
-			{
-				++num_of_flowpipes;
-				flowpipe_orders.push_back(tm_setting.order);
-
-				bContracted = true;
-				contraction_of_flowpipes.push_back(true);
-
-				new_flowpipe.domain = contracted_domain;
-				new_flowpipe.normalize(tm_setting.cutoff_threshold);
-
-				if(bSafetyChecking)
-				{
-					int safety = safetyChecking(tmv_flowpipe, contracted_domain, unsafeSet, tm_setting, g_setting);
-
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						domains.push_back(contracted_domain);
-					}
-
-					if(safety == SAFE)
-					{
-						flowpipes_safety.push_back(SAFE);
-					}
-					else
-					{
-						flowpipes_safety.push_back(UNKNOWN);
-
-						if(checking_result == COMPLETED_SAFE)
-						{
-							checking_result = COMPLETED_UNKNOWN;
-						}
-					}
-				}
-				else
-				{
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						domains.push_back(contracted_domain);
-						flowpipes_safety.push_back(SAFE);
-					}
-				}
-
-				current_flowpipe = new_flowpipe;
-
-				break;
-			}
-			case 2: 	// time interval is contracted
-			{
-				Real zero(0);
-
-				if(contracted_domain[0].greaterThan(zero))
-				{
-					return checking_result;
-				}
-				else
-				{
-					++num_of_flowpipes;
-
-					bContracted = true;
-					contraction_of_flowpipes.push_back(true);
-
-					new_flowpipe.domain = contracted_domain;
-					new_flowpipe.normalize(tm_setting.cutoff_threshold);
-
-					if(bSafetyChecking)
-					{
-						int safety = safetyChecking(tmv_flowpipe, contracted_domain, unsafeSet, tm_setting, g_setting);
-
-						if(bTMOutput || bPlot)
-						{
-							tmv_flowpipes.push_back(tmv_flowpipe);
-							domains.push_back(contracted_domain);
-						}
-
-						if(safety == SAFE)
-						{
-							flowpipes_safety.push_back(SAFE);
-						}
-						else
-						{
-							flowpipes_safety.push_back(UNKNOWN);
-
-							if(checking_result == COMPLETED_SAFE)
-							{
-								checking_result = COMPLETED_UNKNOWN;
-							}
-						}
-					}
-					else
-					{
-						if(bTMOutput || bPlot)
-						{
-							tmv_flowpipes.push_back(tmv_flowpipe);
-							domains.push_back(contracted_domain);
-							flowpipes_safety.push_back(SAFE);
-						}
-					}
-
-					t += contracted_domain[0].sup();
-
-					if(bPrint)
-					{
-						printf("time = %f,\t", t);
-						printf("step = %f,\t", contracted_domain[0].sup());
-						printf("order = %d\n", tm_setting.order);
-					}
-
-					last_flowpipe = new_flowpipe;
-
-					return checking_result;
-				}
-			}
-			}
-
-
-			t += contracted_domain[0].sup();
-
-			if(bPrint)
-			{
-				printf("time = %f,\t", t);
-				printf("step = %f,\t", step);
-				printf("order = %d\n", tm_setting.order);
-			}
-
-			if(tm_setting.order > tm_setting.order_min)
-			{
-				--tm_setting.order;
-			}
-		}
-		else
-		{
-			switch(checking_result)
-			{
-			case COMPLETED_SAFE:
-				return UNCOMPLETED_SAFE;
-			case COMPLETED_UNSAFE:
-				return UNCOMPLETED_UNSAFE;
-			case COMPLETED_UNKNOWN:
-				return UNCOMPLETED_UNKNOWN;
-			}
-		}
-	}
-
-	last_flowpipe = current_flowpipe;
-
-	return checking_result;
-}
-
-int Deterministic_Continuous_Dynamics::reach_inv_symbolic_remainder(std::list<TaylorModelVec<Real> > & tmv_flowpipes, std::list<std::vector<Interval> > & domains, Flowpipe & last_flowpipe, std::list<unsigned int> & flowpipe_orders, std::list<int> & flowpipes_safety,
-		std::list<bool> & contraction_of_flowpipes, unsigned long & num_of_flowpipes, const double time, const Flowpipe & initialSet, const std::vector<Constraint> & invariant, Symbolic_Remainder & symbolic_remainder,
-		const Taylor_Model_Setting & tm_setting, const Global_Setting & g_setting, const bool bPrint, const std::vector<Constraint> & unsafeSet, const bool bSafetyChecking, const bool bPlot, const bool bTMOutput) const
-{
-	double step = tm_setting.step_exp_table[1].sup();
-
-	int checking_result = COMPLETED_SAFE;
-
-	Flowpipe new_flowpipe, current_flowpipe = initialSet;
-	bool bContracted = false;
-
-	for(double t=THRESHOLD_HIGH; t < time;)
-	{
-		int res = current_flowpipe.advance_deterministic(new_flowpipe, expressions, tm_setting, invariant, g_setting, symbolic_remainder);
-
-		if(res == 1)
-		{
-			// constrain the flowpipe by the invariant
-			TaylorModelVec<Real> tmv_flowpipe;
-			new_flowpipe.compose_normal(tmv_flowpipe, tm_setting.step_exp_table, tm_setting.order, tm_setting.cutoff_threshold);
-
-			std::vector<Interval> contracted_domain = new_flowpipe.domain;
-			int type = domain_contraction_int(tmv_flowpipe, contracted_domain, invariant, tm_setting.order, tm_setting.cutoff_threshold, g_setting);
-
-			switch(type)
-			{
-			case UNSAT:		// the intersection is empty
-				last_flowpipe = current_flowpipe;
-				return checking_result;
-			case SAT:		// the domain is not contracted
-			{
-				++num_of_flowpipes;
-				flowpipe_orders.push_back(tm_setting.order);
-				contraction_of_flowpipes.push_back(bContracted);
-
-				if(bSafetyChecking)
-				{
-					int safety = safetyChecking(tmv_flowpipe, contracted_domain, unsafeSet, tm_setting, g_setting);
-
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						domains.push_back(contracted_domain);
-					}
-
-					if(safety == SAFE)
-					{
-						flowpipes_safety.push_back(SAFE);
-					}
-					else if(safety == UNSAFE && !bContracted)
-					{
-						flowpipes_safety.push_back(UNSAFE);
-						return COMPLETED_UNSAFE;
-					}
-					else
-					{
-						flowpipes_safety.push_back(UNKNOWN);
-
-						if(checking_result == COMPLETED_SAFE)
-						{
-							checking_result = COMPLETED_UNKNOWN;
-						}
-					}
-				}
-				else
-				{
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						domains.push_back(contracted_domain);
-						flowpipes_safety.push_back(SAFE);
-					}
-				}
-
-				current_flowpipe = new_flowpipe;
-				break;
-			}
-			case CONTRACTED: 	// the domain is contracted but the time interval is not
-			{
-				++num_of_flowpipes;
-				flowpipe_orders.push_back(tm_setting.order);
-
-				bContracted = true;
-				contraction_of_flowpipes.push_back(true);
-
-				new_flowpipe.domain = contracted_domain;
-				new_flowpipe.normalize(tm_setting.cutoff_threshold);
-
-				symbolic_remainder.reset(new_flowpipe);
-
-				if(bSafetyChecking)
-				{
-					int safety = safetyChecking(tmv_flowpipe, contracted_domain, unsafeSet, tm_setting, g_setting);
-
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						domains.push_back(contracted_domain);
-					}
-
-					if(safety == SAFE)
-					{
-						flowpipes_safety.push_back(SAFE);
-					}
-					else
-					{
-						flowpipes_safety.push_back(UNKNOWN);
-
-						if(checking_result == COMPLETED_SAFE)
-						{
-							checking_result = COMPLETED_UNKNOWN;
-						}
-					}
-				}
-				else
-				{
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						domains.push_back(contracted_domain);
-						flowpipes_safety.push_back(SAFE);
-					}
-				}
-
-				current_flowpipe = new_flowpipe;
-
-				break;
-			}
-			case 2: 	// time interval is contracted
-			{
-				Real zero(0);
-
-				if(contracted_domain[0].greaterThan(zero))
-				{
-					return checking_result;
-				}
-				else
-				{
-					++num_of_flowpipes;
-
-					bContracted = true;
-					contraction_of_flowpipes.push_back(true);
-
-					new_flowpipe.domain = contracted_domain;
-					new_flowpipe.normalize(tm_setting.cutoff_threshold);
-
-					symbolic_remainder.reset(new_flowpipe);
-
-					if(bSafetyChecking)
-					{
-						int safety = safetyChecking(tmv_flowpipe, contracted_domain, unsafeSet, tm_setting, g_setting);
-
-						if(bTMOutput || bPlot)
-						{
-							tmv_flowpipes.push_back(tmv_flowpipe);
-							domains.push_back(contracted_domain);
-						}
-
-						if(safety == SAFE)
-						{
-							flowpipes_safety.push_back(SAFE);
-						}
-						else
-						{
-							flowpipes_safety.push_back(UNKNOWN);
-
-							if(checking_result == COMPLETED_SAFE)
-							{
-								checking_result = COMPLETED_UNKNOWN;
-							}
-						}
-					}
-					else
-					{
-						if(bTMOutput || bPlot)
-						{
-							tmv_flowpipes.push_back(tmv_flowpipe);
-							domains.push_back(contracted_domain);
-							flowpipes_safety.push_back(SAFE);
-						}
-					}
-
-					t += contracted_domain[0].sup();
-
-					if(bPrint)
-					{
-						printf("time = %f,\t", t);
-						printf("step = %f,\t", contracted_domain[0].sup());
-						printf("order = %d\n", tm_setting.order);
-					}
-
-					last_flowpipe = new_flowpipe;
-
-					return checking_result;
-				}
-			}
-			}
-
-
-			t += contracted_domain[0].sup();
-
-			if(symbolic_remainder.J.size() >= symbolic_remainder.max_size)
-			{
-				symbolic_remainder.reset(current_flowpipe);
-			}
-
-			if(bPrint)
-			{
-				printf("time = %f,\t", t);
-				printf("step = %f,\t", step);
-				printf("order = %d\n", tm_setting.order);
-			}
-		}
-		else
-		{
-			switch(checking_result)
-			{
-			case COMPLETED_SAFE:
-				return UNCOMPLETED_SAFE;
-			case COMPLETED_UNSAFE:
-				return UNCOMPLETED_UNSAFE;
-			case COMPLETED_UNKNOWN:
-				return UNCOMPLETED_UNKNOWN;
-			}
-		}
-	}
-
-	last_flowpipe = current_flowpipe;
-
-	return checking_result;
-}
-
-int Deterministic_Continuous_Dynamics::reach_inv_symbolic_remainder_adaptive_stepsize(std::list<TaylorModelVec<Real> > & tmv_flowpipes, std::list<std::vector<Interval> > & domains, Flowpipe & last_flowpipe, std::list<unsigned int> & flowpipe_orders, std::list<int> & flowpipes_safety,
-		std::list<bool> & contraction_of_flowpipes, unsigned long & num_of_flowpipes, const double time, const Flowpipe & initialSet, const std::vector<Constraint> & invariant, Symbolic_Remainder & symbolic_remainder,
-		Taylor_Model_Setting & tm_setting, const Global_Setting & g_setting, const bool bPrint, const std::vector<Constraint> & unsafeSet, const bool bSafetyChecking, const bool bPlot, const bool bTMOutput) const
-{
-	int checking_result = COMPLETED_SAFE;
-
-	Flowpipe new_flowpipe, current_flowpipe = initialSet;
-	bool bContracted = false;
-	double new_stepsize = -1;
-
-	for(double t=THRESHOLD_HIGH; t < time;)
-	{
-		int res = current_flowpipe.advance_deterministic_adaptive_stepsize(new_flowpipe, expressions, new_stepsize, tm_setting, invariant, g_setting, symbolic_remainder);
-
-		if(res == 1)
-		{
-			// constrain the flowpipe by the invariant
-			TaylorModelVec<Real> tmv_flowpipe;
-			new_flowpipe.compose_normal(tmv_flowpipe, tm_setting.step_exp_table, tm_setting.order, tm_setting.cutoff_threshold);
-
-			std::vector<Interval> contracted_domain = new_flowpipe.domain;
-			int type = domain_contraction_int(tmv_flowpipe, contracted_domain, invariant, tm_setting.order, tm_setting.cutoff_threshold, g_setting);
-
-			switch(type)
-			{
-			case UNSAT:		// the intersection is empty
-				last_flowpipe = current_flowpipe;
-				return checking_result;
-			case SAT:		// the domain is not contracted
-			{
-				++num_of_flowpipes;
-				flowpipe_orders.push_back(tm_setting.order);
-				contraction_of_flowpipes.push_back(bContracted);
-
-				if(bSafetyChecking)
-				{
-					int safety = safetyChecking(tmv_flowpipe, contracted_domain, unsafeSet, tm_setting, g_setting);
-
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						domains.push_back(contracted_domain);
-					}
-
-					if(safety == SAFE)
-					{
-						flowpipes_safety.push_back(SAFE);
-					}
-					else if(safety == UNSAFE && !bContracted)
-					{
-						flowpipes_safety.push_back(UNSAFE);
-						return COMPLETED_UNSAFE;
-					}
-					else
-					{
-						flowpipes_safety.push_back(UNKNOWN);
-
-						if(checking_result == COMPLETED_SAFE)
-						{
-							checking_result = COMPLETED_UNKNOWN;
-						}
-					}
-				}
-				else
-				{
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						domains.push_back(contracted_domain);
-						flowpipes_safety.push_back(SAFE);
-					}
-				}
-
-				current_flowpipe = new_flowpipe;
-				break;
-			}
-			case CONTRACTED: 	// the domain is contracted but the time interval is not
-			{
-				++num_of_flowpipes;
-				flowpipe_orders.push_back(tm_setting.order);
-
-				bContracted = true;
-				contraction_of_flowpipes.push_back(true);
-
-				new_flowpipe.domain = contracted_domain;
-				new_flowpipe.normalize(tm_setting.cutoff_threshold);
-
-				symbolic_remainder.reset(new_flowpipe);
-
-				if(bSafetyChecking)
-				{
-					int safety = safetyChecking(tmv_flowpipe, contracted_domain, unsafeSet, tm_setting, g_setting);
-
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						domains.push_back(contracted_domain);
-					}
-
-					if(safety == SAFE)
-					{
-						flowpipes_safety.push_back(SAFE);
-					}
-					else
-					{
-						flowpipes_safety.push_back(UNKNOWN);
-
-						if(checking_result == COMPLETED_SAFE)
-						{
-							checking_result = COMPLETED_UNKNOWN;
-						}
-					}
-				}
-				else
-				{
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						domains.push_back(contracted_domain);
-						flowpipes_safety.push_back(SAFE);
-					}
-				}
-
-				current_flowpipe = new_flowpipe;
-
-				break;
-			}
-			case 2: 	// time interval is contracted
-			{
-				Real zero(0);
-
-				if(contracted_domain[0].greaterThan(zero))
-				{
-					return checking_result;
-				}
-				else
-				{
-					++num_of_flowpipes;
-
-					bContracted = true;
-					contraction_of_flowpipes.push_back(true);
-
-					new_flowpipe.domain = contracted_domain;
-					new_flowpipe.normalize(tm_setting.cutoff_threshold);
-
-					symbolic_remainder.reset(new_flowpipe);
-
-					if(bSafetyChecking)
-					{
-						int safety = safetyChecking(tmv_flowpipe, contracted_domain, unsafeSet, tm_setting, g_setting);
-
-						if(bTMOutput || bPlot)
-						{
-							tmv_flowpipes.push_back(tmv_flowpipe);
-							domains.push_back(contracted_domain);
-						}
-
-						if(safety == SAFE)
-						{
-							flowpipes_safety.push_back(SAFE);
-						}
-						else
-						{
-							flowpipes_safety.push_back(UNKNOWN);
-
-							if(checking_result == COMPLETED_SAFE)
-							{
-								checking_result = COMPLETED_UNKNOWN;
-							}
-						}
-					}
-					else
-					{
-						if(bTMOutput || bPlot)
-						{
-							tmv_flowpipes.push_back(tmv_flowpipe);
-							domains.push_back(contracted_domain);
-							flowpipes_safety.push_back(SAFE);
-						}
-					}
-
-					t += contracted_domain[0].sup();
-
-					if(bPrint)
-					{
-						printf("time = %f,\t", t);
-						printf("step = %f,\t", contracted_domain[0].sup());
-						printf("order = %d\n", tm_setting.order);
-					}
-
-					last_flowpipe = new_flowpipe;
-
-					return checking_result;
-				}
-			}
-			}
-
-			double current_stepsize = tm_setting.step_exp_table[1].sup();
-			t += current_stepsize;
-
-			if(bPrint)
-			{
-				printf("time = %f,\t", t);
-				printf("step = %f,\t", current_stepsize);
-				printf("order = %d\n", tm_setting.order);
-			}
-
-			new_stepsize = current_stepsize * LAMBDA_UP;
-			if(new_stepsize > tm_setting.step_max - THRESHOLD_HIGH)
-			{
-				new_stepsize = -1;
-			}
-
-			if(symbolic_remainder.J.size() >= symbolic_remainder.max_size)
-			{
-				symbolic_remainder.reset(current_flowpipe);
-			}
-		}
-		else
-		{
-			switch(checking_result)
-			{
-			case COMPLETED_SAFE:
-				return UNCOMPLETED_SAFE;
-			case COMPLETED_UNSAFE:
-				return UNCOMPLETED_UNSAFE;
-			case COMPLETED_UNKNOWN:
-				return UNCOMPLETED_UNKNOWN;
-			}
-		}
-	}
-
-	last_flowpipe = current_flowpipe;
-
-	return checking_result;
-}
-
-int Deterministic_Continuous_Dynamics::reach_inv_symbolic_remainder_adaptive_order(std::list<TaylorModelVec<Real> > & tmv_flowpipes, std::list<std::vector<Interval> > & domains, Flowpipe & last_flowpipe, std::list<unsigned int> & flowpipe_orders, std::list<int> & flowpipes_safety,
-		std::list<bool> & contraction_of_flowpipes, unsigned long & num_of_flowpipes, const double time, const Flowpipe & initialSet, const std::vector<Constraint> & invariant, Symbolic_Remainder & symbolic_remainder,
-		Taylor_Model_Setting & tm_setting, const Global_Setting & g_setting, const bool bPrint, const std::vector<Constraint> & unsafeSet, const bool bSafetyChecking, const bool bPlot, const bool bTMOutput) const
-{
-	double step = tm_setting.step_exp_table[1].sup();
-
-	int checking_result = COMPLETED_SAFE;
-
-	Flowpipe new_flowpipe, current_flowpipe = initialSet;
-	bool bContracted = false;
-
-	for(double t=THRESHOLD_HIGH; t < time;)
-	{
-		int res = current_flowpipe.advance_deterministic_adaptive_order(new_flowpipe, expressions, tm_setting, invariant, g_setting, symbolic_remainder);
-
-		if(res == 1)
-		{
-			// constrain the flowpipe by the invariant
-			TaylorModelVec<Real> tmv_flowpipe;
-			new_flowpipe.compose_normal(tmv_flowpipe, tm_setting.step_exp_table, tm_setting.order, tm_setting.cutoff_threshold);
-
-			std::vector<Interval> contracted_domain = new_flowpipe.domain;
-			int type = domain_contraction_int(tmv_flowpipe, contracted_domain, invariant, tm_setting.order, tm_setting.cutoff_threshold, g_setting);
-
-			switch(type)
-			{
-			case UNSAT:		// the intersection is empty
-				last_flowpipe = current_flowpipe;
-				return checking_result;
-			case SAT:		// the domain is not contracted
-			{
-				++num_of_flowpipes;
-				flowpipe_orders.push_back(tm_setting.order);
-				contraction_of_flowpipes.push_back(bContracted);
-
-				if(bSafetyChecking)
-				{
-					int safety = safetyChecking(tmv_flowpipe, contracted_domain, unsafeSet, tm_setting, g_setting);
-
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						domains.push_back(contracted_domain);
-					}
-
-					if(safety == SAFE)
-					{
-						flowpipes_safety.push_back(SAFE);
-					}
-					else if(safety == UNSAFE && !bContracted)
-					{
-						flowpipes_safety.push_back(UNSAFE);
-						return COMPLETED_UNSAFE;
-					}
-					else
-					{
-						flowpipes_safety.push_back(UNKNOWN);
-
-						if(checking_result == COMPLETED_SAFE)
-						{
-							checking_result = COMPLETED_UNKNOWN;
-						}
-					}
-				}
-				else
-				{
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						domains.push_back(contracted_domain);
-						flowpipes_safety.push_back(SAFE);
-					}
-				}
-
-				current_flowpipe = new_flowpipe;
-				break;
-			}
-			case CONTRACTED: 	// the domain is contracted but the time interval is not
-			{
-				++num_of_flowpipes;
-				flowpipe_orders.push_back(tm_setting.order);
-
-				bContracted = true;
-				contraction_of_flowpipes.push_back(true);
-
-				new_flowpipe.domain = contracted_domain;
-				new_flowpipe.normalize(tm_setting.cutoff_threshold);
-
-				symbolic_remainder.reset(new_flowpipe);
-
-				if(bSafetyChecking)
-				{
-					int safety = safetyChecking(tmv_flowpipe, contracted_domain, unsafeSet, tm_setting, g_setting);
-
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						domains.push_back(contracted_domain);
-					}
-
-					if(safety == SAFE)
-					{
-						flowpipes_safety.push_back(SAFE);
-					}
-					else
-					{
-						flowpipes_safety.push_back(UNKNOWN);
-
-						if(checking_result == COMPLETED_SAFE)
-						{
-							checking_result = COMPLETED_UNKNOWN;
-						}
-					}
-				}
-				else
-				{
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						domains.push_back(contracted_domain);
-						flowpipes_safety.push_back(SAFE);
-					}
-				}
-
-				current_flowpipe = new_flowpipe;
-
-				break;
-			}
-			case 2: 	// time interval is contracted
-			{
-				Real zero(0);
-
-				if(contracted_domain[0].greaterThan(zero))
-				{
-					return checking_result;
-				}
-				else
-				{
-					++num_of_flowpipes;
-
-					bContracted = true;
-					contraction_of_flowpipes.push_back(true);
-
-					new_flowpipe.domain = contracted_domain;
-					new_flowpipe.normalize(tm_setting.cutoff_threshold);
-
-					symbolic_remainder.reset(new_flowpipe);
-
-					if(bSafetyChecking)
-					{
-						int safety = safetyChecking(tmv_flowpipe, contracted_domain, unsafeSet, tm_setting, g_setting);
-
-						if(bTMOutput || bPlot)
-						{
-							tmv_flowpipes.push_back(tmv_flowpipe);
-							domains.push_back(contracted_domain);
-						}
-
-						if(safety == SAFE)
-						{
-							flowpipes_safety.push_back(SAFE);
-						}
-						else
-						{
-							flowpipes_safety.push_back(UNKNOWN);
-
-							if(checking_result == COMPLETED_SAFE)
-							{
-								checking_result = COMPLETED_UNKNOWN;
-							}
-						}
-					}
-					else
-					{
-						if(bTMOutput || bPlot)
-						{
-							tmv_flowpipes.push_back(tmv_flowpipe);
-							domains.push_back(contracted_domain);
-							flowpipes_safety.push_back(SAFE);
-						}
-					}
-
-					t += contracted_domain[0].sup();
-
-					if(bPrint)
-					{
-						printf("time = %f,\t", t);
-						printf("step = %f,\t", contracted_domain[0].sup());
-						printf("order = %d\n", tm_setting.order);
-					}
-
-					last_flowpipe = new_flowpipe;
-
-					return checking_result;
-				}
-			}
-			}
-
-
-			t += contracted_domain[0].sup();
-
-			if(bPrint)
-			{
-				printf("time = %f,\t", t);
-				printf("step = %f,\t", step);
-				printf("order = %d\n", tm_setting.order);
-			}
-
-			if(tm_setting.order > tm_setting.order_min)
-			{
-				--tm_setting.order;
-			}
-
-			if(symbolic_remainder.J.size() >= symbolic_remainder.max_size)
-			{
-				symbolic_remainder.reset(current_flowpipe);
-			}
-		}
-		else
-		{
-			switch(checking_result)
-			{
-			case COMPLETED_SAFE:
-				return UNCOMPLETED_SAFE;
-			case COMPLETED_UNSAFE:
-				return UNCOMPLETED_UNSAFE;
-			case COMPLETED_UNKNOWN:
-				return UNCOMPLETED_UNKNOWN;
-			}
-		}
-	}
-
-	last_flowpipe = current_flowpipe;
-
-	return checking_result;
-}
-
-
-void Deterministic_Continuous_Dynamics::reach_inv(Result_of_Reachability & result, Computational_Setting & setting, const Flowpipe & initialSet, const std::vector<Constraint> & invariant, const std::vector<Constraint> & unsafeSet) const
-{
-	bool bSafetyChecking = false;
-
-	if(unsafeSet.size() > 0)
-	{
-		bSafetyChecking = true;
-	}
-
-	if(setting.tm_setting.step_min > 0)
-	{
-		// adaptive stepsizes
-		result.status = reach_inv_adaptive_stepsize(result.tmv_flowpipes, result.tmv_flowpipes_domains, result.fp_end_of_time, result.orders_of_flowpipes, result.safety_of_flowpipes,
-				result.contraction_of_flowpipes, result.num_of_flowpipes, setting.time, initialSet, invariant, setting.tm_setting, setting.g_setting,
-				setting.bPrint, unsafeSet, bSafetyChecking, true, true);
-	}
-	else if(setting.tm_setting.order_max > 0)
-	{
-		// adaptive orders
-		result.status = reach_inv_adaptive_order(result.tmv_flowpipes, result.tmv_flowpipes_domains, result.fp_end_of_time, result.orders_of_flowpipes, result.safety_of_flowpipes,
-				result.contraction_of_flowpipes, result.num_of_flowpipes, setting.time, initialSet, invariant, setting.tm_setting, setting.g_setting,
-				setting.bPrint, unsafeSet, bSafetyChecking, true, true);
-	}
-	else
-	{
-		// fixed stepsizes and orders
-		result.status = reach_inv(result.tmv_flowpipes, result.tmv_flowpipes_domains, result.fp_end_of_time, result.orders_of_flowpipes, result.safety_of_flowpipes,
-				result.contraction_of_flowpipes, result.num_of_flowpipes, setting.time, initialSet, invariant, setting.tm_setting, setting.g_setting,
-				setting.bPrint, unsafeSet, bSafetyChecking, true, true);
-	}
-
-	if(result.tmv_flowpipes.size() > 0)
-	{
-		TaylorModelVec<Real> last_flowpipe = result.tmv_flowpipes.back();
-
-		Real t;
-		(result.tmv_flowpipes_domains.back())[0].sup(t);
-
-		std::vector<Real> realVec;
-		realVec.push_back(1);
-		realVec.push_back(t);
-
-		Real tmp = t;
-
-		for(unsigned int i=2; i<=setting.tm_setting.step_end_exp_table.size(); ++i)
-		{
-			tmp *= t;
-			realVec.push_back(tmp);
-		}
-
-		last_flowpipe.evaluate_time(result.tmv_end_of_time, realVec);
-
-		result.fp_end_of_time.tmvPre.evaluate_time(result.fp_end_of_time.tmvPre, realVec);
-	}
-}
-
-void Deterministic_Continuous_Dynamics::reach_inv_sr(Result_of_Reachability & result, Computational_Setting & setting, const Flowpipe & initialSet, const std::vector<Constraint> & invariant, const std::vector<Constraint> & unsafeSet, Symbolic_Remainder & symbolic_remainder) const
-{
-	bool bSafetyChecking = false;
-
-	if(unsafeSet.size() > 0)
-	{
-		bSafetyChecking = true;
-	}
-
-	if(setting.tm_setting.step_min > 0)
-	{
-		// adaptive stepsizes
-		result.status = reach_inv_symbolic_remainder_adaptive_stepsize(result.tmv_flowpipes, result.tmv_flowpipes_domains, result.fp_end_of_time, result.orders_of_flowpipes, result.safety_of_flowpipes,
-				result.contraction_of_flowpipes, result.num_of_flowpipes, setting.time, initialSet, invariant, symbolic_remainder, setting.tm_setting, setting.g_setting,
-				setting.bPrint, unsafeSet, bSafetyChecking, true, true);
-	}
-	else if(setting.tm_setting.order_max > 0)
-	{
-		// adaptive orders
-		result.status = reach_inv_symbolic_remainder_adaptive_order(result.tmv_flowpipes, result.tmv_flowpipes_domains, result.fp_end_of_time, result.orders_of_flowpipes, result.safety_of_flowpipes,
-				result.contraction_of_flowpipes, result.num_of_flowpipes, setting.time, initialSet, invariant, symbolic_remainder, setting.tm_setting, setting.g_setting,
-				setting.bPrint, unsafeSet, bSafetyChecking, true, true);
-	}
-	else
-	{
-		// fixed stepsizes and orders
-		result.status = reach_inv_symbolic_remainder(result.tmv_flowpipes, result.tmv_flowpipes_domains, result.fp_end_of_time, result.orders_of_flowpipes, result.safety_of_flowpipes,
-				result.contraction_of_flowpipes, result.num_of_flowpipes, setting.time, initialSet, invariant, symbolic_remainder, setting.tm_setting, setting.g_setting,
-				setting.bPrint, unsafeSet, bSafetyChecking, true, true);
-	}
-
-	if(result.tmv_flowpipes.size() > 0)
-	{
-		TaylorModelVec<Real> last_flowpipe = result.tmv_flowpipes.back();
-
-		Real t;
-		(result.tmv_flowpipes_domains.back())[0].sup(t);
-
-		std::vector<Real> realVec;
-		realVec.push_back(1);
-		realVec.push_back(t);
-
-		Real tmp = t;
-
-		for(unsigned int i=2; i<=setting.tm_setting.step_end_exp_table.size(); ++i)
-		{
-			tmp *= t;
-			realVec.push_back(tmp);
-		}
-
-		last_flowpipe.evaluate_time(result.tmv_end_of_time, realVec);
-
-
-
-		result.fp_end_of_time.tmvPre.evaluate_time(result.fp_end_of_time.tmvPre, realVec);
-	}
-}
-
-
-
-
-
-Nondeterministic_Continuous_Dynamics::Nondeterministic_Continuous_Dynamics(const std::vector<Expression<Interval> > & dynamics)
-{
-	for(unsigned int i=0; i<dynamics.size(); ++i)
-	{
-		expressions.push_back(dynamics[i]);
-	}
-}
-
-Nondeterministic_Continuous_Dynamics::Nondeterministic_Continuous_Dynamics(const Nondeterministic_Continuous_Dynamics & dynamics)
-{
-	expressions		= dynamics.expressions;
-}
-
-Nondeterministic_Continuous_Dynamics::~Nondeterministic_Continuous_Dynamics()
-{
-}
-
-Nondeterministic_Continuous_Dynamics & Nondeterministic_Continuous_Dynamics::operator = (const Nondeterministic_Continuous_Dynamics & dynamics)
-{
-	if(this == &dynamics)
-		return *this;
-
-	expressions		= dynamics.expressions;
-
-	return *this;
-}
-
-void Nondeterministic_Continuous_Dynamics::evaluate(Interval & result, const unsigned int varID, const TaylorModelVec<Real> & tmv_range, const std::vector<Interval> & domain, const unsigned int order, const Computational_Setting & setting)
-{
-	TaylorModel<Real> tm;
-	expressions[varID].evaluate(tm, tmv_range.tms, order, domain, setting.tm_setting.cutoff_threshold, setting.g_setting);
-
-	tm.intEval(result, domain);
-}
-
-int Nondeterministic_Continuous_Dynamics::reach(std::list<Flowpipe> & flowpipes, std::list<unsigned int> & flowpipe_orders, std::list<int> & flowpipes_safety,
-		unsigned long & num_of_flowpipes, const double time, const Flowpipe & initialSet, const Taylor_Model_Setting & tm_setting,
-		const Global_Setting & g_setting, const bool bPrint, const std::vector<Constraint> & unsafeSet, const bool bSafetyChecking,
-		const bool bPlot, const bool bTMOutput) const
-{
-	std::vector<Constraint> dummy_invariant;
-
-	double step = tm_setting.step_exp_table[1].sup();
-
-	int checking_result = COMPLETED_SAFE;
-
-	Flowpipe newFlowpipe, currentFlowpipe = initialSet;
-
-	for(double t=THRESHOLD_HIGH; t < time;)
-	{
-		int res = currentFlowpipe.advance_nondeterministic(newFlowpipe, expressions, tm_setting, dummy_invariant, g_setting);
-
-		if(res == 1)
-		{
-			++num_of_flowpipes;
-			flowpipe_orders.push_back(tm_setting.order);
-
-			if(bSafetyChecking)
-			{
-				int safety = newFlowpipe.safetyChecking(unsafeSet, tm_setting, g_setting);
-
-				if(bTMOutput || bPlot)
-				{
-					flowpipes.push_back(newFlowpipe);
-					flowpipes_safety.push_back(safety);
-				}
-
-				if(safety == UNSAFE)
-				{
-					return COMPLETED_UNSAFE;
-				}
-				else if(safety == UNKNOWN && checking_result == COMPLETED_SAFE)
-				{
-					checking_result = COMPLETED_UNKNOWN;
-				}
-			}
-			else
-			{
-				if(bTMOutput || bPlot)
-				{
-					flowpipes.push_back(newFlowpipe);
-					flowpipes_safety.push_back(SAFE);
-				}
-			}
-
-			currentFlowpipe = newFlowpipe;
-
-			t += step;
-
-			if(bPrint)
-			{
-				printf("time = %f,\t", t);
-				printf("step = %f,\t", step);
-				printf("order = %d\n", tm_setting.order);
-			}
-		}
-		else
-		{
-			switch(checking_result)
-			{
-			case COMPLETED_SAFE:
-				return UNCOMPLETED_SAFE;
-			case COMPLETED_UNSAFE:
-				return UNCOMPLETED_UNSAFE;
-			case COMPLETED_UNKNOWN:
-				return UNCOMPLETED_UNKNOWN;
-			}
-		}
-	}
-
-	return checking_result;
-}
-
-int Nondeterministic_Continuous_Dynamics::reach_adaptive_stepsize(std::list<Flowpipe> & flowpipes, std::list<unsigned int> & flowpipe_orders, std::list<int> & flowpipes_safety,
-		unsigned long & num_of_flowpipes, const double time, const Flowpipe & initialSet, Taylor_Model_Setting & tm_setting,
-		const Global_Setting & g_setting, const bool bPrint, const std::vector<Constraint> & unsafeSet, const bool bSafetyChecking,
-		const bool bPlot, const bool bTMOutput) const
-{
-	std::vector<Constraint> dummy_invariant;
-
-//	double step = tm_setting.step_exp_table[1].sup();
-
-	int checking_result = COMPLETED_SAFE;
-
-	Flowpipe newFlowpipe, currentFlowpipe = initialSet;
-	double new_stepsize = -1;
-
-	for(double t=THRESHOLD_HIGH; t < time;)
-	{
-		int res = currentFlowpipe.advance_nondeterministic_adaptive_stepsize(newFlowpipe, expressions, new_stepsize, tm_setting, dummy_invariant, g_setting);
-
-		if(res == 1)
-		{
-			++num_of_flowpipes;
-			flowpipe_orders.push_back(tm_setting.order);
-
-			if(bSafetyChecking)
-			{
-				int safety = newFlowpipe.safetyChecking(unsafeSet, tm_setting, g_setting);
-
-				if(bTMOutput || bPlot)
-				{
-					flowpipes.push_back(newFlowpipe);
-					flowpipes_safety.push_back(safety);
-				}
-
-				if(safety == UNSAFE)
-				{
-					return COMPLETED_UNSAFE;
-				}
-				else if(safety == UNKNOWN && checking_result == COMPLETED_SAFE)
-				{
-					checking_result = COMPLETED_UNKNOWN;
-				}
-			}
-			else
-			{
-				if(bTMOutput || bPlot)
-				{
-					flowpipes.push_back(newFlowpipe);
-					flowpipes_safety.push_back(SAFE);
-				}
-			}
-
-			currentFlowpipe = newFlowpipe;
-
-			double current_stepsize = tm_setting.step_exp_table[1].sup();
-			t += current_stepsize;
-
-			if(bPrint)
-			{
-				printf("time = %f,\t", t);
-				printf("step = %f,\t", current_stepsize);
-				printf("order = %d\n", tm_setting.order);
-			}
-/*
-			double new_stepsize = current_stepsize * LAMBDA_UP;
-			double last_step = time - t;
-
-			if(new_stepsize > last_step)
-			{
-				new_stepsize = last_step + THRESHOLD_LOW;
-			}
-
-			if(new_stepsize <= tm_setting.step_max - THRESHOLD_LOW)
-			{
-				tm_setting.setStepsize(new_stepsize, tm_setting.order);
-			}
-			*/
-
-			new_stepsize = current_stepsize * LAMBDA_UP;
-			if(new_stepsize > tm_setting.step_max - THRESHOLD_HIGH)
-			{
-				new_stepsize = -1;
-			}
-		}
-		else
-		{
-			switch(checking_result)
-			{
-			case COMPLETED_SAFE:
-				return UNCOMPLETED_SAFE;
-			case COMPLETED_UNSAFE:
-				return UNCOMPLETED_UNSAFE;
-			case COMPLETED_UNKNOWN:
-				return UNCOMPLETED_UNKNOWN;
-			}
-		}
-	}
-
-	return checking_result;
-}
-
-int Nondeterministic_Continuous_Dynamics::reach_adaptive_order(std::list<Flowpipe> & flowpipes, std::list<unsigned int> & flowpipe_orders, std::list<int> & flowpipes_safety,
-		unsigned long & num_of_flowpipes, const double time, const Flowpipe & initialSet, Taylor_Model_Setting & tm_setting,
-		const Global_Setting & g_setting, const bool bPrint, const std::vector<Constraint> & unsafeSet, const bool bSafetyChecking,
-		const bool bPlot, const bool bTMOutput) const
-{
-	std::vector<Constraint> dummy_invariant;
-
-	double step = tm_setting.step_exp_table[1].sup();
-
-	int checking_result = COMPLETED_SAFE;
-
-	Flowpipe newFlowpipe, currentFlowpipe = initialSet;
-
-	for(double t=THRESHOLD_HIGH; t < time;)
-	{
-		int res = currentFlowpipe.advance_nondeterministic_adaptive_order(newFlowpipe, expressions, tm_setting, dummy_invariant, g_setting);
-
-		if(res == 1)
-		{
-			++num_of_flowpipes;
-			flowpipe_orders.push_back(tm_setting.order);
-
-			if(bSafetyChecking)
-			{
-				int safety = newFlowpipe.safetyChecking(unsafeSet, tm_setting, g_setting);
-
-				if(bTMOutput || bPlot)
-				{
-					flowpipes.push_back(newFlowpipe);
-					flowpipes_safety.push_back(safety);
-				}
-
-				if(safety == UNSAFE)
-				{
-					return COMPLETED_UNSAFE;
-				}
-				else if(safety == UNKNOWN && checking_result == COMPLETED_SAFE)
-				{
-					checking_result = COMPLETED_UNKNOWN;
-				}
-			}
-			else
-			{
-				if(bTMOutput || bPlot)
-				{
-					flowpipes.push_back(newFlowpipe);
-					flowpipes_safety.push_back(SAFE);
-				}
-			}
-
-			currentFlowpipe = newFlowpipe;
-
-			t += step;
-
-			if(bPrint)
-			{
-				printf("time = %f,\t", t);
-				printf("step = %f,\t", step);
-				printf("order = %d\n", tm_setting.order);
-			}
-
-			if(tm_setting.order > tm_setting.order_min)
-			{
-				--tm_setting.order;
-			}
-		}
-		else
-		{
-			switch(checking_result)
-			{
-			case COMPLETED_SAFE:
-				return UNCOMPLETED_SAFE;
-			case COMPLETED_UNSAFE:
-				return UNCOMPLETED_UNSAFE;
-			case COMPLETED_UNKNOWN:
-				return UNCOMPLETED_UNKNOWN;
-			}
-		}
-	}
-
-	return checking_result;
-}
-
-int Nondeterministic_Continuous_Dynamics::reach_symbolic_remainder(std::list<Flowpipe> & flowpipes, std::list<unsigned int> & flowpipe_orders, std::list<int> & flowpipes_safety,
-		unsigned long & num_of_flowpipes, const double time, const Flowpipe & initialSet, const Taylor_Model_Setting & tm_setting, Symbolic_Remainder & symbolic_remainder,
-		const Global_Setting & g_setting, const bool bPrint, const std::vector<Constraint> & unsafeSet, const bool bSafetyChecking,
-		const bool bPlot, const bool bTMOutput) const
-{
-	std::vector<Constraint> dummy_invariant;
-
-	std::vector<Real> initial_scalars(expressions.size(), 1);
-
-	double step = tm_setting.step_exp_table[1].sup();
-
-	int checking_result = COMPLETED_SAFE;
-
-	Flowpipe newFlowpipe, currentFlowpipe = initialSet;
-
-	for(double t=THRESHOLD_HIGH; t < time;)
-	{
-		int res = currentFlowpipe.advance_nondeterministic(newFlowpipe, expressions, tm_setting, dummy_invariant, g_setting, symbolic_remainder);
-
-		if(res == 1)
-		{
-			++num_of_flowpipes;
-			flowpipe_orders.push_back(tm_setting.order);
-
-			if(bSafetyChecking)
-			{
-				int safety = newFlowpipe.safetyChecking(unsafeSet, tm_setting, g_setting);
-
-				if(bTMOutput || bPlot)
-				{
-					flowpipes.push_back(newFlowpipe);
-					flowpipes_safety.push_back(safety);
-				}
-
-				if(safety == UNSAFE)
-				{
-					return COMPLETED_UNSAFE;
-				}
-				else if(safety == UNKNOWN && checking_result == COMPLETED_SAFE)
-				{
-					checking_result = COMPLETED_UNKNOWN;
-				}
-			}
-			else
-			{
-				if(bTMOutput || bPlot)
-				{
-					flowpipes.push_back(newFlowpipe);
-					flowpipes_safety.push_back(SAFE);
-				}
-			}
-
-			currentFlowpipe = newFlowpipe;
-
-			t += step;
-
-			if(bPrint)
-			{
-				printf("time = %f,\t", t);
-				printf("step = %f,\t", step);
-				printf("order = %d\n", tm_setting.order);
-			}
-
-			if(symbolic_remainder.J.size() >= symbolic_remainder.max_size)
-			{
-				symbolic_remainder.reset(currentFlowpipe);
-			}
-		}
-		else
-		{
-			switch(checking_result)
-			{
-			case COMPLETED_SAFE:
-				return UNCOMPLETED_SAFE;
-			case COMPLETED_UNSAFE:
-				return UNCOMPLETED_UNSAFE;
-			case COMPLETED_UNKNOWN:
-				return UNCOMPLETED_UNKNOWN;
-			}
-		}
-	}
-
-	return checking_result;
-}
-
-int Nondeterministic_Continuous_Dynamics::reach_symbolic_remainder_adaptive_stepsize(std::list<Flowpipe> & flowpipes, std::list<unsigned int> & flowpipe_orders, std::list<int> & flowpipes_safety,
-		unsigned long & num_of_flowpipes, const double time, const Flowpipe & initialSet, Taylor_Model_Setting & tm_setting, Symbolic_Remainder & symbolic_remainder,
-		const Global_Setting & g_setting, const bool bPrint, const std::vector<Constraint> & unsafeSet, const bool bSafetyChecking,
-		const bool bPlot, const bool bTMOutput) const
-{
-	std::vector<Constraint> dummy_invariant;
-
-	std::vector<Real> initial_scalars(expressions.size(), 1);
-
-//	double step = tm_setting.step_exp_table[1].sup();
-
-	int checking_result = COMPLETED_SAFE;
-
-	Flowpipe newFlowpipe, currentFlowpipe = initialSet;
-	double new_stepsize = -1;
-
-	for(double t=THRESHOLD_HIGH; t < time;)
-	{
-		int res = currentFlowpipe.advance_nondeterministic_adaptive_stepsize(newFlowpipe, expressions, new_stepsize, tm_setting, dummy_invariant, g_setting, symbolic_remainder);
-
-		if(res == 1)
-		{
-			++num_of_flowpipes;
-			flowpipe_orders.push_back(tm_setting.order);
-
-			if(bSafetyChecking)
-			{
-				int safety = newFlowpipe.safetyChecking(unsafeSet, tm_setting, g_setting);
-
-				if(bTMOutput || bPlot)
-				{
-					flowpipes.push_back(newFlowpipe);
-					flowpipes_safety.push_back(safety);
-				}
-
-				if(safety == UNSAFE)
-				{
-					return COMPLETED_UNSAFE;
-				}
-				else if(safety == UNKNOWN && checking_result == COMPLETED_SAFE)
-				{
-					checking_result = COMPLETED_UNKNOWN;
-				}
-			}
-			else
-			{
-				if(bTMOutput || bPlot)
-				{
-					flowpipes.push_back(newFlowpipe);
-					flowpipes_safety.push_back(SAFE);
-				}
-			}
-
-			currentFlowpipe = newFlowpipe;
-
-			if(symbolic_remainder.J.size() >= symbolic_remainder.max_size)
-			{
-				symbolic_remainder.reset(currentFlowpipe);
-			}
-
-			double current_stepsize = tm_setting.step_exp_table[1].sup();
-			t += current_stepsize;
-
-			if(bPrint)
-			{
-				printf("time = %f,\t", t);
-				printf("step = %f,\t", current_stepsize);
-				printf("order = %d\n", tm_setting.order);
-			}
-/*
-			double new_stepsize = current_stepsize * LAMBDA_UP;
-			double last_step = time - t;
-
-			if(new_stepsize > last_step)
-			{
-				new_stepsize = last_step + THRESHOLD_LOW;
-			}
-
-			if(new_stepsize <= tm_setting.step_max - THRESHOLD_LOW)
-			{
-				tm_setting.setStepsize(new_stepsize, tm_setting.order);
-			}
-			*/
-
-			new_stepsize = current_stepsize * LAMBDA_UP;
-			if(new_stepsize > tm_setting.step_max - THRESHOLD_HIGH)
-			{
-				new_stepsize = -1;
-			}
-		}
-		else
-		{
-			switch(checking_result)
-			{
-			case COMPLETED_SAFE:
-				return UNCOMPLETED_SAFE;
-			case COMPLETED_UNSAFE:
-				return UNCOMPLETED_UNSAFE;
-			case COMPLETED_UNKNOWN:
-				return UNCOMPLETED_UNKNOWN;
-			}
-		}
-	}
-
-	return checking_result;
-}
-
-int Nondeterministic_Continuous_Dynamics::reach_symbolic_remainder_adaptive_order(std::list<Flowpipe> & flowpipes, std::list<unsigned int> & flowpipe_orders, std::list<int> & flowpipes_safety,
-		unsigned long & num_of_flowpipes, const double time, const Flowpipe & initialSet, Taylor_Model_Setting & tm_setting,  Symbolic_Remainder & symbolic_remainder,
-		const Global_Setting & g_setting, const bool bPrint, const std::vector<Constraint> & unsafeSet, const bool bSafetyChecking,
-		const bool bPlot, const bool bTMOutput) const
-{
-	std::vector<Constraint> dummy_invariant;
-
-	std::vector<Real> initial_scalars(expressions.size(), 1);
-
-	double step = tm_setting.step_exp_table[1].sup();
-
-	int checking_result = COMPLETED_SAFE;
-
-	Flowpipe newFlowpipe, currentFlowpipe = initialSet;
-
-	for(double t=THRESHOLD_HIGH; t < time;)
-	{
-		int res = currentFlowpipe.advance_nondeterministic_adaptive_order(newFlowpipe, expressions, tm_setting, dummy_invariant, g_setting, symbolic_remainder);
-
-		if(res == 1)
-		{
-			++num_of_flowpipes;
-			flowpipe_orders.push_back(tm_setting.order);
-
-			if(bSafetyChecking)
-			{
-				int safety = newFlowpipe.safetyChecking(unsafeSet, tm_setting, g_setting);
-
-				if(bTMOutput || bPlot)
-				{
-					flowpipes.push_back(newFlowpipe);
-					flowpipes_safety.push_back(safety);
-				}
-
-				if(safety == UNSAFE)
-				{
-					return COMPLETED_UNSAFE;
-				}
-				else if(safety == UNKNOWN && checking_result == COMPLETED_SAFE)
-				{
-					checking_result = COMPLETED_UNKNOWN;
-				}
-			}
-			else
-			{
-				if(bTMOutput || bPlot)
-				{
-					flowpipes.push_back(newFlowpipe);
-					flowpipes_safety.push_back(SAFE);
-				}
-			}
-
-			currentFlowpipe = newFlowpipe;
-
-			t += step;
-
-			if(bPrint)
-			{
-				printf("time = %f,\t", t);
-				printf("step = %f,\t", step);
-				printf("order = %d\n", tm_setting.order);
-			}
-
-			if(symbolic_remainder.J.size() >= symbolic_remainder.max_size)
-			{
-				symbolic_remainder.reset(currentFlowpipe);
-			}
-
-			if(tm_setting.order > tm_setting.order_min)
-			{
-				--tm_setting.order;
-			}
-		}
-		else
-		{
-			switch(checking_result)
-			{
-			case COMPLETED_SAFE:
-				return UNCOMPLETED_SAFE;
-			case COMPLETED_UNSAFE:
-				return UNCOMPLETED_UNSAFE;
-			case COMPLETED_UNKNOWN:
-				return UNCOMPLETED_UNKNOWN;
-			}
-		}
-	}
-
-	return checking_result;
-}
-
-void Nondeterministic_Continuous_Dynamics::reach(Result_of_Reachability & result, Computational_Setting & setting, const Flowpipe & initialSet, const std::vector<Constraint> & unsafeSet) const
-{
-	bool bSafetyChecking = false;
-
-	if(unsafeSet.size() > 0)
-	{
-		bSafetyChecking = true;
-	}
-
-	if(setting.tm_setting.step_min > 0)
-	{
-		// adaptive stepsizes
-		result.status = reach_adaptive_stepsize(result.nonlinear_flowpipes, result.orders_of_flowpipes, result.safety_of_flowpipes, result.num_of_flowpipes,
-				setting.time, initialSet, setting.tm_setting, setting.g_setting, setting.bPrint, unsafeSet, bSafetyChecking, true, true);
-	}
-	else if(setting.tm_setting.order_max > 0)
-	{
-		// adaptive orders
-		result.status = reach_adaptive_order(result.nonlinear_flowpipes, result.orders_of_flowpipes, result.safety_of_flowpipes, result.num_of_flowpipes,
-				setting.time, initialSet, setting.tm_setting, setting.g_setting, setting.bPrint, unsafeSet, bSafetyChecking, true, true);
-	}
-	else
-	{
-		// fixed stepsizes and orders
-		result.status = reach(result.nonlinear_flowpipes, result.orders_of_flowpipes, result.safety_of_flowpipes, result.num_of_flowpipes,
-				setting.time, initialSet, setting.tm_setting, setting.g_setting, setting.bPrint, unsafeSet, bSafetyChecking, true, true);
-	}
-
-
-	if(result.nonlinear_flowpipes.size() > 0)
-	{
-		Flowpipe fpTmp = result.nonlinear_flowpipes.back();
-		result.fp_end_of_time = fpTmp;
-
-		fpTmp.tmvPre.evaluate_time(result.fp_end_of_time.tmvPre, setting.tm_setting.step_end_exp_table);
-	}
-}
-
-void Nondeterministic_Continuous_Dynamics::reach_sr(Result_of_Reachability & result, Computational_Setting & setting, const Flowpipe & initialSet, const std::vector<Constraint> & unsafeSet, Symbolic_Remainder & symbolic_remainder) const
-{
-	bool bSafetyChecking = false;
-
-	if(unsafeSet.size() > 0)
-	{
-		bSafetyChecking = true;
-	}
-
-	if(setting.tm_setting.step_min > 0)
-	{
-		// adaptive stepsizes
-		result.status = reach_symbolic_remainder_adaptive_stepsize(result.nonlinear_flowpipes, result.orders_of_flowpipes, result.safety_of_flowpipes, result.num_of_flowpipes,
-				setting.time, initialSet, setting.tm_setting, symbolic_remainder, setting.g_setting, setting.bPrint, unsafeSet, bSafetyChecking, true, true);
-	}
-	else if(setting.tm_setting.order_max > 0)
-	{
-		// adaptive orders
-		result.status = reach_symbolic_remainder_adaptive_order(result.nonlinear_flowpipes, result.orders_of_flowpipes, result.safety_of_flowpipes, result.num_of_flowpipes,
-				setting.time, initialSet, setting.tm_setting, symbolic_remainder, setting.g_setting, setting.bPrint, unsafeSet, bSafetyChecking, true, true);
-	}
-	else
-	{
-		// fixed stepsizes and orders
-		result.status = reach_symbolic_remainder(result.nonlinear_flowpipes, result.orders_of_flowpipes, result.safety_of_flowpipes, result.num_of_flowpipes,
-				setting.time, initialSet, setting.tm_setting, symbolic_remainder, setting.g_setting, setting.bPrint, unsafeSet, bSafetyChecking, true, true);
-	}
-
-	if(result.nonlinear_flowpipes.size() > 0)
-	{
-		Flowpipe fpTmp = result.nonlinear_flowpipes.back();
-		result.fp_end_of_time = fpTmp;
-
-		fpTmp.tmvPre.evaluate_time(result.fp_end_of_time.tmvPre, setting.tm_setting.step_end_exp_table);
-	}
-}
-
-int Nondeterministic_Continuous_Dynamics::reach_inv(std::list<TaylorModelVec<Real> > & tmv_flowpipes, std::list<Flowpipe> & flowpipes, std::list<unsigned int> & flowpipe_orders, std::list<int> & flowpipes_safety,
-		std::list<bool> & contraction_of_flowpipes, unsigned long & num_of_flowpipes, const double time, const Flowpipe & initialSet, const std::vector<Constraint> & invariant,
-		const Taylor_Model_Setting & tm_setting, const Global_Setting & g_setting, const bool bPrint, const std::vector<Constraint> & unsafeSet, const bool bSafetyChecking, const bool bPlot, const bool bTMOutput) const
-{
-	double step = tm_setting.step_exp_table[1].sup();
-
-	int checking_result = COMPLETED_SAFE;
-
-	Flowpipe new_flowpipe, current_flowpipe = initialSet;
-	bool bContracted = false;
-
-	for(double t=THRESHOLD_HIGH; t < time;)
-	{
-		int res = current_flowpipe.advance_nondeterministic(new_flowpipe, expressions, tm_setting, invariant, g_setting);
-
-		if(res == 1)
-		{
-			// constrain the flowpipe by the invariant
-			TaylorModelVec<Real> tmv_flowpipe;
-			new_flowpipe.compose_normal(tmv_flowpipe, tm_setting.step_exp_table, tm_setting.order, tm_setting.cutoff_threshold);
-
-			std::vector<Interval> contracted_domain = new_flowpipe.domain;
-			int type = domain_contraction_int(tmv_flowpipe, contracted_domain, invariant, tm_setting.order, tm_setting.cutoff_threshold, g_setting);
-
-			switch(type)
-			{
-			case UNSAT:		// the intersection is empty
-				return checking_result;
-			case SAT:		// the domain is not contracted
-			{
-				++num_of_flowpipes;
-				flowpipe_orders.push_back(tm_setting.order);
-				contraction_of_flowpipes.push_back(bContracted);
-
-				if(bSafetyChecking)
-				{
-					int safety = safetyChecking(tmv_flowpipe, contracted_domain, unsafeSet, tm_setting, g_setting);
-
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						flowpipes.push_back(new_flowpipe);
-					}
-
-					if(safety == SAFE)
-					{
-						flowpipes_safety.push_back(SAFE);
-					}
-					else if(safety == UNSAFE && !bContracted)
-					{
-						flowpipes_safety.push_back(UNSAFE);
-						return COMPLETED_UNSAFE;
-					}
-					else
-					{
-						flowpipes_safety.push_back(UNKNOWN);
-
-						if(checking_result == COMPLETED_SAFE)
-						{
-							checking_result = COMPLETED_UNKNOWN;
-						}
-					}
-				}
-				else
-				{
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						flowpipes.push_back(new_flowpipe);
-						flowpipes_safety.push_back(SAFE);
-					}
-				}
-
-				current_flowpipe = new_flowpipe;
-				break;
-			}
-			case CONTRACTED: 	// the domain is contracted but the time interval is not
-			{
-				++num_of_flowpipes;
-				flowpipe_orders.push_back(tm_setting.order);
-
-				bContracted = true;
-				contraction_of_flowpipes.push_back(true);
-
-				new_flowpipe.domain = contracted_domain;
-				new_flowpipe.normalize(tm_setting.cutoff_threshold);
-
-				if(bSafetyChecking)
-				{
-					int safety = safetyChecking(tmv_flowpipe, contracted_domain, unsafeSet, tm_setting, g_setting);
-
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						flowpipes.push_back(new_flowpipe);
-					}
-
-					if(safety == SAFE)
-					{
-						flowpipes_safety.push_back(SAFE);
-					}
-					else
-					{
-						flowpipes_safety.push_back(UNKNOWN);
-
-						if(checking_result == COMPLETED_SAFE)
-						{
-							checking_result = COMPLETED_UNKNOWN;
-						}
-					}
-				}
-				else
-				{
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						flowpipes.push_back(new_flowpipe);
-						flowpipes_safety.push_back(SAFE);
-					}
-				}
-
-				current_flowpipe = new_flowpipe;
-
-				break;
-			}
-			case 2: 	// time interval is contracted
-			{
-				Real zero(0);
-
-				if(contracted_domain[0].greaterThan(zero))
-				{
-					return checking_result;
-				}
-				else
-				{
-					++num_of_flowpipes;
-
-					bContracted = true;
-					contraction_of_flowpipes.push_back(true);
-
-					new_flowpipe.domain = contracted_domain;
-					new_flowpipe.normalize(tm_setting.cutoff_threshold);
-
-					if(bSafetyChecking)
-					{
-						int safety = safetyChecking(tmv_flowpipe, contracted_domain, unsafeSet, tm_setting, g_setting);
-
-						if(bTMOutput || bPlot)
-						{
-							tmv_flowpipes.push_back(tmv_flowpipe);
-							flowpipes.push_back(new_flowpipe);
-						}
-
-						if(safety == SAFE)
-						{
-							flowpipes_safety.push_back(SAFE);
-						}
-						else
-						{
-							flowpipes_safety.push_back(UNKNOWN);
-
-							if(checking_result == COMPLETED_SAFE)
-							{
-								checking_result = COMPLETED_UNKNOWN;
-							}
-						}
-					}
-					else
-					{
-						if(bTMOutput || bPlot)
-						{
-							tmv_flowpipes.push_back(tmv_flowpipe);
-							flowpipes.push_back(new_flowpipe);
-							flowpipes_safety.push_back(SAFE);
-						}
-					}
-
-					t += contracted_domain[0].sup();
-
-					if(bPrint)
-					{
-						printf("time = %f,\t", t);
-						printf("step = %f,\t", contracted_domain[0].sup());
-						printf("order = %d\n", tm_setting.order);
-					}
-
-					return checking_result;
-				}
-			}
-			}
-
-
-			t += contracted_domain[0].sup();
-
-			if(bPrint)
-			{
-				printf("time = %f,\t", t);
-				printf("step = %f,\t", step);
-				printf("order = %d\n", tm_setting.order);
-			}
-		}
-		else
-		{
-			switch(checking_result)
-			{
-			case COMPLETED_SAFE:
-				return UNCOMPLETED_SAFE;
-			case COMPLETED_UNSAFE:
-				return UNCOMPLETED_UNSAFE;
-			case COMPLETED_UNKNOWN:
-				return UNCOMPLETED_UNKNOWN;
-			}
-		}
-	}
-
-	return checking_result;
-}
-
-int Nondeterministic_Continuous_Dynamics::reach_inv_adaptive_stepsize(std::list<TaylorModelVec<Real> > & tmv_flowpipes, std::list<Flowpipe> & flowpipes, std::list<unsigned int> & flowpipe_orders, std::list<int> & flowpipes_safety,
-		std::list<bool> & contraction_of_flowpipes, unsigned long & num_of_flowpipes, const double time, const Flowpipe & initialSet, const std::vector<Constraint> & invariant,
-		Taylor_Model_Setting & tm_setting, const Global_Setting & g_setting, const bool bPrint, const std::vector<Constraint> & unsafeSet, const bool bSafetyChecking, const bool bPlot, const bool bTMOutput) const
-{
-	int checking_result = COMPLETED_SAFE;
-
-	Flowpipe new_flowpipe, current_flowpipe = initialSet;
-	bool bContracted = false;
-	double new_stepsize = -1;
-
-	for(double t=THRESHOLD_HIGH; t < time;)
-	{
-		int res = current_flowpipe.advance_nondeterministic_adaptive_stepsize(new_flowpipe, expressions, new_stepsize, tm_setting, invariant, g_setting);
-
-		if(res == 1)
-		{
-			// constrain the flowpipe by the invariant
-			TaylorModelVec<Real> tmv_flowpipe;
-			new_flowpipe.compose_normal(tmv_flowpipe, tm_setting.step_exp_table, tm_setting.order, tm_setting.cutoff_threshold);
-
-			std::vector<Interval> contracted_domain = new_flowpipe.domain;
-			int type = domain_contraction_int(tmv_flowpipe, contracted_domain, invariant, tm_setting.order, tm_setting.cutoff_threshold, g_setting);
-
-			switch(type)
-			{
-			case UNSAT:		// the intersection is empty
-				return checking_result;
-			case SAT:		// the domain is not contracted
-			{
-				++num_of_flowpipes;
-				flowpipe_orders.push_back(tm_setting.order);
-				contraction_of_flowpipes.push_back(bContracted);
-
-				if(bSafetyChecking)
-				{
-					int safety = safetyChecking(tmv_flowpipe, contracted_domain, unsafeSet, tm_setting, g_setting);
-
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						flowpipes.push_back(new_flowpipe);
-					}
-
-					if(safety == SAFE)
-					{
-						flowpipes_safety.push_back(SAFE);
-					}
-					else if(safety == UNSAFE && !bContracted)
-					{
-						flowpipes_safety.push_back(UNSAFE);
-						return COMPLETED_UNSAFE;
-					}
-					else
-					{
-						flowpipes_safety.push_back(UNKNOWN);
-
-						if(checking_result == COMPLETED_SAFE)
-						{
-							checking_result = COMPLETED_UNKNOWN;
-						}
-					}
-				}
-				else
-				{
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						flowpipes.push_back(new_flowpipe);
-						flowpipes_safety.push_back(SAFE);
-					}
-				}
-
-				current_flowpipe = new_flowpipe;
-				break;
-			}
-			case CONTRACTED: 	// the domain is contracted but the time interval is not
-			{
-				++num_of_flowpipes;
-				flowpipe_orders.push_back(tm_setting.order);
-
-				bContracted = true;
-				contraction_of_flowpipes.push_back(true);
-
-				new_flowpipe.domain = contracted_domain;
-				new_flowpipe.normalize(tm_setting.cutoff_threshold);
-
-				if(bSafetyChecking)
-				{
-					int safety = safetyChecking(tmv_flowpipe, contracted_domain, unsafeSet, tm_setting, g_setting);
-
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						flowpipes.push_back(new_flowpipe);
-					}
-
-					if(safety == SAFE)
-					{
-						flowpipes_safety.push_back(SAFE);
-					}
-					else
-					{
-						flowpipes_safety.push_back(UNKNOWN);
-
-						if(checking_result == COMPLETED_SAFE)
-						{
-							checking_result = COMPLETED_UNKNOWN;
-						}
-					}
-				}
-				else
-				{
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						flowpipes.push_back(new_flowpipe);
-						flowpipes_safety.push_back(SAFE);
-					}
-				}
-
-				current_flowpipe = new_flowpipe;
-
-				break;
-			}
-			case 2: 	// time interval is contracted
-			{
-				Real zero(0);
-
-				if(contracted_domain[0].greaterThan(zero))
-				{
-					return checking_result;
-				}
-				else
-				{
-					++num_of_flowpipes;
-
-					bContracted = true;
-					contraction_of_flowpipes.push_back(true);
-
-					new_flowpipe.domain = contracted_domain;
-					new_flowpipe.normalize(tm_setting.cutoff_threshold);
-
-					if(bSafetyChecking)
-					{
-						int safety = safetyChecking(tmv_flowpipe, contracted_domain, unsafeSet, tm_setting, g_setting);
-
-						if(bTMOutput || bPlot)
-						{
-							tmv_flowpipes.push_back(tmv_flowpipe);
-							flowpipes.push_back(new_flowpipe);
-						}
-
-						if(safety == SAFE)
-						{
-							flowpipes_safety.push_back(SAFE);
-						}
-						else
-						{
-							flowpipes_safety.push_back(UNKNOWN);
-
-							if(checking_result == COMPLETED_SAFE)
-							{
-								checking_result = COMPLETED_UNKNOWN;
-							}
-						}
-					}
-					else
-					{
-						if(bTMOutput || bPlot)
-						{
-							tmv_flowpipes.push_back(tmv_flowpipe);
-							flowpipes.push_back(new_flowpipe);
-							flowpipes_safety.push_back(SAFE);
-						}
-					}
-
-					t += contracted_domain[0].sup();
-
-					if(bPrint)
-					{
-						printf("time = %f,\t", t);
-						printf("step = %f,\t", contracted_domain[0].sup());
-						printf("order = %d\n", tm_setting.order);
-					}
-
-					return checking_result;
-				}
-			}
-			}
-
-			double current_stepsize = tm_setting.step_exp_table[1].sup();
-			t += current_stepsize;
-
-			if(bPrint)
-			{
-				printf("time = %f,\t", t);
-				printf("step = %f,\t", current_stepsize);
-				printf("order = %d\n", tm_setting.order);
-			}
-
-			new_stepsize = current_stepsize * LAMBDA_UP;
-			if(new_stepsize > tm_setting.step_max - THRESHOLD_HIGH)
-			{
-				new_stepsize = -1;
-			}
-		}
-		else
-		{
-			switch(checking_result)
-			{
-			case COMPLETED_SAFE:
-				return UNCOMPLETED_SAFE;
-			case COMPLETED_UNSAFE:
-				return UNCOMPLETED_UNSAFE;
-			case COMPLETED_UNKNOWN:
-				return UNCOMPLETED_UNKNOWN;
-			}
-		}
-	}
-
-	return checking_result;
-}
-
-int Nondeterministic_Continuous_Dynamics::reach_inv_adaptive_order(std::list<TaylorModelVec<Real> > & tmv_flowpipes, std::list<Flowpipe> & flowpipes, std::list<unsigned int> & flowpipe_orders, std::list<int> & flowpipes_safety,
-		std::list<bool> & contraction_of_flowpipes, unsigned long & num_of_flowpipes, const double time, const Flowpipe & initialSet, const std::vector<Constraint> & invariant,
-		Taylor_Model_Setting & tm_setting, const Global_Setting & g_setting, const bool bPrint, const std::vector<Constraint> & unsafeSet, const bool bSafetyChecking, const bool bPlot, const bool bTMOutput) const
-{
-	double step = tm_setting.step_exp_table[1].sup();
-
-	int checking_result = COMPLETED_SAFE;
-
-	Flowpipe new_flowpipe, current_flowpipe = initialSet;
-	bool bContracted = false;
-
-	for(double t=THRESHOLD_HIGH; t < time;)
-	{
-		int res = current_flowpipe.advance_nondeterministic_adaptive_order(new_flowpipe, expressions, tm_setting, invariant, g_setting);
-
-		if(res == 1)
-		{
-			// constrain the flowpipe by the invariant
-			TaylorModelVec<Real> tmv_flowpipe;
-			new_flowpipe.compose_normal(tmv_flowpipe, tm_setting.step_exp_table, tm_setting.order, tm_setting.cutoff_threshold);
-
-			std::vector<Interval> contracted_domain = new_flowpipe.domain;
-			int type = domain_contraction_int(tmv_flowpipe, contracted_domain, invariant, tm_setting.order, tm_setting.cutoff_threshold, g_setting);
-
-			switch(type)
-			{
-			case UNSAT:		// the intersection is empty
-				return checking_result;
-			case SAT:		// the domain is not contracted
-			{
-				++num_of_flowpipes;
-				flowpipe_orders.push_back(tm_setting.order);
-				contraction_of_flowpipes.push_back(bContracted);
-
-				if(bSafetyChecking)
-				{
-					int safety = safetyChecking(tmv_flowpipe, contracted_domain, unsafeSet, tm_setting, g_setting);
-
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						flowpipes.push_back(new_flowpipe);
-					}
-
-					if(safety == SAFE)
-					{
-						flowpipes_safety.push_back(SAFE);
-					}
-					else if(safety == UNSAFE && !bContracted)
-					{
-						flowpipes_safety.push_back(UNSAFE);
-						return COMPLETED_UNSAFE;
-					}
-					else
-					{
-						flowpipes_safety.push_back(UNKNOWN);
-
-						if(checking_result == COMPLETED_SAFE)
-						{
-							checking_result = COMPLETED_UNKNOWN;
-						}
-					}
-				}
-				else
-				{
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						flowpipes.push_back(new_flowpipe);
-						flowpipes_safety.push_back(SAFE);
-					}
-				}
-
-				current_flowpipe = new_flowpipe;
-				break;
-			}
-			case CONTRACTED: 	// the domain is contracted but the time interval is not
-			{
-				++num_of_flowpipes;
-				flowpipe_orders.push_back(tm_setting.order);
-
-				bContracted = true;
-				contraction_of_flowpipes.push_back(true);
-
-				new_flowpipe.domain = contracted_domain;
-				new_flowpipe.normalize(tm_setting.cutoff_threshold);
-
-				if(bSafetyChecking)
-				{
-					int safety = safetyChecking(tmv_flowpipe, contracted_domain, unsafeSet, tm_setting, g_setting);
-
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						flowpipes.push_back(new_flowpipe);
-					}
-
-					if(safety == SAFE)
-					{
-						flowpipes_safety.push_back(SAFE);
-					}
-					else
-					{
-						flowpipes_safety.push_back(UNKNOWN);
-
-						if(checking_result == COMPLETED_SAFE)
-						{
-							checking_result = COMPLETED_UNKNOWN;
-						}
-					}
-				}
-				else
-				{
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						flowpipes.push_back(new_flowpipe);
-						flowpipes_safety.push_back(SAFE);
-					}
-				}
-
-				current_flowpipe = new_flowpipe;
-
-				break;
-			}
-			case 2: 	// time interval is contracted
-			{
-				Real zero(0);
-
-				if(contracted_domain[0].greaterThan(zero))
-				{
-					return checking_result;
-				}
-				else
-				{
-					++num_of_flowpipes;
-
-					bContracted = true;
-					contraction_of_flowpipes.push_back(true);
-
-					new_flowpipe.domain = contracted_domain;
-					new_flowpipe.normalize(tm_setting.cutoff_threshold);
-
-					if(bSafetyChecking)
-					{
-						int safety = safetyChecking(tmv_flowpipe, contracted_domain, unsafeSet, tm_setting, g_setting);
-
-						if(bTMOutput || bPlot)
-						{
-							tmv_flowpipes.push_back(tmv_flowpipe);
-							flowpipes.push_back(new_flowpipe);
-						}
-
-						if(safety == SAFE)
-						{
-							flowpipes_safety.push_back(SAFE);
-						}
-						else
-						{
-							flowpipes_safety.push_back(UNKNOWN);
-
-							if(checking_result == COMPLETED_SAFE)
-							{
-								checking_result = COMPLETED_UNKNOWN;
-							}
-						}
-					}
-					else
-					{
-						if(bTMOutput || bPlot)
-						{
-							tmv_flowpipes.push_back(tmv_flowpipe);
-							flowpipes.push_back(new_flowpipe);
-							flowpipes_safety.push_back(SAFE);
-						}
-					}
-
-					t += contracted_domain[0].sup();
-
-					if(bPrint)
-					{
-						printf("time = %f,\t", t);
-						printf("step = %f,\t", contracted_domain[0].sup());
-						printf("order = %d\n", tm_setting.order);
-					}
-
-					return checking_result;
-				}
-			}
-			}
-
-
-			t += contracted_domain[0].sup();
-
-			if(bPrint)
-			{
-				printf("time = %f,\t", t);
-				printf("step = %f,\t", step);
-				printf("order = %d\n", tm_setting.order);
-			}
-
-			if(tm_setting.order > tm_setting.order_min)
-			{
-				--tm_setting.order;
-			}
-		}
-		else
-		{
-			switch(checking_result)
-			{
-			case COMPLETED_SAFE:
-				return UNCOMPLETED_SAFE;
-			case COMPLETED_UNSAFE:
-				return UNCOMPLETED_UNSAFE;
-			case COMPLETED_UNKNOWN:
-				return UNCOMPLETED_UNKNOWN;
-			}
-		}
-	}
-
-	return checking_result;
-}
-
-int Nondeterministic_Continuous_Dynamics::reach_inv_symbolic_remainder(std::list<TaylorModelVec<Real> > & tmv_flowpipes, std::list<Flowpipe> & flowpipes, std::list<unsigned int> & flowpipe_orders, std::list<int> & flowpipes_safety,
-		std::list<bool> & contraction_of_flowpipes, unsigned long & num_of_flowpipes, const double time, const Flowpipe & initialSet, const std::vector<Constraint> & invariant, Symbolic_Remainder & symbolic_remainder,
-		const Taylor_Model_Setting & tm_setting, const Global_Setting & g_setting, const bool bPrint, const std::vector<Constraint> & unsafeSet, const bool bSafetyChecking, const bool bPlot, const bool bTMOutput) const
-{
-	double step = tm_setting.step_exp_table[1].sup();
-
-	int checking_result = COMPLETED_SAFE;
-
-	Flowpipe new_flowpipe, current_flowpipe = initialSet;
-	bool bContracted = false;
-
-	for(double t=THRESHOLD_HIGH; t < time;)
-	{
-		int res = current_flowpipe.advance_nondeterministic(new_flowpipe, expressions, tm_setting, invariant, g_setting, symbolic_remainder);
-
-		if(res == 1)
-		{
-			// constrain the flowpipe by the invariant
-			TaylorModelVec<Real> tmv_flowpipe;
-			new_flowpipe.compose_normal(tmv_flowpipe, tm_setting.step_exp_table, tm_setting.order, tm_setting.cutoff_threshold);
-
-			std::vector<Interval> contracted_domain = new_flowpipe.domain;
-			int type = domain_contraction_int(tmv_flowpipe, contracted_domain, invariant, tm_setting.order, tm_setting.cutoff_threshold, g_setting);
-
-			switch(type)
-			{
-			case UNSAT:		// the intersection is empty
-				return checking_result;
-			case SAT:		// the domain is not contracted
-			{
-				++num_of_flowpipes;
-				flowpipe_orders.push_back(tm_setting.order);
-				contraction_of_flowpipes.push_back(bContracted);
-
-				if(bSafetyChecking)
-				{
-					int safety = safetyChecking(tmv_flowpipe, contracted_domain, unsafeSet, tm_setting, g_setting);
-
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						flowpipes.push_back(new_flowpipe);
-					}
-
-					if(safety == SAFE)
-					{
-						flowpipes_safety.push_back(SAFE);
-					}
-					else if(safety == UNSAFE && !bContracted)
-					{
-						flowpipes_safety.push_back(UNSAFE);
-						return COMPLETED_UNSAFE;
-					}
-					else
-					{
-						flowpipes_safety.push_back(UNKNOWN);
-
-						if(checking_result == COMPLETED_SAFE)
-						{
-							checking_result = COMPLETED_UNKNOWN;
-						}
-					}
-				}
-				else
-				{
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						flowpipes.push_back(new_flowpipe);
-						flowpipes_safety.push_back(SAFE);
-					}
-				}
-
-				current_flowpipe = new_flowpipe;
-				break;
-			}
-			case CONTRACTED: 	// the domain is contracted but the time interval is not
-			{
-				++num_of_flowpipes;
-				flowpipe_orders.push_back(tm_setting.order);
-
-				bContracted = true;
-				contraction_of_flowpipes.push_back(true);
-
-				new_flowpipe.domain = contracted_domain;
-				new_flowpipe.normalize(tm_setting.cutoff_threshold);
-
-				if(bSafetyChecking)
-				{
-					int safety = safetyChecking(tmv_flowpipe, contracted_domain, unsafeSet, tm_setting, g_setting);
-
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						flowpipes.push_back(new_flowpipe);
-					}
-
-					if(safety == SAFE)
-					{
-						flowpipes_safety.push_back(SAFE);
-					}
-					else
-					{
-						flowpipes_safety.push_back(UNKNOWN);
-
-						if(checking_result == COMPLETED_SAFE)
-						{
-							checking_result = COMPLETED_UNKNOWN;
-						}
-					}
-				}
-				else
-				{
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						flowpipes.push_back(new_flowpipe);
-						flowpipes_safety.push_back(SAFE);
-					}
-				}
-
-				current_flowpipe = new_flowpipe;
-
-				break;
-			}
-			case 2: 	// time interval is contracted
-			{
-				Real zero(0);
-
-				if(contracted_domain[0].greaterThan(zero))
-				{
-					return checking_result;
-				}
-				else
-				{
-					++num_of_flowpipes;
-
-					bContracted = true;
-					contraction_of_flowpipes.push_back(true);
-
-					new_flowpipe.domain = contracted_domain;
-					new_flowpipe.normalize(tm_setting.cutoff_threshold);
-
-					if(bSafetyChecking)
-					{
-						int safety = safetyChecking(tmv_flowpipe, contracted_domain, unsafeSet, tm_setting, g_setting);
-
-						if(bTMOutput || bPlot)
-						{
-							tmv_flowpipes.push_back(tmv_flowpipe);
-							flowpipes.push_back(new_flowpipe);
-						}
-
-						if(safety == SAFE)
-						{
-							flowpipes_safety.push_back(SAFE);
-						}
-						else
-						{
-							flowpipes_safety.push_back(UNKNOWN);
-
-							if(checking_result == COMPLETED_SAFE)
-							{
-								checking_result = COMPLETED_UNKNOWN;
-							}
-						}
-					}
-					else
-					{
-						if(bTMOutput || bPlot)
-						{
-							tmv_flowpipes.push_back(tmv_flowpipe);
-							flowpipes.push_back(new_flowpipe);
-							flowpipes_safety.push_back(SAFE);
-						}
-					}
-
-					t += contracted_domain[0].sup();
-
-					if(bPrint)
-					{
-						printf("time = %f,\t", t);
-						printf("step = %f,\t", contracted_domain[0].sup());
-						printf("order = %d\n", tm_setting.order);
-					}
-
-					return checking_result;
-				}
-			}
-			}
-
-
-			t += contracted_domain[0].sup();
-
-			if(symbolic_remainder.J.size() >= symbolic_remainder.max_size)
-			{
-				symbolic_remainder.reset(current_flowpipe);
-			}
-
-			if(bPrint)
-			{
-				printf("time = %f,\t", t);
-				printf("step = %f,\t", step);
-				printf("order = %d\n", tm_setting.order);
-			}
-		}
-		else
-		{
-			switch(checking_result)
-			{
-			case COMPLETED_SAFE:
-				return UNCOMPLETED_SAFE;
-			case COMPLETED_UNSAFE:
-				return UNCOMPLETED_UNSAFE;
-			case COMPLETED_UNKNOWN:
-				return UNCOMPLETED_UNKNOWN;
-			}
-		}
-	}
-
-	return checking_result;
-}
-
-int Nondeterministic_Continuous_Dynamics::reach_inv_symbolic_remainder_adaptive_stepsize(std::list<TaylorModelVec<Real> > & tmv_flowpipes, std::list<Flowpipe> & flowpipes, std::list<unsigned int> & flowpipe_orders, std::list<int> & flowpipes_safety,
-		std::list<bool> & contraction_of_flowpipes, unsigned long & num_of_flowpipes, const double time, const Flowpipe & initialSet, const std::vector<Constraint> & invariant, Symbolic_Remainder & symbolic_remainder,
-		Taylor_Model_Setting & tm_setting, const Global_Setting & g_setting, const bool bPrint, const std::vector<Constraint> & unsafeSet, const bool bSafetyChecking, const bool bPlot, const bool bTMOutput) const
-{
-	int checking_result = COMPLETED_SAFE;
-
-	Flowpipe new_flowpipe, current_flowpipe = initialSet;
-	bool bContracted = false;
-	double new_stepsize = -1;
-
-	for(double t=THRESHOLD_HIGH; t < time;)
-	{
-		int res = current_flowpipe.advance_nondeterministic_adaptive_stepsize(new_flowpipe, expressions, new_stepsize, tm_setting, invariant, g_setting, symbolic_remainder);
-
-		if(res == 1)
-		{
-			// constrain the flowpipe by the invariant
-			TaylorModelVec<Real> tmv_flowpipe;
-			new_flowpipe.compose_normal(tmv_flowpipe, tm_setting.step_exp_table, tm_setting.order, tm_setting.cutoff_threshold);
-
-			std::vector<Interval> contracted_domain = new_flowpipe.domain;
-			int type = domain_contraction_int(tmv_flowpipe, contracted_domain, invariant, tm_setting.order, tm_setting.cutoff_threshold, g_setting);
-
-			switch(type)
-			{
-			case UNSAT:		// the intersection is empty
-				return checking_result;
-			case SAT:		// the domain is not contracted
-			{
-				++num_of_flowpipes;
-				flowpipe_orders.push_back(tm_setting.order);
-				contraction_of_flowpipes.push_back(bContracted);
-
-				if(bSafetyChecking)
-				{
-					int safety = safetyChecking(tmv_flowpipe, contracted_domain, unsafeSet, tm_setting, g_setting);
-
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						flowpipes.push_back(new_flowpipe);
-					}
-
-					if(safety == SAFE)
-					{
-						flowpipes_safety.push_back(SAFE);
-					}
-					else if(safety == UNSAFE && !bContracted)
-					{
-						flowpipes_safety.push_back(UNSAFE);
-						return COMPLETED_UNSAFE;
-					}
-					else
-					{
-						flowpipes_safety.push_back(UNKNOWN);
-
-						if(checking_result == COMPLETED_SAFE)
-						{
-							checking_result = COMPLETED_UNKNOWN;
-						}
-					}
-				}
-				else
-				{
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						flowpipes.push_back(new_flowpipe);
-						flowpipes_safety.push_back(SAFE);
-					}
-				}
-
-				current_flowpipe = new_flowpipe;
-				break;
-			}
-			case CONTRACTED: 	// the domain is contracted but the time interval is not
-			{
-				++num_of_flowpipes;
-				flowpipe_orders.push_back(tm_setting.order);
-
-				bContracted = true;
-				contraction_of_flowpipes.push_back(true);
-
-				new_flowpipe.domain = contracted_domain;
-				new_flowpipe.normalize(tm_setting.cutoff_threshold);
-
-				if(bSafetyChecking)
-				{
-					int safety = safetyChecking(tmv_flowpipe, contracted_domain, unsafeSet, tm_setting, g_setting);
-
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						flowpipes.push_back(new_flowpipe);
-					}
-
-					if(safety == SAFE)
-					{
-						flowpipes_safety.push_back(SAFE);
-					}
-					else
-					{
-						flowpipes_safety.push_back(UNKNOWN);
-
-						if(checking_result == COMPLETED_SAFE)
-						{
-							checking_result = COMPLETED_UNKNOWN;
-						}
-					}
-				}
-				else
-				{
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						flowpipes.push_back(new_flowpipe);
-						flowpipes_safety.push_back(SAFE);
-					}
-				}
-
-				current_flowpipe = new_flowpipe;
-
-				break;
-			}
-			case 2: 	// time interval is contracted
-			{
-				Real zero(0);
-
-				if(contracted_domain[0].greaterThan(zero))
-				{
-					return checking_result;
-				}
-				else
-				{
-					++num_of_flowpipes;
-
-					bContracted = true;
-					contraction_of_flowpipes.push_back(true);
-
-					new_flowpipe.domain = contracted_domain;
-					new_flowpipe.normalize(tm_setting.cutoff_threshold);
-
-					if(bSafetyChecking)
-					{
-						int safety = safetyChecking(tmv_flowpipe, contracted_domain, unsafeSet, tm_setting, g_setting);
-
-						if(bTMOutput || bPlot)
-						{
-							tmv_flowpipes.push_back(tmv_flowpipe);
-							flowpipes.push_back(new_flowpipe);
-						}
-
-						if(safety == SAFE)
-						{
-							flowpipes_safety.push_back(SAFE);
-						}
-						else
-						{
-							flowpipes_safety.push_back(UNKNOWN);
-
-							if(checking_result == COMPLETED_SAFE)
-							{
-								checking_result = COMPLETED_UNKNOWN;
-							}
-						}
-					}
-					else
-					{
-						if(bTMOutput || bPlot)
-						{
-							tmv_flowpipes.push_back(tmv_flowpipe);
-							flowpipes.push_back(new_flowpipe);
-							flowpipes_safety.push_back(SAFE);
-						}
-					}
-
-					t += contracted_domain[0].sup();
-
-					if(bPrint)
-					{
-						printf("time = %f,\t", t);
-						printf("step = %f,\t", contracted_domain[0].sup());
-						printf("order = %d\n", tm_setting.order);
-					}
-
-					return checking_result;
-				}
-			}
-			}
-
-			double current_stepsize = tm_setting.step_exp_table[1].sup();
-			t += current_stepsize;
-
-			if(bPrint)
-			{
-				printf("time = %f,\t", t);
-				printf("step = %f,\t", current_stepsize);
-				printf("order = %d\n", tm_setting.order);
-			}
-
-			new_stepsize = current_stepsize * LAMBDA_UP;
-			if(new_stepsize > tm_setting.step_max - THRESHOLD_HIGH)
-			{
-				new_stepsize = -1;
-			}
-		}
-		else
-		{
-			switch(checking_result)
-			{
-			case COMPLETED_SAFE:
-				return UNCOMPLETED_SAFE;
-			case COMPLETED_UNSAFE:
-				return UNCOMPLETED_UNSAFE;
-			case COMPLETED_UNKNOWN:
-				return UNCOMPLETED_UNKNOWN;
-			}
-		}
-	}
-
-	return checking_result;
-}
-
-int Nondeterministic_Continuous_Dynamics::reach_inv_symbolic_remainder_adaptive_order(std::list<TaylorModelVec<Real> > & tmv_flowpipes, std::list<Flowpipe> & flowpipes, std::list<unsigned int> & flowpipe_orders, std::list<int> & flowpipes_safety,
-		std::list<bool> & contraction_of_flowpipes, unsigned long & num_of_flowpipes, const double time, const Flowpipe & initialSet, const std::vector<Constraint> & invariant, Symbolic_Remainder & symbolic_remainder,
-		Taylor_Model_Setting & tm_setting, const Global_Setting & g_setting, const bool bPrint, const std::vector<Constraint> & unsafeSet, const bool bSafetyChecking, const bool bPlot, const bool bTMOutput) const
-{
-	double step = tm_setting.step_exp_table[1].sup();
-
-	int checking_result = COMPLETED_SAFE;
-
-	Flowpipe new_flowpipe, current_flowpipe = initialSet;
-	bool bContracted = false;
-
-	for(double t=THRESHOLD_HIGH; t < time;)
-	{
-		int res = current_flowpipe.advance_nondeterministic_adaptive_order(new_flowpipe, expressions, tm_setting, invariant, g_setting, symbolic_remainder);
-
-		if(res == 1)
-		{
-			// constrain the flowpipe by the invariant
-			TaylorModelVec<Real> tmv_flowpipe;
-			new_flowpipe.compose_normal(tmv_flowpipe, tm_setting.step_exp_table, tm_setting.order, tm_setting.cutoff_threshold);
-
-			std::vector<Interval> contracted_domain = new_flowpipe.domain;
-			int type = domain_contraction_int(tmv_flowpipe, contracted_domain, invariant, tm_setting.order, tm_setting.cutoff_threshold, g_setting);
-
-			switch(type)
-			{
-			case UNSAT:		// the intersection is empty
-				return checking_result;
-			case SAT:		// the domain is not contracted
-			{
-				++num_of_flowpipes;
-				flowpipe_orders.push_back(tm_setting.order);
-				contraction_of_flowpipes.push_back(bContracted);
-
-				if(bSafetyChecking)
-				{
-					int safety = safetyChecking(tmv_flowpipe, contracted_domain, unsafeSet, tm_setting, g_setting);
-
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						flowpipes.push_back(new_flowpipe);
-					}
-
-					if(safety == SAFE)
-					{
-						flowpipes_safety.push_back(SAFE);
-					}
-					else if(safety == UNSAFE && !bContracted)
-					{
-						flowpipes_safety.push_back(UNSAFE);
-						return COMPLETED_UNSAFE;
-					}
-					else
-					{
-						flowpipes_safety.push_back(UNKNOWN);
-
-						if(checking_result == COMPLETED_SAFE)
-						{
-							checking_result = COMPLETED_UNKNOWN;
-						}
-					}
-				}
-				else
-				{
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						flowpipes.push_back(new_flowpipe);
-						flowpipes_safety.push_back(SAFE);
-					}
-				}
-
-				current_flowpipe = new_flowpipe;
-				break;
-			}
-			case CONTRACTED: 	// the domain is contracted but the time interval is not
-			{
-				++num_of_flowpipes;
-				flowpipe_orders.push_back(tm_setting.order);
-
-				bContracted = true;
-				contraction_of_flowpipes.push_back(true);
-
-				new_flowpipe.domain = contracted_domain;
-				new_flowpipe.normalize(tm_setting.cutoff_threshold);
-
-				if(bSafetyChecking)
-				{
-					int safety = safetyChecking(tmv_flowpipe, contracted_domain, unsafeSet, tm_setting, g_setting);
-
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						flowpipes.push_back(new_flowpipe);
-					}
-
-					if(safety == SAFE)
-					{
-						flowpipes_safety.push_back(SAFE);
-					}
-					else
-					{
-						flowpipes_safety.push_back(UNKNOWN);
-
-						if(checking_result == COMPLETED_SAFE)
-						{
-							checking_result = COMPLETED_UNKNOWN;
-						}
-					}
-				}
-				else
-				{
-					if(bTMOutput || bPlot)
-					{
-						tmv_flowpipes.push_back(tmv_flowpipe);
-						flowpipes.push_back(new_flowpipe);
-						flowpipes_safety.push_back(SAFE);
-					}
-				}
-
-				current_flowpipe = new_flowpipe;
-
-				break;
-			}
-			case 2: 	// time interval is contracted
-			{
-				Real zero(0);
-
-				if(contracted_domain[0].greaterThan(zero))
-				{
-					return checking_result;
-				}
-				else
-				{
-					++num_of_flowpipes;
-
-					bContracted = true;
-					contraction_of_flowpipes.push_back(true);
-
-					new_flowpipe.domain = contracted_domain;
-					new_flowpipe.normalize(tm_setting.cutoff_threshold);
-
-					if(bSafetyChecking)
-					{
-						int safety = safetyChecking(tmv_flowpipe, contracted_domain, unsafeSet, tm_setting, g_setting);
-
-						if(bTMOutput || bPlot)
-						{
-							tmv_flowpipes.push_back(tmv_flowpipe);
-							flowpipes.push_back(new_flowpipe);
-						}
-
-						if(safety == SAFE)
-						{
-							flowpipes_safety.push_back(SAFE);
-						}
-						else
-						{
-							flowpipes_safety.push_back(UNKNOWN);
-
-							if(checking_result == COMPLETED_SAFE)
-							{
-								checking_result = COMPLETED_UNKNOWN;
-							}
-						}
-					}
-					else
-					{
-						if(bTMOutput || bPlot)
-						{
-							tmv_flowpipes.push_back(tmv_flowpipe);
-							flowpipes.push_back(new_flowpipe);
-							flowpipes_safety.push_back(SAFE);
-						}
-					}
-
-					t += contracted_domain[0].sup();
-
-					if(bPrint)
-					{
-						printf("time = %f,\t", t);
-						printf("step = %f,\t", contracted_domain[0].sup());
-						printf("order = %d\n", tm_setting.order);
-					}
-
-					return checking_result;
-				}
-			}
-			}
-
-
-			t += contracted_domain[0].sup();
-
-			if(bPrint)
-			{
-				printf("time = %f,\t", t);
-				printf("step = %f,\t", step);
-				printf("order = %d\n", tm_setting.order);
-			}
-
-			if(tm_setting.order > tm_setting.order_min)
-			{
-				--tm_setting.order;
-			}
-		}
-		else
-		{
-			switch(checking_result)
-			{
-			case COMPLETED_SAFE:
-				return UNCOMPLETED_SAFE;
-			case COMPLETED_UNSAFE:
-				return UNCOMPLETED_UNSAFE;
-			case COMPLETED_UNKNOWN:
-				return UNCOMPLETED_UNKNOWN;
-			}
-		}
-	}
-
-	return checking_result;
-}
-
-void Nondeterministic_Continuous_Dynamics::reach_inv(Result_of_Reachability & result, Computational_Setting & setting, const Flowpipe & initialSet, const std::vector<Constraint> & invariant, const std::vector<Constraint> & unsafeSet) const
-{
-	bool bSafetyChecking = false;
-
-	if(unsafeSet.size() > 0)
-	{
-		bSafetyChecking = true;
-	}
-
-	if(setting.tm_setting.step_min > 0)
-	{
-		// adaptive stepsizes
-		result.status = reach_inv_adaptive_stepsize(result.tmv_flowpipes, result.nonlinear_flowpipes, result.orders_of_flowpipes, result.safety_of_flowpipes,
-				result.contraction_of_flowpipes, result.num_of_flowpipes, setting.time, initialSet, invariant, setting.tm_setting, setting.g_setting,
-				setting.bPrint, unsafeSet, bSafetyChecking, true, true);
-	}
-	else if(setting.tm_setting.order_max > 0)
-	{
-		// adaptive orders
-		result.status = reach_inv_adaptive_order(result.tmv_flowpipes, result.nonlinear_flowpipes, result.orders_of_flowpipes, result.safety_of_flowpipes,
-				result.contraction_of_flowpipes, result.num_of_flowpipes, setting.time, initialSet, invariant, setting.tm_setting, setting.g_setting,
-				setting.bPrint, unsafeSet, bSafetyChecking, true, true);
-	}
-	else
-	{
-		// fixed stepsizes and orders
-		result.status = reach_inv(result.tmv_flowpipes, result.nonlinear_flowpipes, result.orders_of_flowpipes, result.safety_of_flowpipes,
-				result.contraction_of_flowpipes, result.num_of_flowpipes, setting.time, initialSet, invariant, setting.tm_setting, setting.g_setting,
-				setting.bPrint, unsafeSet, bSafetyChecking, true, true);
-	}
-
-	if(result.tmv_flowpipes.size() > 0)
-	{
-/*
-		TaylorModelVec<Real> last_flowpipe = result.tmv_flowpipes.back();
-
-		Real t;
-		result.nonlinear_flowpipes.back().domain[0].sup(t);
-
-		std::vector<Real> realVec;
-		realVec.push_back(1);
-		realVec.push_back(t);
-
-		Real tmp = t;
-
-		for(unsigned int i=2; i<=setting.tm_setting.step_end_exp_table.size(); ++i)
-		{
-			tmp *= t;
-			realVec.push_back(tmp);
-		}
-
-		last_flowpipe.evaluate_time(result.tmv_end_of_time, realVec);
 */
 
 
 
-
-
-
-		TaylorModelVec<Real> last_flowpipe = result.tmv_flowpipes.back();
-
-		Real t;
-		(result.tmv_flowpipes_domains.back())[0].sup(t);
-
-		std::vector<Real> realVec;
-		realVec.push_back(1);
-		realVec.push_back(t);
-
-		Real tmp = t;
-
-		for(unsigned int i=2; i<=setting.tm_setting.step_end_exp_table.size(); ++i)
-		{
-			tmp *= t;
-			realVec.push_back(tmp);
-		}
-
-		last_flowpipe.evaluate_time(result.tmv_end_of_time, realVec);
-
-
-		result.fp_end_of_time.tmvPre.evaluate_time(result.fp_end_of_time.tmvPre, realVec);
-	}
-}
-
-void Nondeterministic_Continuous_Dynamics::reach_inv_sr(Result_of_Reachability & result, Computational_Setting & setting, const Flowpipe & initialSet, const std::vector<Constraint> & invariant, const std::vector<Constraint> & unsafeSet, Symbolic_Remainder & symbolic_remainder) const
-{
-	bool bSafetyChecking = false;
-
-	if(unsafeSet.size() > 0)
-	{
-		bSafetyChecking = true;
-	}
-
-	if(setting.tm_setting.step_min > 0)
-	{
-		// adaptive stepsizes
-		result.status = reach_inv_symbolic_remainder_adaptive_stepsize(result.tmv_flowpipes, result.nonlinear_flowpipes, result.orders_of_flowpipes, result.safety_of_flowpipes,
-				result.contraction_of_flowpipes, result.num_of_flowpipes, setting.time, initialSet, invariant, symbolic_remainder, setting.tm_setting, setting.g_setting,
-				setting.bPrint, unsafeSet, bSafetyChecking, true, true);
-	}
-	else if(setting.tm_setting.order_max > 0)
-	{
-		// adaptive orders
-		result.status = reach_inv_symbolic_remainder_adaptive_order(result.tmv_flowpipes, result.nonlinear_flowpipes, result.orders_of_flowpipes, result.safety_of_flowpipes,
-				result.contraction_of_flowpipes, result.num_of_flowpipes, setting.time, initialSet, invariant, symbolic_remainder, setting.tm_setting, setting.g_setting,
-				setting.bPrint, unsafeSet, bSafetyChecking, true, true);
-	}
-	else
-	{
-		// fixed stepsizes and orders
-		result.status = reach_inv_symbolic_remainder(result.tmv_flowpipes, result.nonlinear_flowpipes, result.orders_of_flowpipes, result.safety_of_flowpipes,
-				result.contraction_of_flowpipes, result.num_of_flowpipes, setting.time, initialSet, invariant, symbolic_remainder, setting.tm_setting, setting.g_setting,
-				setting.bPrint, unsafeSet, bSafetyChecking, true, true);
-	}
-
-	if(result.tmv_flowpipes.size() > 0)
-	{
-/*
-		TaylorModelVec<Real> last_flowpipe = result.tmv_flowpipes.back();
-
-		Real t;
-		result.nonlinear_flowpipes.back().domain[0].sup(t);
-
-		std::vector<Real> realVec;
-		realVec.push_back(1);
-		realVec.push_back(t);
-
-		Real tmp = t;
-
-		for(unsigned int i=2; i<=setting.tm_setting.step_end_exp_table.size(); ++i)
-		{
-			tmp *= t;
-			realVec.push_back(tmp);
-		}
-
-		last_flowpipe.evaluate_time(result.tmv_end_of_time, realVec);
-*/
-
-
-
-
-		TaylorModelVec<Real> last_flowpipe = result.tmv_flowpipes.back();
-
-		Real t;
-		(result.tmv_flowpipes_domains.back())[0].sup(t);
-
-		std::vector<Real> realVec;
-		realVec.push_back(1);
-		realVec.push_back(t);
-
-		Real tmp = t;
-
-		for(unsigned int i=2; i<=setting.tm_setting.step_end_exp_table.size(); ++i)
-		{
-			tmp *= t;
-			realVec.push_back(tmp);
-		}
-
-		last_flowpipe.evaluate_time(result.tmv_end_of_time, realVec);
-
-
-		result.fp_end_of_time.tmvPre.evaluate_time(result.fp_end_of_time.tmvPre, realVec);
-	}
-}
 
 
 
@@ -12201,36 +8807,36 @@ void Plot_Setting::continuousOutput()
 	bDiscrete = false;
 }
 
-void Plot_Setting::plot_2D(const std::string & path, const std::string & fileName, const Result_of_Reachability & result) const
+void Plot_Setting::plot_2D(const std::string & path, const std::string & fileName, const TaylorModelFlowpipes & flowpipes) const
 {
 	switch(type_of_file)
 	{
 	case PLOT_GNUPLOT:
-		plot_2D_GNUPLOT(path, fileName, result);
+		plot_2D_GNUPLOT(path, fileName, flowpipes);
 		break;
 	case PLOT_MATLAB:
-		plot_2D_MATLAB(path, fileName, result);
+		plot_2D_MATLAB(path, fileName, flowpipes);
 		break;
 	}
 }
 
-void Plot_Setting::plot_2D_MATLAB(const std::string & path, const std::string & fileName, const Result_of_Reachability & result) const
+void Plot_Setting::plot_2D_MATLAB(const std::string & path, const std::string & fileName, const TaylorModelFlowpipes & flowpipes) const
 {
 	switch(type_of_object)
 	{
 	case PLOT_INTERVAL:
-		plot_2D_interval_MATLAB(path, fileName, result);
+		plot_2D_interval_MATLAB(path, fileName, flowpipes);
 		break;
 	case PLOT_OCTAGON:
-		plot_2D_octagon_MATLAB(path, fileName, result);
+		plot_2D_octagon_MATLAB(path, fileName, flowpipes);
 		break;
 	case PLOT_GRID:
-		plot_2D_grids_MATLAB(path, fileName, num_of_pieces, result);
+		plot_2D_grids_MATLAB(path, fileName, num_of_pieces, flowpipes);
 		break;
 	}
 }
 
-void Plot_Setting::plot_2D_interval_MATLAB(const std::string & path, const std::string & fileName, const Result_of_Reachability & result) const
+void Plot_Setting::plot_2D_interval_MATLAB(const std::string & path, const std::string & fileName, const TaylorModelFlowpipes & flowpipes) const
 {
 	if(bPrint)
 	{
@@ -12238,7 +8844,7 @@ void Plot_Setting::plot_2D_interval_MATLAB(const std::string & path, const std::
 	}
 
 	std::string name = path + fileName + ".m";
-	FILE *plotFile = fopen(name.c_str(), "a+");
+	FILE *plotFile = fopen(name.c_str(), "w");
 
 	if(plotFile == NULL)
 	{
@@ -12260,32 +8866,30 @@ void Plot_Setting::plot_2D_interval_MATLAB(const std::string & path, const std::
 
 	unsigned int prog = 0;
 
-	std::list<TaylorModelVec<Real> >::const_iterator tmvIter = result.tmv_flowpipes.begin();
-	std::list<std::vector<Interval> >::const_iterator domainIter = result.tmv_flowpipes_domains.begin();
-	std::list<int>::const_iterator safetyIter = result.safety_of_flowpipes.begin();
+	std::list<TaylorModelFlowpipe>::const_iterator fpIter = flowpipes.tmv_flowpipes.begin();
 
-	unsigned int total_size = result.safety_of_flowpipes.size();
+	unsigned int total_size = flowpipes.tmv_flowpipes.size();
 
 	if(total_size > 0)
 	{
-		for(; safetyIter != result.safety_of_flowpipes.end() ; ++tmvIter, ++domainIter, ++safetyIter)
+		for(; fpIter != flowpipes.tmv_flowpipes.end() ; ++fpIter)
 		{
 			std::vector<Interval> box;
 
 			if(bDiscrete)
 			{
-				std::vector<Interval> newDomain = *domainIter;
-				newDomain[0] = (*domainIter)[0].sup();
-				tmvIter->intEval(box, newDomain, varIDs);
+				std::vector<Interval> newDomain = fpIter->domain;
+				newDomain[0] = (fpIter->domain)[0].sup();
+				fpIter->tmv_flowpipe.intEval(box, newDomain, varIDs);
 			}
 			else
 			{
-				tmvIter->intEval(box, *domainIter, varIDs);
+				fpIter->tmv_flowpipe.intEval(box, fpIter->domain, varIDs);
 			}
 
 			Interval X = box[0], Y = box[1];
 
-			switch(*safetyIter)
+			switch(fpIter->safety)
 			{
 			case SAFE:
 				fprintf(plotFile,"plot( [%e,%e,%e,%e,%e] , [%e,%e,%e,%e,%e] , 'color' , '[0 0.4 0]');\nhold on;\nclear;\n",
@@ -12307,7 +8911,7 @@ void Plot_Setting::plot_2D_interval_MATLAB(const std::string & path, const std::
 			printf(BOLD_FONT "%3d" RESET_COLOR, (int)(prog*100/total_size));
 			fflush(stdout);
 
-			if(*safetyIter == UNSAFE)
+			if(fpIter->safety == UNSAFE)
 			{
 				break;
 			}
@@ -12316,47 +8920,6 @@ void Plot_Setting::plot_2D_interval_MATLAB(const std::string & path, const std::
 		printf("\b\b\b\b");
 		printf(BOLD_FONT "%%100\n" RESET_COLOR);
 		fflush(stdout);
-	}
-	else
-	{
-		total_size = result.tmv_flowpipes.size();
-
-		for(; tmvIter != result.tmv_flowpipes.end() ; ++tmvIter, ++domainIter)
-		{
-			std::vector<Interval> box;
-
-			if(bDiscrete)
-			{
-				std::vector<Interval> newDomain = *domainIter;
-				newDomain[0] = (*domainIter)[0].sup();
-				tmvIter->intEval(box, newDomain, varIDs);
-			}
-			else
-			{
-				tmvIter->intEval(box, *domainIter, varIDs);
-			}
-
-			Interval X = box[0], Y = box[1];
-
-			fprintf(plotFile,"plot( [%e,%e,%e,%e,%e] , [%e,%e,%e,%e,%e] , 'color' , '[0 0.4 0]');\nhold on;\nclear;\n",
-					X.inf(), X.sup(), X.sup(), X.inf(), X.inf(), Y.inf(), Y.inf(), Y.sup(), Y.sup(), Y.inf());
-
-			if(bPrint)
-			{
-				++prog;
-				printf("\b\b\b\b");
-				printf(BOLD_FONT "%%" RESET_COLOR);
-				printf(BOLD_FONT "%3d" RESET_COLOR, (int)(prog*100/total_size));
-				fflush(stdout);
-			}
-		}
-
-		if(bPrint)
-		{
-			printf("\b\b\b\b");
-			printf(BOLD_FONT "%%100\n" RESET_COLOR);
-			fflush(stdout);
-		}
 	}
 
 	fclose(plotFile);
@@ -12367,7 +8930,7 @@ void Plot_Setting::plot_2D_interval_MATLAB(const std::string & path, const std::
 	}
 }
 
-void Plot_Setting::plot_2D_octagon_MATLAB(const std::string & path, const std::string & fileName, const Result_of_Reachability & result) const
+void Plot_Setting::plot_2D_octagon_MATLAB(const std::string & path, const std::string & fileName, const TaylorModelFlowpipes & flowpipes) const
 {
 	if(bPrint)
 	{
@@ -12479,24 +9042,22 @@ void Plot_Setting::plot_2D_octagon_MATLAB(const std::string & path, const std::s
 
 	unsigned int prog = 0;
 
-	std::list<TaylorModelVec<Real> >::const_iterator tmvIter = result.tmv_flowpipes.begin();
-	std::list<std::vector<Interval> >::const_iterator domainIter = result.tmv_flowpipes_domains.begin();
-	std::list<int>::const_iterator safetyIter = result.safety_of_flowpipes.begin();
+	std::list<TaylorModelFlowpipe>::const_iterator fpIter = flowpipes.tmv_flowpipes.begin();
 
-	unsigned int total_size = result.safety_of_flowpipes.size();
+	unsigned int total_size = flowpipes.tmv_flowpipes.size();
 
 	if(total_size > 0)
 	{
-		for(; safetyIter != result.safety_of_flowpipes.end(); ++tmvIter, ++domainIter, ++safetyIter)
+		for(; fpIter != flowpipes.tmv_flowpipes.end(); ++fpIter)
 		{
-			std::vector<Interval> newDomain = *domainIter;
+			std::vector<Interval> newDomain = fpIter->domain;
 
 			if(bDiscrete)
 			{
-				newDomain[0] = (*domainIter)[0].sup();
+				newDomain[0] = (fpIter->domain)[0].sup();
 			}
 
-			Polyhedron polyTemplate(sortedTemplate, *tmvIter, newDomain);
+			Polyhedron polyTemplate(sortedTemplate, fpIter->tmv_flowpipe, newDomain);
 
 			double f1, f2;
 
@@ -12568,7 +9129,7 @@ void Plot_Setting::plot_2D_octagon_MATLAB(const std::string & path, const std::s
 			}
 			fprintf(plotFile, "%e ] , ", vertices_y.back());
 
-			switch(*safetyIter)
+			switch(fpIter->safety)
 			{
 			case SAFE:
 				fprintf(plotFile, "'color' , '[0 0.4 0]');\nhold on;\nclear;\n");
@@ -12590,114 +9151,9 @@ void Plot_Setting::plot_2D_octagon_MATLAB(const std::string & path, const std::s
 				fflush(stdout);
 			}
 
-			if(*safetyIter == UNSAFE)
+			if(fpIter->safety == UNSAFE)
 			{
 				break;
-			}
-		}
-
-		if(bPrint)
-		{
-			printf("\b\b\b\b");
-			printf(BOLD_FONT "%%100\n" RESET_COLOR);
-			fflush(stdout);
-		}
-	}
-	else
-	{
-		total_size = result.tmv_flowpipes.size();
-
-		for(; tmvIter != result.tmv_flowpipes.end(); ++tmvIter, ++domainIter)
-		{
-			std::vector<Interval> newDomain = *domainIter;
-
-			if(bDiscrete)
-			{
-				newDomain[0] = (*domainIter)[0].sup();
-			}
-
-			Polyhedron polyTemplate(sortedTemplate, *tmvIter, newDomain);
-
-			double f1, f2;
-
-			std::vector<LinearConstraint>::iterator iterp, iterq;
-			iterp = iterq = polyTemplate.constraints.begin();
-			++iterq;
-
-			std::vector<double> vertices_x, vertices_y;
-
-			for(; iterq != polyTemplate.constraints.end(); ++iterp, ++iterq)
-			{
-				gsl_matrix_set(C, 0, 0, iterp->A[x].toDouble());
-				gsl_matrix_set(C, 0, 1, iterp->A[y].toDouble());
-				gsl_matrix_set(C, 1, 0, iterq->A[x].toDouble());
-				gsl_matrix_set(C, 1, 1, iterq->A[y].toDouble());
-
-				gsl_vector_set(d, 0, iterp->B.toDouble());
-				gsl_vector_set(d, 1, iterq->B.toDouble());
-
-				gsl_linalg_HH_solve(C, d, vertex);
-
-				double v1 = gsl_vector_get(vertex, 0);
-				double v2 = gsl_vector_get(vertex, 1);
-
-				if(iterp == polyTemplate.constraints.begin())
-				{
-					f1 = v1;
-					f2 = v2;
-				}
-
-				vertices_x.push_back(v1);
-				vertices_y.push_back(v2);
-			}
-
-			iterp = polyTemplate.constraints.begin();
-			--iterq;
-
-			gsl_matrix_set(C, 0, 0, iterp->A[x].toDouble());
-			gsl_matrix_set(C, 0, 1, iterp->A[y].toDouble());
-			gsl_matrix_set(C, 1, 0, iterq->A[x].toDouble());
-			gsl_matrix_set(C, 1, 1, iterq->A[y].toDouble());
-
-			gsl_vector_set(d, 0, iterp->B.toDouble());
-			gsl_vector_set(d, 1, iterq->B.toDouble());
-
-			gsl_linalg_HH_solve(C, d, vertex);
-
-			double v1 = gsl_vector_get(vertex, 0);
-			double v2 = gsl_vector_get(vertex, 1);
-
-			vertices_x.push_back(v1);
-			vertices_y.push_back(v2);
-			vertices_x.push_back(f1);
-			vertices_y.push_back(f2);
-
-			fprintf(plotFile, "plot( ");
-
-			fprintf(plotFile, "[ ");
-			for(int i=0; i<vertices_x.size()-1; ++i)
-			{
-				fprintf(plotFile, "%le , ", vertices_x[i]);
-			}
-			fprintf(plotFile, "%le ] , ", vertices_x.back());
-
-			fprintf(plotFile, "[ ");
-			for(int i=0; i<vertices_y.size()-1; ++i)
-			{
-				fprintf(plotFile, "%e , ", vertices_y[i]);
-			}
-			fprintf(plotFile, "%e ] , ", vertices_y.back());
-
-
-			fprintf(plotFile, "'color' , '[0 0.4 0]');\nhold on;\nclear;\n");
-
-			if(bPrint)
-			{
-				++prog;
-				printf("\b\b\b\b");
-				printf(BOLD_FONT "%%" RESET_COLOR);
-				printf(BOLD_FONT "%3d" RESET_COLOR, (int)(prog*100/total_size));
-				fflush(stdout);
 			}
 		}
 
@@ -12721,7 +9177,7 @@ void Plot_Setting::plot_2D_octagon_MATLAB(const std::string & path, const std::s
 	}
 }
 
-void Plot_Setting::plot_2D_grids_MATLAB(const std::string & path, const std::string & fileName, const unsigned int num, const Result_of_Reachability & result) const
+void Plot_Setting::plot_2D_grids_MATLAB(const std::string & path, const std::string & fileName, const unsigned int num, const TaylorModelFlowpipes & flowpipes) const
 {
 	if(bPrint)
 	{
@@ -12751,41 +9207,39 @@ void Plot_Setting::plot_2D_grids_MATLAB(const std::string & path, const std::str
 
 	unsigned int prog = 0;
 
-	std::list<TaylorModelVec<Real> >::const_iterator tmvIter = result.tmv_flowpipes.begin();
-	std::list<std::vector<Interval> >::const_iterator domainIter = result.tmv_flowpipes_domains.begin();
-	std::list<int>::const_iterator safetyIter = result.safety_of_flowpipes.begin();
+	std::list<TaylorModelFlowpipe>::const_iterator fpIter = flowpipes.tmv_flowpipes.begin();
 
-	unsigned int total_size = result.safety_of_flowpipes.size();
+	unsigned int total_size = flowpipes.tmv_flowpipes.size();
 
 	if(total_size > 0)
 	{
-		for(; safetyIter != result.safety_of_flowpipes.end(); ++tmvIter, ++domainIter, ++safetyIter)
+		for(; fpIter != flowpipes.tmv_flowpipes.end(); ++fpIter)
 		{
 			// decompose the domain
 			std::list<std::vector<Interval> > grids;
 
 			if(bDiscrete)
 			{
-				std::vector<Interval> newDomain = *domainIter;
-				newDomain[0] = (*domainIter)[0].sup();
+				std::vector<Interval> newDomain = fpIter->domain;
+				newDomain[0] = (fpIter->domain)[0].sup();
 				gridBox(grids, newDomain, num);
 			}
 			else
 			{
-				gridBox(grids, *domainIter, num);
+				gridBox(grids, fpIter->domain, num);
 			}
 
 			// we only consider the output dimensions
 			HornerForm<Real> hfOutputX;
 			Interval remainderX;
 
-			tmvIter->tms[x].toHornerForm(hfOutputX, remainderX);
+			fpIter->tmv_flowpipe.tms[x].toHornerForm(hfOutputX, remainderX);
 
 
 			HornerForm<Real> hfOutputY;
 			Interval remainderY;
 
-			tmvIter->tms[y].toHornerForm(hfOutputY, remainderY);
+			fpIter->tmv_flowpipe.tms[y].toHornerForm(hfOutputY, remainderY);
 
 
 			// evaluate the images from all of the grids
@@ -12800,7 +9254,7 @@ void Plot_Setting::plot_2D_grids_MATLAB(const std::string & path, const std::str
 				hfOutputY.evaluate(Y, *gIter);
 				Y += remainderY;
 
-				switch(*safetyIter)
+				switch(fpIter->safety)
 				{
 				case SAFE:
 					fprintf(plotFile,"plot( [%e,%e,%e,%e,%e] , [%e,%e,%e,%e,%e] , 'color' , '[0 0.4 0]');\nhold on;\nclear;\n",
@@ -12826,76 +9280,9 @@ void Plot_Setting::plot_2D_grids_MATLAB(const std::string & path, const std::str
 				fflush(stdout);
 			}
 
-			if(*safetyIter == UNSAFE)
+			if(fpIter->safety == UNSAFE)
 			{
 				break;
-			}
-		}
-
-		if(bPrint)
-		{
-			printf("\b\b\b\b");
-			printf(BOLD_FONT "%%100\n" RESET_COLOR);
-			fflush(stdout);
-		}
-	}
-	else
-	{
-		total_size = result.tmv_flowpipes.size();
-
-		for(; tmvIter != result.tmv_flowpipes.end(); ++tmvIter, ++domainIter)
-		{
-			// decompose the domain
-			std::list<std::vector<Interval> > grids;
-
-			if(bDiscrete)
-			{
-				std::vector<Interval> newDomain = *domainIter;
-				newDomain[0] = (*domainIter)[0].sup();
-				gridBox(grids, newDomain, num);
-			}
-			else
-			{
-				gridBox(grids, *domainIter, num);
-			}
-
-
-			// we only consider the output dimensions
-			HornerForm<Real> hfOutputX;
-			Interval remainderX;
-
-			tmvIter->tms[x].toHornerForm(hfOutputX, remainderX);
-
-
-			HornerForm<Real> hfOutputY;
-			Interval remainderY;
-
-			tmvIter->tms[y].toHornerForm(hfOutputY, remainderY);
-
-
-			// evaluate the images from all of the grids
-			std::list<std::vector<Interval> >::const_iterator gIter = grids.begin();
-			for(; gIter!=grids.end(); ++gIter)
-			{
-				Interval X;
-				hfOutputX.evaluate(X, *gIter);
-				X += remainderX;
-
-				Interval Y;
-				hfOutputY.evaluate(Y, *gIter);
-				Y += remainderY;
-
-				fprintf(plotFile, "plot( [%e,%e,%e,%e,%e] , [%e,%e,%e,%e,%e] , 'color' , '[0 0.4 0]');\nhold on;\nclear;\n",
-						X.inf(), X.sup(), X.sup(), X.inf(), X.inf(), Y.inf(), Y.inf(), Y.sup(), Y.sup(), Y.inf());
-			}
-
-			if(bPrint)
-			{
-				++prog;
-				printf("\b\b\b\b");
-				printf(BOLD_FONT "%%" RESET_COLOR);
-				printf(BOLD_FONT "%3d" RESET_COLOR, (int)(prog*100/total_size));
-				fflush(stdout);
 			}
 		}
 
@@ -12915,23 +9302,23 @@ void Plot_Setting::plot_2D_grids_MATLAB(const std::string & path, const std::str
 	}
 }
 
-void Plot_Setting::plot_2D_GNUPLOT(const std::string & path, const std::string & fileName, const Result_of_Reachability & result) const
+void Plot_Setting::plot_2D_GNUPLOT(const std::string & path, const std::string & fileName, const TaylorModelFlowpipes & flowpipes) const
 {
 	switch(type_of_object)
 	{
 	case PLOT_INTERVAL:
-		plot_2D_interval_GNUPLOT(path, fileName, result);
+		plot_2D_interval_GNUPLOT(path, fileName, flowpipes);
 		break;
 	case PLOT_OCTAGON:
-		plot_2D_octagon_GNUPLOT(path, fileName, result);
+		plot_2D_octagon_GNUPLOT(path, fileName, flowpipes);
 		break;
 	case PLOT_GRID:
-		plot_2D_grids_GNUPLOT(path, fileName, num_of_pieces, result);
+		plot_2D_grids_GNUPLOT(path, fileName, num_of_pieces, flowpipes);
 		break;
 	}
 }
 
-void Plot_Setting::plot_2D_interval_GNUPLOT(const std::string & path, const std::string & fileName, const Result_of_Reachability & result) const
+void Plot_Setting::plot_2D_interval_GNUPLOT(const std::string & path, const std::string & fileName, const TaylorModelFlowpipes & flowpipes) const
 {
 	if(bPrint)
 	{
@@ -12976,27 +9363,24 @@ void Plot_Setting::plot_2D_interval_GNUPLOT(const std::string & path, const std:
 
 	unsigned int prog = 0;
 
-	std::list<TaylorModelVec<Real> >::const_iterator tmvIter = result.tmv_flowpipes.begin();
-	std::list<std::vector<Interval> >::const_iterator domainIter = result.tmv_flowpipes_domains.begin();
-	std::list<int>::const_iterator safetyIter = result.safety_of_flowpipes.begin();
-
-	unsigned int total_size = result.safety_of_flowpipes.size();
+	std::list<TaylorModelFlowpipe>::const_iterator fpIter = flowpipes.tmv_flowpipes.begin();
+	unsigned int total_size = flowpipes.tmv_flowpipes.size();
 
 	if(total_size > 0)
 	{
-		for(; safetyIter != result.safety_of_flowpipes.end(); ++tmvIter, ++domainIter, ++safetyIter)
+		for(; fpIter != flowpipes.tmv_flowpipes.end(); ++fpIter)
 		{
 			std::vector<Interval> box;
 
 			if(bDiscrete)
 			{
-				std::vector<Interval> newDomain = *domainIter;
-				newDomain[0] = (*domainIter)[0].sup();
-				tmvIter->intEval(box, newDomain, varIDs);
+				std::vector<Interval> newDomain = fpIter->domain;
+				newDomain[0] = (fpIter->domain)[0].sup();
+				fpIter->tmv_flowpipe.intEval(box, newDomain, varIDs);
 			}
 			else
 			{
-				tmvIter->intEval(box, *domainIter, varIDs);
+				fpIter->tmv_flowpipe.intEval(box, fpIter->domain, varIDs);
 			}
 
 
@@ -13017,55 +9401,9 @@ void Plot_Setting::plot_2D_interval_GNUPLOT(const std::string & path, const std:
 				fflush(stdout);
 			}
 
-			if(*safetyIter == UNSAFE)
+			if(fpIter->safety == UNSAFE)
 			{
 				break;
-			}
-		}
-
-		if(bPrint)
-		{
-			fprintf(plotFile, "e\n");
-			printf("\b\b\b\b");
-			printf(BOLD_FONT "%%100\n" RESET_COLOR);
-			fflush(stdout);
-		}
-	}
-	else
-	{
-		total_size = result.tmv_flowpipes.size();
-
-		for(; tmvIter != result.tmv_flowpipes.end(); ++tmvIter, ++domainIter)
-		{
-			std::vector<Interval> box;
-
-			if(bDiscrete)
-			{
-				std::vector<Interval> newDomain = *domainIter;
-				newDomain[0] = (*domainIter)[0].sup();
-				tmvIter->intEval(box, newDomain, varIDs);
-			}
-			else
-			{
-				tmvIter->intEval(box, *domainIter, varIDs);
-			}
-
-
-			// output the vertices
-			fprintf(plotFile, "%e %e\n", box[0].inf(), box[1].inf());
-			fprintf(plotFile, "%e %e\n", box[0].sup(), box[1].inf());
-			fprintf(plotFile, "%e %e\n", box[0].sup(), box[1].sup());
-			fprintf(plotFile, "%e %e\n", box[0].inf(), box[1].sup());
-			fprintf(plotFile, "%e %e\n", box[0].inf(), box[1].inf());
-			fprintf(plotFile, "\n\n");
-
-			if(bPrint)
-			{
-				++prog;
-				printf("\b\b\b\b");
-				printf(BOLD_FONT "%%" RESET_COLOR);
-				printf(BOLD_FONT "%3d" RESET_COLOR, (int)(prog*100/total_size));
-				fflush(stdout);
 			}
 		}
 
@@ -13086,7 +9424,7 @@ void Plot_Setting::plot_2D_interval_GNUPLOT(const std::string & path, const std:
 	}
 }
 
-void Plot_Setting::plot_2D_octagon_GNUPLOT(const std::string & path, const std::string & fileName, const Result_of_Reachability & result) const
+void Plot_Setting::plot_2D_octagon_GNUPLOT(const std::string & path, const std::string & fileName, const TaylorModelFlowpipes & flowpipes) const
 {
 	if(bPrint)
 	{
@@ -13213,24 +9551,22 @@ void Plot_Setting::plot_2D_octagon_GNUPLOT(const std::string & path, const std::
 
 	unsigned int prog = 0;
 
-	std::list<TaylorModelVec<Real> >::const_iterator tmvIter = result.tmv_flowpipes.begin();
-	std::list<std::vector<Interval> >::const_iterator domainIter = result.tmv_flowpipes_domains.begin();
-	std::list<int>::const_iterator safetyIter = result.safety_of_flowpipes.begin();
+	std::list<TaylorModelFlowpipe>::const_iterator fpIter = flowpipes.tmv_flowpipes.begin();
 
-	unsigned int total_size = result.safety_of_flowpipes.size();
+	unsigned int total_size = flowpipes.tmv_flowpipes.size();
 
 	if(total_size > 0)
 	{
-		for(; safetyIter != result.safety_of_flowpipes.end(); ++tmvIter, ++domainIter, ++safetyIter)
+		for(; fpIter != flowpipes.tmv_flowpipes.end(); ++fpIter)
 		{
-			std::vector<Interval> newDomain = *domainIter;
+			std::vector<Interval> newDomain = fpIter->domain;
 
 			if(bDiscrete)
 			{
-				newDomain[0] = (*domainIter)[0].sup();
+				newDomain[0] = (fpIter->domain)[0].sup();
 			}
 
-			Polyhedron polyTemplate(sortedTemplate, *tmvIter, newDomain);
+			Polyhedron polyTemplate(sortedTemplate, fpIter->tmv_flowpipe, newDomain);
 
 			double f1, f2;
 
@@ -13292,96 +9628,7 @@ void Plot_Setting::plot_2D_octagon_GNUPLOT(const std::string & path, const std::
 				fflush(stdout);
 			}
 
-			if(*safetyIter == UNSAFE)
-			{
-				break;
-			}
-		}
-
-		if(bPrint)
-		{
-			fprintf(plotFile, "e\n");
-			printf("\b\b\b\b");
-			printf(BOLD_FONT "%%100\n" RESET_COLOR);
-			fflush(stdout);
-		}
-	}
-	else
-	{
-		total_size = result.tmv_flowpipes.size();
-
-		for(; tmvIter != result.tmv_flowpipes.end(); ++tmvIter, ++domainIter)
-		{
-			std::vector<Interval> newDomain = *domainIter;
-
-			if(bDiscrete)
-			{
-				newDomain[0] = (*domainIter)[0].sup();
-			}
-
-			Polyhedron polyTemplate(sortedTemplate, *tmvIter, newDomain);
-
-			double f1, f2;
-
-			std::vector<LinearConstraint>::iterator iterp, iterq;
-			iterp = iterq = polyTemplate.constraints.begin();
-			++iterq;
-
-			for(; iterq != polyTemplate.constraints.end(); ++iterp, ++iterq)
-			{
-				gsl_matrix_set(C, 0, 0, iterp->A[x].toDouble());
-				gsl_matrix_set(C, 0, 1, iterp->A[y].toDouble());
-				gsl_matrix_set(C, 1, 0, iterq->A[x].toDouble());
-				gsl_matrix_set(C, 1, 1, iterq->A[y].toDouble());
-
-				gsl_vector_set(d, 0, iterp->B.toDouble());
-				gsl_vector_set(d, 1, iterq->B.toDouble());
-
-				gsl_linalg_HH_solve(C, d, vertex);
-
-				double v1 = gsl_vector_get(vertex, 0);
-				double v2 = gsl_vector_get(vertex, 1);
-
-				if(iterp == polyTemplate.constraints.begin())
-				{
-					f1 = v1;
-					f2 = v2;
-				}
-
-				fprintf(plotFile, "%e %e\n", v1, v2);
-			}
-
-			iterp = polyTemplate.constraints.begin();
-			--iterq;
-
-			gsl_matrix_set(C, 0, 0, iterp->A[x].toDouble());
-			gsl_matrix_set(C, 0, 1, iterp->A[y].toDouble());
-			gsl_matrix_set(C, 1, 0, iterq->A[x].toDouble());
-			gsl_matrix_set(C, 1, 1, iterq->A[y].toDouble());
-
-			gsl_vector_set(d, 0, iterp->B.toDouble());
-			gsl_vector_set(d, 1, iterq->B.toDouble());
-
-			gsl_linalg_HH_solve(C, d, vertex);
-
-			double v1 = gsl_vector_get(vertex, 0);
-			double v2 = gsl_vector_get(vertex, 1);
-
-			fprintf(plotFile, "%e %e\n", v1, v2);
-
-			fprintf(plotFile, "%e %e\n", f1, f2);
-			fprintf(plotFile, "\n\n");
-
-			if(bPrint)
-			{
-				++prog;
-				printf("\b\b\b\b");
-				printf(BOLD_FONT "%%" RESET_COLOR);
-				printf(BOLD_FONT "%3d" RESET_COLOR, (int)(prog*100/total_size));
-				fflush(stdout);
-			}
-
-			if(*safetyIter == UNSAFE)
+			if(fpIter->safety == UNSAFE)
 			{
 				break;
 			}
@@ -13408,7 +9655,7 @@ void Plot_Setting::plot_2D_octagon_GNUPLOT(const std::string & path, const std::
 	}
 }
 
-void Plot_Setting::plot_2D_grids_GNUPLOT(const std::string & path, const std::string & fileName, const unsigned int num, const Result_of_Reachability & result) const
+void Plot_Setting::plot_2D_grids_GNUPLOT(const std::string & path, const std::string & fileName, const unsigned int num, const TaylorModelFlowpipes & flowpipes) const
 {
 	if(bPrint)
 	{
@@ -13453,28 +9700,25 @@ void Plot_Setting::plot_2D_grids_GNUPLOT(const std::string & path, const std::st
 
 	unsigned int prog = 0;
 
-	std::list<TaylorModelVec<Real> >::const_iterator tmvIter = result.tmv_flowpipes.begin();
-	std::list<std::vector<Interval> >::const_iterator domainIter = result.tmv_flowpipes_domains.begin();
-	std::list<int>::const_iterator safetyIter = result.safety_of_flowpipes.begin();
-
-	unsigned int total_size = result.safety_of_flowpipes.size();
+	std::list<TaylorModelFlowpipe>::const_iterator fpIter = flowpipes.tmv_flowpipes.begin();
+	unsigned int total_size = flowpipes.tmv_flowpipes.size();
 
 	if(total_size > 0)
 	{
-		for(; safetyIter != result.safety_of_flowpipes.end(); ++tmvIter, ++domainIter, ++safetyIter)
+		for(; fpIter != flowpipes.tmv_flowpipes.end(); ++fpIter)
 		{
 			// decompose the domain
 			std::list<std::vector<Interval> > grids;
 
 			if(bDiscrete)
 			{
-				std::vector<Interval> newDomain = *domainIter;
-				newDomain[0] = (*domainIter)[0].sup();
+				std::vector<Interval> newDomain = fpIter->domain;
+				newDomain[0] = (fpIter->domain)[0].sup();
 				gridBox(grids, newDomain, num);
 			}
 			else
 			{
-				gridBox(grids, *domainIter, num);
+				gridBox(grids, fpIter->domain, num);
 			}
 
 
@@ -13482,12 +9726,12 @@ void Plot_Setting::plot_2D_grids_GNUPLOT(const std::string & path, const std::st
 			HornerForm<Real> hfOutputX;
 			Interval remainderX;
 
-			tmvIter->tms[x].toHornerForm(hfOutputX, remainderX);
+			fpIter->tmv_flowpipe.tms[x].toHornerForm(hfOutputX, remainderX);
 
 			HornerForm<Real> hfOutputY;
 			Interval remainderY;
 
-			tmvIter->tms[y].toHornerForm(hfOutputY, remainderY);
+			fpIter->tmv_flowpipe.tms[y].toHornerForm(hfOutputY, remainderY);
 
 			// evaluate the images from all of the grids
 			std::list<std::vector<Interval> >::const_iterator gIter = grids.begin();
@@ -13519,79 +9763,9 @@ void Plot_Setting::plot_2D_grids_GNUPLOT(const std::string & path, const std::st
 				fflush(stdout);
 			}
 
-			if(*safetyIter == UNSAFE)
+			if(fpIter->safety == UNSAFE)
 			{
 				break;
-			}
-		}
-
-		if(bPrint)
-		{
-			fprintf(plotFile, "e\n");
-			printf("\b\b\b\b");
-			printf(BOLD_FONT "%%100\n" RESET_COLOR);
-			fflush(stdout);
-		}
-	}
-	else
-	{
-		total_size = result.tmv_flowpipes.size();
-		for(; tmvIter != result.tmv_flowpipes.end(); ++tmvIter, ++domainIter)
-		{
-			// decompose the domain
-			std::list<std::vector<Interval> > grids;
-
-			if(bDiscrete)
-			{
-				std::vector<Interval> newDomain = *domainIter;
-				newDomain[0] = (*domainIter)[0].sup();
-				gridBox(grids, newDomain, num);
-			}
-			else
-			{
-				gridBox(grids, *domainIter, num);
-			}
-
-
-			// we only consider the output dimensions
-			HornerForm<Real> hfOutputX;
-			Interval remainderX;
-
-			tmvIter->tms[x].toHornerForm(hfOutputX, remainderX);
-
-			HornerForm<Real> hfOutputY;
-			Interval remainderY;
-
-			tmvIter->tms[y].toHornerForm(hfOutputY, remainderY);
-
-			// evaluate the images from all of the grids
-			std::list<std::vector<Interval> >::const_iterator gIter = grids.begin();
-			for(; gIter!=grids.end(); ++gIter)
-			{
-				Interval X;
-				hfOutputX.evaluate(X, *gIter);
-				X += remainderX;
-
-				Interval Y;
-				hfOutputY.evaluate(Y, *gIter);
-				Y += remainderY;
-
-				// output the vertices
-				fprintf(plotFile, "%e %e\n", X.inf(), Y.inf());
-				fprintf(plotFile, "%e %e\n", X.sup(), Y.inf());
-				fprintf(plotFile, "%e %e\n", X.sup(), Y.sup());
-				fprintf(plotFile, "%e %e\n", X.inf(), Y.sup());
-				fprintf(plotFile, "%e %e\n", X.inf(), Y.inf());
-				fprintf(plotFile, "\n\n");
-			}
-
-			if(bPrint)
-			{
-				++prog;
-				printf("\b\b\b\b");
-				printf(BOLD_FONT "%%" RESET_COLOR);
-				printf(BOLD_FONT "%3d" RESET_COLOR, (int)(prog*100/total_size));
-				fflush(stdout);
 			}
 		}
 
@@ -13706,7 +9880,6 @@ Intersected_Flowpipes::Intersected_Flowpipes()
 Intersected_Flowpipes::Intersected_Flowpipes(const Intersected_Flowpipes & intersections)
 {
 	flowpipes = intersections.flowpipes;
-	domains = intersections.domains;
 	start_t = intersections.start_t;
 	durations = intersections.durations;
 }
@@ -13721,7 +9894,6 @@ Intersected_Flowpipes & Intersected_Flowpipes::operator = (const Intersected_Flo
 		return *this;
 
 	flowpipes = intersections.flowpipes;
-	domains = intersections.domains;
 	start_t = intersections.start_t;
 	durations = intersections.durations;
 
@@ -13731,7 +9903,6 @@ Intersected_Flowpipes & Intersected_Flowpipes::operator = (const Intersected_Flo
 void Intersected_Flowpipes::clear()
 {
 	flowpipes.clear();
-	domains.clear();
 	start_t.clear();
 	durations.clear();
 }
@@ -13746,7 +9917,7 @@ void Intersected_Flowpipes::interval_aggregation(Flowpipe & result) const
 	if(flowpipes.size() == 0)
 		return;
 
-	unsigned int rangeDim = flowpipes[0][0].tms.size();
+	unsigned int rangeDim = flowpipes[0].tmv_flowpipes.front().tmv_flowpipe.tms.size();
 	std::vector<Interval> int_aggregation(rangeDim);
 
 	std::vector<Real> up(rangeDim, -UNBOUNDED);
@@ -13754,13 +9925,12 @@ void Intersected_Flowpipes::interval_aggregation(Flowpipe & result) const
 
 	for(unsigned int k=0; k<flowpipes.size(); ++k)
 	{
-		std::vector<TaylorModelVec<Real> >::const_iterator tmvIter = flowpipes[k].begin();
-		std::vector<std::vector<Interval> >::const_iterator doIter = domains[k].begin();
+		std::list<TaylorModelFlowpipe>::const_iterator fpIter = flowpipes[k].tmv_flowpipes.begin();
 
-		for(; tmvIter != flowpipes[k].end(); ++tmvIter, ++doIter)
+		for(; fpIter != flowpipes[k].tmv_flowpipes.end(); ++fpIter)
 		{
 			std::vector<Interval> box;
-			tmvIter->intEval(box, *doIter);
+			fpIter->tmv_flowpipe.intEval(box, fpIter->domain);
 
 			for(unsigned int i=0; i<rangeDim; ++i)
 			{
@@ -13786,6 +9956,7 @@ void Intersected_Flowpipes::interval_aggregation(Flowpipe & result) const
 	}
 
 	Flowpipe fp_aggregation(int_aggregation);
+	fp_aggregation.bConstrained = true;
 	result = fp_aggregation;
 }
 
@@ -13794,7 +9965,7 @@ void Intersected_Flowpipes::interval_aggregation(std::vector<Flowpipe> & result)
 	if(flowpipes.size() == 0)
 		return;
 
-	unsigned int rangeDim = flowpipes[0][0].tms.size();
+	unsigned int rangeDim = flowpipes[0].tmv_flowpipes.front().tmv_flowpipe.tms.size();
 
 	for(unsigned int k=0; k<flowpipes.size(); ++k)
 	{
@@ -13803,13 +9974,12 @@ void Intersected_Flowpipes::interval_aggregation(std::vector<Flowpipe> & result)
 		std::vector<Real> up(rangeDim, -UNBOUNDED);
 		std::vector<Real> lo(rangeDim, UNBOUNDED);
 
-		std::vector<TaylorModelVec<Real> >::const_iterator tmvIter = flowpipes[k].begin();
-		std::vector<std::vector<Interval> >::const_iterator doIter = domains[k].begin();
+		std::list<TaylorModelFlowpipe>::const_iterator fpIter = flowpipes[k].tmv_flowpipes.begin();
 
-		for(; tmvIter != flowpipes[k].end(); ++tmvIter, ++doIter)
+		for(; fpIter != flowpipes[k].tmv_flowpipes.end(); ++fpIter)
 		{
 			std::vector<Interval> box;
-			tmvIter->intEval(box, *doIter);
+			fpIter->tmv_flowpipe.intEval(box, fpIter->domain);
 
 			for(unsigned int i=0; i<rangeDim; ++i)
 			{
@@ -13834,6 +10004,7 @@ void Intersected_Flowpipes::interval_aggregation(std::vector<Flowpipe> & result)
 		}
 
 		Flowpipe fp_aggregation(int_aggregation);
+		fp_aggregation.bConstrained = true;
 		result.push_back(fp_aggregation);
 	}
 }
@@ -13846,7 +10017,7 @@ void Intersected_Flowpipes::parallelotope_aggregation(Flowpipe & result, Candida
 
 
 	unsigned int num_of_cand = pool.size();
-	unsigned int rangeDim = flowpipes[0][0].tms.size();
+	unsigned int rangeDim = flowpipes[0].tmv_flowpipes.front().tmv_flowpipe.tms.size();
 
 	std::vector<Interval> ranges(rangeDim);
 	Matrix<double> paraTemplate(rangeDim, rangeDim);
@@ -13863,14 +10034,16 @@ void Intersected_Flowpipes::parallelotope_aggregation(Flowpipe & result, Candida
 	{
 		for(unsigned int k=0; k<flowpipes.size(); ++k)
 		{
-			for(unsigned int i=0; i<flowpipes[k].size(); ++i)
+			std::list<TaylorModelFlowpipe>::const_iterator fpIter = flowpipes[k].tmv_flowpipes.begin();
+
+			for(; fpIter != flowpipes[k].tmv_flowpipes.end(); ++fpIter)
 			{
 				if(ranges.size() == 0)
 				{
 					for(unsigned int j=0; j<rangeDim; ++j)
 					{
 						Interval I;
-						flowpipes[k][i].rho(I, pool.vectors[j], domains[k][i]);
+						fpIter->tmv_flowpipe.rho(I, pool.vectors[j], fpIter->domain);
 						ranges.push_back(I);
 					}
 				}
@@ -13879,7 +10052,7 @@ void Intersected_Flowpipes::parallelotope_aggregation(Flowpipe & result, Candida
 					for(unsigned int j=0; j<rangeDim; ++j)
 					{
 						Interval I;
-						flowpipes[k][i].rho(I, pool.vectors[j], domains[k][i]);
+						fpIter->tmv_flowpipe.rho(I, pool.vectors[j], fpIter->domain);
 						ranges[j].hull_assign(I);
 					}
 				}
@@ -13919,12 +10092,14 @@ void Intersected_Flowpipes::parallelotope_aggregation(Flowpipe & result, Candida
 
 		for(unsigned int k=0; k<flowpipes.size(); ++k)
 		{
-			for(unsigned int i=0; i<flowpipes[k].size(); ++i)
+			std::list<TaylorModelFlowpipe>::const_iterator fpIter = flowpipes[k].tmv_flowpipes.begin();
+
+			for(; fpIter != flowpipes[k].tmv_flowpipes.end(); ++fpIter)
 			{
 				for(unsigned int j=0; j<num_of_cand; ++j)
 				{
 					Interval I;
-					flowpipes[k][i].rho(I, pool.vectors[j], domains[k][i]);
+					fpIter->tmv_flowpipe.rho(I, pool.vectors[j], fpIter->domain);
 
 					double tmp1 = I.sup();
 					double tmp2 = -I.inf();
@@ -14121,6 +10296,7 @@ void Intersected_Flowpipes::parallelotope_aggregation(Flowpipe & result, Candida
 	intTmp[0] = 0;
 
 	Flowpipe fp_aggregation(tmvParallelotope, intTmp);
+	fp_aggregation.bConstrained = true;
 	result = fp_aggregation;
 }
 
@@ -14132,7 +10308,7 @@ void Intersected_Flowpipes::parallelotope_aggregation(std::vector<Flowpipe> & re
 
 
 	unsigned int num_of_cand = pool.size();
-	unsigned int rangeDim = flowpipes[0][0].tms.size();
+	unsigned int rangeDim = flowpipes[0].tmv_flowpipes.front().tmv_flowpipe.tms.size();
 
 	unsigned int num_of_groups = flowpipes.size();
 
@@ -14151,14 +10327,16 @@ void Intersected_Flowpipes::parallelotope_aggregation(std::vector<Flowpipe> & re
 	{
 		for(unsigned int k=0; k<num_of_groups; ++k)
 		{
-			for(unsigned int i=0; i<flowpipes[k].size(); ++i)
+			std::list<TaylorModelFlowpipe>::const_iterator fpIter = flowpipes[k].tmv_flowpipes.begin();
+
+			for(; fpIter != flowpipes[k].tmv_flowpipes.end(); ++fpIter)
 			{
 				if(ranges[k].size() == 0)
 				{
 					for(unsigned int j=0; j<rangeDim; ++j)
 					{
 						Interval I;
-						flowpipes[k][i].rho(I, pool.vectors[j], domains[k][i]);
+						fpIter->tmv_flowpipe.rho(I, pool.vectors[j], fpIter->domain);
 						ranges[k].push_back(I);
 					}
 				}
@@ -14167,7 +10345,7 @@ void Intersected_Flowpipes::parallelotope_aggregation(std::vector<Flowpipe> & re
 					for(unsigned int j=0; j<rangeDim; ++j)
 					{
 						Interval I;
-						flowpipes[k][i].rho(I, pool.vectors[j], domains[k][i]);
+						fpIter->tmv_flowpipe.rho(I, pool.vectors[j], fpIter->domain);
 						ranges[k][j].hull_assign(I);
 					}
 				}
@@ -14212,13 +10390,14 @@ void Intersected_Flowpipes::parallelotope_aggregation(std::vector<Flowpipe> & re
 
 
 			// compute the intercepts
+			std::list<TaylorModelFlowpipe>::const_iterator fpIter = flowpipes[k].tmv_flowpipes.begin();
 
-			for(unsigned int i=0; i<flowpipes[k].size(); ++i)
+			for(; fpIter != flowpipes[k].tmv_flowpipes.end(); ++fpIter)
 			{
 				for(unsigned int j=0; j<num_of_cand; ++j)
 				{
 					Interval I;
-					flowpipes[k][i].rho(I, pool.vectors[j], domains[k][i]);
+					fpIter->tmv_flowpipe.rho(I, pool.vectors[j], fpIter->domain);
 
 					double tmp1 = I.sup();
 					double tmp2 = -I.inf();
@@ -14417,6 +10596,7 @@ void Intersected_Flowpipes::parallelotope_aggregation(std::vector<Flowpipe> & re
 		intTmp[0] = 0;
 
 		Flowpipe fp_aggregation(tmvParallelotope, intTmp);
+		fp_aggregation.bConstrained = true;
 		result.push_back(fp_aggregation);
 	}
 }
@@ -14456,66 +10636,66 @@ bool compareIntercept(const FactorTab & a, const FactorTab & b)
 }
 
 
-int safetyChecking(const TaylorModelVec<Real> & tmv, const std::vector<Interval> & domain, const std::vector<Constraint> & unsafeSet, const Taylor_Model_Setting & tm_setting, const Global_Setting & g_setting)
+int safetyChecking(const TaylorModelVec<Real> & tmv, const std::vector<Interval> & domain, const std::vector<Constraint> & safeSet, const Taylor_Model_Setting & tm_setting, const Global_Setting & g_setting)
 {
-	if(unsafeSet.size() == 0)
+	// no safety constraint, the whole state space is safe
+	if(safeSet.size() == 0)
 	{
 		return SAFE;
 	}
 
-//	unsigned int rangeDim = tmv.tms.size();
+
 	int result = UNKNOWN;
 	bool bContained = true;
 
 	std::vector<Interval> tmvRange;
 	tmv.intEval(tmvRange, domain);
 
-	for(unsigned int i=0; i<unsafeSet.size(); ++i)
+	for(unsigned int i=0; i<safeSet.size(); ++i)
 	{
 		Interval I;
 
 		// interval evaluation on the constraint
-		unsafeSet[i].expression.evaluate(I, tmvRange);
+		safeSet[i].expression.evaluate(I, tmvRange);
 
-		if(unsafeSet[i].bound < I.inf())
+		if(safeSet[i].bound < I.inf())
 		{
-			// no intersection with the unsafe set
-			result = SAFE;
+			// no intersection with the safe set
+			result = UNSAFE;
 			break;
 		}
 		else
 		{
-			if(!(unsafeSet[i].bound >= I.sup()) && bContained)
+			if(!(safeSet[i].bound >= I.sup()) && bContained)
 			{
 				bContained = false;
 			}
 		}
 	}
 
-	if(result == UNKNOWN)
+	if(result != UNSAFE)
 	{
 		if(bContained)
 		{
-			return UNSAFE;
+			return SAFE;
 		}
 		else
 		{
 			if(domain[0].width() <= REFINEMENT_PREC)
 				return UNKNOWN;
 
+			result = SAFE;
 
 			// do a simple branch & bound for safety checking
 			std::vector<HornerForm<Real> > obj_hfs;
 			std::vector<Interval> obj_rems;
 
-			result = SAFE;
-
-			for(unsigned int i=0; i<unsafeSet.size(); ++i)
+			for(unsigned int i=0; i<safeSet.size(); ++i)
 			{
 				TaylorModel<Real> tmTmp;
 
 				// interval evaluation on the constraint
-				unsafeSet[i].expression.evaluate(tmTmp, tmv.tms, tm_setting.order, domain, tm_setting.cutoff_threshold, g_setting);
+				safeSet[i].expression.evaluate(tmTmp, tmv.tms, tm_setting.order, domain, tm_setting.cutoff_threshold, g_setting);
 
 				HornerForm<Real> obj_hf;
 				tmTmp.expansion.toHornerForm(obj_hf);
@@ -14527,10 +10707,8 @@ int safetyChecking(const TaylorModelVec<Real> & tmv, const std::vector<Interval>
 
 			std::list<Interval> subdivisions;
 
-			if(domain[0].width() > REFINEMENT_PREC)
-			{
-				subdivisions.push_back(domain[0]);
-			}
+			subdivisions.push_back(domain[0]);
+
 
 			for(; subdivisions.size() > 0; )
 			{
@@ -14542,65 +10720,49 @@ int safetyChecking(const TaylorModelVec<Real> & tmv, const std::vector<Interval>
 
 				refined_domain[0] = subdivision;
 
-				for(int i=0; i<unsafeSet.size(); ++i)
+				for(int i=0; i<safeSet.size(); ++i)
 				{
 					Interval I;
 					obj_hfs[i].evaluate(I, refined_domain);
 
 					I += obj_rems[i];
 
-					if(unsafeSet[i].bound < I.inf())
+					if(safeSet[i].bound < I.inf())
 					{
-						// no intersection with the unsafe set
-						result_iter = SAFE;
+						// no intersection with the safe set
+						result_iter = UNSAFE;
 						break;
 					}
 					else
 					{
-						if(!(unsafeSet[i].bound >= I.sup()) && bContained_iter)
+						if(!(safeSet[i].bound >= I.sup()) && bContained_iter)
 						{
 							bContained_iter = false;
 						}
 					}
 				}
 
-				if(result_iter == UNKNOWN)
+				if(result_iter != UNSAFE)
 				{
-					if(bContained_iter)
-					{
-						return UNSAFE;
-					}
-					else
+					if(!bContained_iter)
 					{
 						if(subdivision.width() <= REFINEMENT_PREC)
 						{
-							return UNKNOWN;
-						}
-
-						// split the domain
-						Interval I1, I2;
-						subdivision.split(I1, I2);
-
-						if(I1.width() <= REFINEMENT_PREC)
-						{
-							if(result == SAFE)
-								result = UNKNOWN;
+							result = UNKNOWN;
 						}
 						else
 						{
+							Interval I1, I2;
+							subdivision.split(I1, I2);
+
 							subdivisions.push_back(I1);
-						}
-
-						if(I2.width() <= REFINEMENT_PREC)
-						{
-							if(result == SAFE)
-								result = UNKNOWN;
-						}
-						else
-						{
 							subdivisions.push_back(I2);
 						}
 					}
+				}
+				else
+				{
+					return UNSAFE;
 				}
 			}
 
@@ -14609,7 +10771,7 @@ int safetyChecking(const TaylorModelVec<Real> & tmv, const std::vector<Interval>
 	}
 	else
 	{
-		return SAFE;
+		return UNSAFE;
 	}
 }
 
@@ -15223,65 +11385,46 @@ void check_connectivities(Matrix<bool> & result, Matrix<bool> & adjMatrix)
 	}
 }
 
-void compute_one_step_trans(Matrix<UnivariateTaylorModel<Real> > & utm_Phi_t, Matrix<Real> & rm_Phi_t, Matrix<UnivariateTaylorModel<Real> > & utm_Psi_t, Matrix<Real> & rm_Psi_t,
-		Matrix<Interval> & tv_part, const Matrix<UnivariatePolynomial<Real> > & A_t, const Matrix<UnivariatePolynomial<Real> > & B_t, const Matrix<UnivariatePolynomial<Real> > & tv_t,
-		Matrix<bool> & connectivity, const bool bAuto, const UnivariatePolynomial<Real> & up_t, const unsigned int order, std::vector<Real> & step_end_exp_table)
+void compute_one_step_trans(Matrix<UnivariateTaylorModel<Real> > & utm_Phi_t, Matrix<UnivariateTaylorModel<Real> > & utm_Phi_end, Matrix<UnivariateTaylorModel<Real> > & utm_Psi_t,
+		Matrix<UnivariateTaylorModel<Real> > & utm_Psi_end, Matrix<UnivariateTaylorModel<Real> > & utm_Omega_t, Matrix<UnivariateTaylorModel<Real> > & utm_Omega_end, Matrix<Interval> & tv_part,
+		LTV_ODE & ltv_ode, const UnivariateTaylorModel<Real> & utm_t0, const unsigned int order, const double step, const Global_Setting & g_setting)
 {
-	unsigned int rangeDim = A_t.rows(), numTVPar = tv_t.cols();
-	double step = step_end_exp_table[1].toDouble();
-	Real rStep = step_end_exp_table[1];
+	unsigned int rangeDim = ltv_ode.expr_dyn_A.rows();
+	Interval intStep(0, step);
 
 	Matrix<Real> identity(rangeDim);
 	Matrix<Interval> im_zero_Phi(rangeDim, rangeDim), im_zero_Psi(rangeDim, 1);
 
 
 	// evaluate a guaranteed remainder interval
-	Matrix<UnivariatePolynomial<Real> > local_A_t(rangeDim, rangeDim);
-	A_t.substitute(local_A_t, up_t);
+	Matrix<UnivariateTaylorModel<Real> > local_A_t(rangeDim, rangeDim);
+	evaluate(local_A_t, ltv_ode.expr_dyn_A, utm_t0, order, g_setting);
+
 	utm_Phi_t = identity;
 
-	Matrix<Interval> im_A_t(rangeDim, rangeDim);
-	local_A_t.evaluate(im_A_t, interval_utm_setting.val_exp_table);
-
-	Real A_max = im_A_t.max_norm();
-
-	// find the proper order
-	Real A_min = im_A_t.min_entry();
-
-	Real tolerance = APPROX_TOLERANCE;
 	Real error;
 
-	unsigned int approx_order = findProperOrder(error, A_max, A_min, tolerance, order);
-
-	// reconstruct step_exp_table
-	unsigned int nec_order = 2*approx_order + 1;
-
-	unsigned int currentOrder = step_end_exp_table.size();
-
-	if(currentOrder < nec_order)
-	{
-		Real tmp = step_end_exp_table.back();
-
-		for(unsigned int i=currentOrder; i<=nec_order; ++i)
-		{
-			tmp *= rStep;
-			step_end_exp_table.push_back(tmp);
-		}
-	}
-
-
-	Interval intStep(0, step);
-	interval_utm_setting.resetOrder(intStep, approx_order);
-
 	Matrix<UnivariateTaylorModel<Real> > utm_tmp_Psi;
-	Matrix<UnivariatePolynomial<Real> > local_B_t(rangeDim, 1);
-	if(!bAuto)
+	Matrix<UnivariateTaylorModel<Real> > local_B_t(rangeDim, 1);
+	if(ltv_ode.expr_dyn_B.cols() > 0)
 	{
-		B_t.substitute(local_B_t, up_t);
+		evaluate(local_B_t, ltv_ode.expr_dyn_B, utm_t0, order, g_setting);
 		utm_Psi_t = local_B_t;
 		utm_Psi_t.integral(intStep);
 		utm_tmp_Psi = utm_Psi_t;
 	}
+
+
+	Matrix<UnivariateTaylorModel<Real> > utm_tmp_Omega;
+	Matrix<UnivariateTaylorModel<Real> > local_C_t(rangeDim, ltv_ode.expr_dyn_C.cols());
+	if(ltv_ode.expr_dyn_C.cols() > 0)
+	{
+		evaluate(local_C_t, ltv_ode.expr_dyn_C, utm_t0, order, g_setting);
+		utm_Omega_t = local_C_t;
+		utm_Omega_t.integral(intStep);
+		utm_tmp_Omega = utm_Omega_t;
+	}
+
 
 	Matrix<UnivariateTaylorModel<Real> > utm_tmp_Phi = utm_Phi_t;
 
@@ -15299,16 +11442,30 @@ void compute_one_step_trans(Matrix<UnivariateTaylorModel<Real> > & utm_Phi_t, Ma
 
 		utm_Phi_t += utm_tmp_Phi;
 
-		if(!bAuto)
+		if(ltv_ode.expr_dyn_B.cols() > 0)
 		{
 			utm_tmp_Psi = local_A_t * utm_tmp_Psi;
 			utm_tmp_Psi.integral(intStep);
+
 			if(i < order)
 			{
 				utm_tmp_Psi.ctrunc(order);
 			}
 
 			utm_Psi_t += utm_tmp_Psi;
+		}
+
+		if(ltv_ode.expr_dyn_C.cols() > 0)
+		{
+			utm_tmp_Omega = local_A_t * utm_tmp_Omega;
+			utm_tmp_Omega.integral(intStep);
+
+			if(i < order)
+			{
+				utm_tmp_Omega.ctrunc(order);
+			}
+
+			utm_Omega_t += utm_tmp_Omega;
 		}
 	}
 
@@ -15320,7 +11477,7 @@ void compute_one_step_trans(Matrix<UnivariateTaylorModel<Real> > & utm_Phi_t, Ma
 	{
 		for(int j=0; j<rangeDim; ++j)
 		{
-			if(connectivity[i][j])
+			if(ltv_ode.connectivity[i][j])
 			{
 				im_error[i][j] = intErr;
 			}
@@ -15328,31 +11485,51 @@ void compute_one_step_trans(Matrix<UnivariateTaylorModel<Real> > & utm_Phi_t, Ma
 	}
 
 	utm_Phi_t.addRemainder(im_error);
-	utm_Phi_t.evaluate(rm_Phi_t, step_end_exp_table);
+	utm_Phi_t.evaluate(utm_Phi_end, step);
 
-	if(!bAuto)
+	if(ltv_ode.expr_dyn_B.cols() > 0)
 	{
 		Matrix<Interval> im_B_t(rangeDim, 1);
 		local_B_t.evaluate(im_B_t);
-		im_error *= im_B_t;
-		im_error *= intStep;
 
-		utm_Psi_t.addRemainder(im_error);
-		utm_Psi_t.evaluate(rm_Psi_t, step_end_exp_table);
+		Matrix<Interval> im_error_B = im_error;
+		im_error_B *= im_B_t;
+		im_error_B *= intStep;
+
+		utm_Psi_t.addRemainder(im_error_B);
+		utm_Psi_t.evaluate(utm_Psi_end, step);
 	}
+
+
+	if(ltv_ode.expr_dyn_C.cols() > 0)
+	{
+		Matrix<Interval> im_C_t(rangeDim, 1);
+		local_C_t.evaluate(im_C_t);
+
+		Matrix<Interval> im_error_C = im_error;
+		im_error_C *= im_C_t;
+		im_error_C *= intStep;
+
+		utm_Omega_t.addRemainder(im_error_C);
+		utm_Omega_t.evaluate(utm_Omega_end, step);
+	}
+
 
 	utm_Phi_t.ctrunc(order);
 	utm_Psi_t.ctrunc(order);
+	utm_Omega_t.ctrunc(order);
 
-	if(numTVPar > 0)
+
+	if(ltv_ode.expr_dyn_D.cols() > 0)
 	{
-		Matrix<UnivariatePolynomial<Real> > local_tv_t(rangeDim, numTVPar);
-		tv_t.substitute(local_tv_t, up_t);
-		local_tv_t.evaluate(tv_part, interval_utm_setting.val_exp_table);
+		Matrix<UnivariateTaylorModel<Real> > local_tv_t(rangeDim, ltv_ode.expr_dyn_D.cols());
+
+		evaluate(local_tv_t, ltv_ode.expr_dyn_D, utm_t0, order, g_setting);
+		local_tv_t.evaluate(tv_part, step);
 	}
 }
 
-void intersect_a_guard(Intersected_Flowpipes & result, const Result_of_Reachability & flowpipes, const std::vector<Constraint> & guard, const bool boundary_of_invariant, const Computational_Setting & setting)
+void intersect_a_guard(Intersected_Flowpipes & result, const TaylorModelFlowpipes & flowpipes, const std::vector<Constraint> & guard, const bool boundary_of_invariant, const Computational_Setting & setting)
 {
 	result.clear();
 
@@ -15360,32 +11537,32 @@ void intersect_a_guard(Intersected_Flowpipes & result, const Result_of_Reachabil
 	bool newSection = true;
 	bool firstIntersection = true;
 
-	std::list<TaylorModelVec<Real> >::const_iterator tmvIter = flowpipes.tmv_flowpipes.begin();
-	std::list<std::vector<Interval> >::const_iterator doIter = flowpipes.tmv_flowpipes_domains.begin();
-	std::list<unsigned int>::const_iterator orderIter = flowpipes.orders_of_flowpipes.begin();
-	std::list<bool>::const_iterator contractionIter = flowpipes.contraction_of_flowpipes.begin();
+	std::list<TaylorModelFlowpipe>::const_iterator fpIter = flowpipes.tmv_flowpipes.begin();
 
-	std::vector<TaylorModelVec<Real> > tmvVec;
-	std::vector<std::vector<Interval> > domainVec;
+	TaylorModelFlowpipes flowpipes_in_one_section;
 
+	unsigned int order = setting.tm_setting.order > setting.tm_setting.order_max ? setting.tm_setting.order : setting.tm_setting.order_max;
 
-	for(; tmvIter != flowpipes.tmv_flowpipes.end(); ++tmvIter, ++doIter, ++orderIter, ++contractionIter)
+	for(; fpIter != flowpipes.tmv_flowpipes.end(); ++fpIter)
 	{
-		if(boundary_of_invariant && !(*contractionIter))
+		if(boundary_of_invariant && !(fpIter->bConstrained))
 		{
 			Real r;
-			(*doIter)[0].sup(r);
+			(fpIter->domain)[0].sup(r);
 			g_time += r;
 			continue;
 		}
 
-		std::vector<Interval> contracted_domain = *doIter;
-		int res = domain_contraction_int(*tmvIter, contracted_domain, guard, *orderIter, setting.tm_setting.cutoff_threshold, setting.g_setting);
+		std::vector<Interval> contracted_domain = fpIter->domain;
+		int res = domain_contraction_int(fpIter->tmv_flowpipe, contracted_domain, guard, order, setting.tm_setting.cutoff_threshold, setting.g_setting);
 
 		if(res != UNSAT)
 		{
-			tmvVec.push_back(*tmvIter);
-			domainVec.push_back(contracted_domain);
+			TaylorModelFlowpipe contracted_flowpipe;
+			contracted_flowpipe.tmv_flowpipe = fpIter->tmv_flowpipe;
+			contracted_flowpipe.domain = contracted_domain;
+
+			flowpipes_in_one_section.tmv_flowpipes.push_back(contracted_flowpipe);
 
 			Real r;
 
@@ -15402,36 +11579,34 @@ void intersect_a_guard(Intersected_Flowpipes & result, const Result_of_Reachabil
 			contracted_domain[0].width(t);
 			duration += t;
 
-			(*doIter)[0].sup(r);
+			(fpIter->domain)[0].sup(r);
 			g_time += r;
 		}
 		else
 		{
 			if(!newSection)
 			{
-				result.flowpipes.push_back(tmvVec);
-				result.domains.push_back(domainVec);
+				result.flowpipes.push_back(flowpipes_in_one_section);
+
 				result.start_t.push_back(start_time);
 				result.durations.push_back(duration);
 
 				duration = 0;
-				tmvVec.clear();
-				domainVec.clear();
+				flowpipes_in_one_section.clear();
 
 				firstIntersection = true;
 				newSection = true;
 			}
 
 			Real r;
-			(*doIter)[0].sup(r);
+			(fpIter->domain)[0].sup(r);
 			g_time += r;
 		}
 	}
 
-	if(tmvVec.size() > 0)
+	if(flowpipes_in_one_section.tmv_flowpipes.size() > 0)
 	{
-		result.flowpipes.push_back(tmvVec);
-		result.domains.push_back(domainVec);
+		result.flowpipes.push_back(flowpipes_in_one_section);
 		result.start_t.push_back(start_time);
 		result.durations.push_back(duration);
 	}
@@ -15587,17 +11762,17 @@ bool select_a_vector(FactorTab & lst_selected, std::list<FactorTab> & lst_unsele
 }
 
 
-void eliminate_t(TaylorModelVec<Real> & tmv_flowpipe, std::vector<Interval> & domain)
+void eliminate_t(TaylorModelFlowpipe & flowpipe)
 {
-	if(domain[0].isZero())
+	if(flowpipe.domain[0].isZero())
 	{
-		for(unsigned int i=0; i<tmv_flowpipe.tms.size(); ++i)
+		for(unsigned int i=0; i<flowpipe.tmv_flowpipe.tms.size(); ++i)
 		{
-			std::list<Term<Real> >::iterator term_iter = tmv_flowpipe.tms[i].expansion.terms.begin();
+			std::list<Term<Real> >::iterator term_iter = flowpipe.tmv_flowpipe.tms[i].expansion.terms.begin();
 
 			Polynomial<Real> result;
 
-			for(; term_iter != tmv_flowpipe.tms[i].expansion.terms.end(); ++term_iter)
+			for(; term_iter != flowpipe.tmv_flowpipe.tms[i].expansion.terms.end(); ++term_iter)
 			{
 				if(term_iter->degrees[0] == 0)
 				{
@@ -15605,24 +11780,24 @@ void eliminate_t(TaylorModelVec<Real> & tmv_flowpipe, std::vector<Interval> & do
 				}
 			}
 
-			tmv_flowpipe.tms[i].expansion = result;
+			flowpipe.tmv_flowpipe.tms[i].expansion = result;
 		}
 	}
 	else
 	{
-		std::vector<Interval> newDomain = domain;
+		std::vector<Interval> newDomain = flowpipe.domain;
 
 		// translate the time variable to the new added variable
-		newDomain.push_back(domain[0]);
+		newDomain.push_back(flowpipe.domain[0]);
 		newDomain[0] = 0;
 
-		for(unsigned int i=0; i<tmv_flowpipe.tms.size(); ++i)
+		for(unsigned int i=0; i<flowpipe.tmv_flowpipe.tms.size(); ++i)
 		{
-			std::list<Term<Real> >::iterator term_iter = tmv_flowpipe.tms[i].expansion.terms.begin();
+			std::list<Term<Real> >::iterator term_iter = flowpipe.tmv_flowpipe.tms[i].expansion.terms.begin();
 
 			Polynomial<Real> translation;
 
-			for(; term_iter != tmv_flowpipe.tms[i].expansion.terms.end(); ++term_iter)
+			for(; term_iter != flowpipe.tmv_flowpipe.tms[i].expansion.terms.end(); ++term_iter)
 			{
 				Term<Real> term = *term_iter;
 				term.degrees.push_back(term.degrees[0]);
@@ -15631,28 +11806,35 @@ void eliminate_t(TaylorModelVec<Real> & tmv_flowpipe, std::vector<Interval> & do
 				translation += term;
 			}
 
-			tmv_flowpipe.tms[i].expansion = translation;
+			flowpipe.tmv_flowpipe.tms[i].expansion = translation;
 		}
 
-		domain = newDomain;
+		flowpipe.domain = newDomain;
 	}
 }
 
-void create_initial_set(Flowpipe & initial_set, TaylorModelVec<Real> & tmv_flowpipe, std::vector<Interval> & domain, const unsigned int order, const Interval & cutoff_threshold)
+void create_initial_set(Flowpipe & initial_set, const TaylorModelFlowpipe & flowpipe)
 {
-	if(!tmv_flowpipe.isFreeOfT())
-		eliminate_t(tmv_flowpipe, domain);
+	TaylorModelFlowpipe fp = flowpipe;
 
-	Flowpipe fp(tmv_flowpipe, domain, cutoff_threshold);
+	if(!fp.tmv_flowpipe.isFreeOfT())
+		eliminate_t(fp);
 
-	initial_set = fp;
+	Flowpipe init_fp(fp);
+
+	initial_set = init_fp;
 }
 
-void merge_consecutive_flowpipes(Flowpipe & result, std::vector<TaylorModelVec<Real> > & flowpipes, std::vector<std::vector<Interval> > & flowpipe_domains, Linear_Time_Invariant_Dynamics & LTI_dynamics,
-		const std::vector<Constraint> & invariant, const unsigned int order, const Computational_Setting & setting)
+void merge_consecutive_flowpipes(Flowpipe & result, const TaylorModelFlowpipes & flowpipes, LTI_ODE & lti_ode,
+		const std::vector<Constraint> & invariant, const Computational_Setting & setting)
 {
+	if(flowpipes.size() == 0)
+		return;
+
+	unsigned int order = setting.tm_setting.order > setting.tm_setting.order_max ? setting.tm_setting.order : setting.tm_setting.order_max;
+
 	Real startTime;
-	flowpipe_domains[0][0].inf(startTime);
+	flowpipes.tmv_flowpipes.front().domain[0].inf(startTime);
 
 	std::vector<Real> time_exp_table;
 	time_exp_table.push_back(1);
@@ -15667,35 +11849,35 @@ void merge_consecutive_flowpipes(Flowpipe & result, std::vector<TaylorModelVec<R
 	}
 
 	// computing the initial set
-	TaylorModelVec<Real> initialSet;
-	flowpipes[0].evaluate_time(initialSet, time_exp_table);
+	TaylorModelFlowpipe initialSet;
+	flowpipes.tmv_flowpipes.front().tmv_flowpipe.evaluate_time(initialSet.tmv_flowpipe, time_exp_table);
 
 
-	// evaluating the time duration
-	double t = flowpipe_domains[0][0].width();
+	// evaluating the time duration and merging the domain
+	Real t = flowpipes.tmv_flowpipes.front().domain[0].sup();
+	initialSet.domain = flowpipes.tmv_flowpipes.front().domain;
+	initialSet.domain[0] = 0;
 
-	for(int i=1; i<flowpipe_domains.size(); ++i)
+	std::list<TaylorModelFlowpipe>::const_iterator fpIter = flowpipes.tmv_flowpipes.begin();
+	++fpIter;
+
+	for(; fpIter != flowpipes.tmv_flowpipes.end(); ++fpIter)
 	{
-		t += flowpipe_domains[i][0].width();
-	}
+		t += fpIter->domain[0].sup();
 
-	std::vector<Interval> domain = flowpipe_domains[0];
-	domain[0] = 0;
-
-	for(int i=1; i<flowpipe_domains.size(); ++i)
-	{
-		for(int j=1; j<flowpipe_domains[i].size(); ++j)
+		for(int j=1; j<fpIter->domain.size(); ++j)
 		{
-			domain[j].hull_assign(flowpipe_domains[i][j]);
+			initialSet.domain[j].hull_assign(fpIter->domain[j]);
 		}
 	}
 
-	TaylorModelVec<Real> merged_flowpipe;
-	LTI_dynamics.reach_one_step(merged_flowpipe, t, initialSet, domain, order, setting.tm_setting.cutoff_threshold);
 
-	domain_contraction_int(merged_flowpipe, domain, invariant, order, setting.tm_setting.cutoff_threshold, setting.g_setting);
+	TaylorModelFlowpipe merged_flowpipe;
+	lti_ode.compute_one_flowpipe(merged_flowpipe, t, initialSet, order, setting.tm_setting);
 
-	create_initial_set(result, merged_flowpipe, domain, order, setting.tm_setting.cutoff_threshold);
+	domain_contraction_int(merged_flowpipe.tmv_flowpipe, merged_flowpipe.domain, invariant, order, setting.tm_setting.cutoff_threshold, setting.g_setting);
+
+	create_initial_set(result, merged_flowpipe);
 }
 
 
@@ -15706,7 +11888,7 @@ void merge_consecutive_flowpipes(Flowpipe & result, std::vector<TaylorModelVec<R
 
 
 
-
+/*
 // only for testing
 void test_domain_contraction(Result_of_Reachability & contraction_result, Result_of_Reachability & reachability_result, const std::vector<Constraint> & constraints, const Taylor_Model_Setting & tm_setting, const Global_Setting & g_setting)
 {
@@ -15734,7 +11916,7 @@ void test_domain_contraction(Result_of_Reachability & contraction_result, Result
 		}
 	}
 }
-
+*/
 }
 
 

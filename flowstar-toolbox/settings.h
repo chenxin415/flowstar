@@ -74,17 +74,19 @@ class UTM_Setting
 {
 public:
 	unsigned int order;
-	std::vector<DATA_TYPE> val_exp_table;
+	DATA_TYPE val;
+//	std::vector<DATA_TYPE> val_exp_table;
 
 public:
 	UTM_Setting();
 	UTM_Setting(const UTM_Setting<DATA_TYPE> & setting);
 	~UTM_Setting();
-
+/*
 	bool setValue(const DATA_TYPE & value, const unsigned int k);
+	bool resetValue(const DATA_TYPE & value);
 	bool setOrder(const unsigned int k);
 	bool resetOrder(const DATA_TYPE & value, const unsigned int k);
-
+*/
 	UTM_Setting<DATA_TYPE> & operator = (const UTM_Setting<DATA_TYPE> & setting);
 };
 
@@ -98,14 +100,14 @@ template <class DATA_TYPE>
 UTM_Setting<DATA_TYPE>::UTM_Setting(const UTM_Setting<DATA_TYPE> & setting)
 {
 	order = setting.order;
-	val_exp_table = setting.val_exp_table;
+	val = setting.val;
 }
 
 template <class DATA_TYPE>
 UTM_Setting<DATA_TYPE>::~UTM_Setting()
 {
 }
-
+/*
 template <class DATA_TYPE>
 bool UTM_Setting<DATA_TYPE>::setValue(const DATA_TYPE & value, const unsigned int k)
 {
@@ -133,6 +135,14 @@ bool UTM_Setting<DATA_TYPE>::setValue(const DATA_TYPE & value, const unsigned in
 
 		return true;
 	}
+}
+
+template <class DATA_TYPE>
+bool UTM_Setting<DATA_TYPE>::resetValue(const DATA_TYPE & value)
+{
+	unsigned int k = val_exp_table.size();
+
+	return setValue(value, k);
 }
 
 template <class DATA_TYPE>
@@ -186,7 +196,7 @@ bool UTM_Setting<DATA_TYPE>::setOrder(const unsigned int k)
 		return true;
 	}
 }
-
+*/
 template <class DATA_TYPE>
 UTM_Setting<DATA_TYPE> & UTM_Setting<DATA_TYPE>::operator = (const UTM_Setting<DATA_TYPE> & setting)
 {
@@ -194,7 +204,7 @@ UTM_Setting<DATA_TYPE> & UTM_Setting<DATA_TYPE>::operator = (const UTM_Setting<D
 		return *this;
 
 	order = setting.order;
-	val_exp_table = setting.val_exp_table;
+	val = setting.val;
 
 	return *this;
 }
@@ -402,6 +412,144 @@ void Expression_Setting<DATA_TYPE>::clear()
 extern UTM_Setting<Interval> interval_utm_setting;
 extern Multivariate_Polynomial_Setting<Interval> multivariate_polynomial_setting;
 extern Expression_Setting<Interval> expression_setting;
+
+
+inline void exp_taylor_remainder(Interval & result, const Interval & tmRange, const unsigned int order, const Global_Setting & setting)
+{
+	Interval intProd = tmRange.pow(order);
+
+	Interval J(0,1);
+	J *= tmRange;
+	J.exp_assign();
+
+	result = setting.factorial_rec[order] * intProd * J;
+}
+
+inline void rec_taylor_remainder(Interval & result, const Interval & tmRange, const unsigned int order, const Global_Setting & setting)
+{
+	Interval J(0,1);
+	J *= tmRange;
+	J += 1;
+	J.rec_assign();
+
+	Interval intProd = J;
+	intProd *= tmRange;
+	intProd *= -1;
+
+	result = intProd.pow(order);
+	result *= J;
+}
+
+inline void sin_taylor_remainder(Interval & result, const Interval & C, const Interval & tmRange, const unsigned int order, const Global_Setting & setting)
+{
+	Interval intProd = tmRange.pow(order);
+
+	Interval J(0,1);
+	J *= tmRange;
+	J += C;
+
+	int k = order % 4;
+
+	switch(k)
+	{
+	case 0:
+		J.sin_assign();
+		break;
+	case 1:
+		J.cos_assign();
+		break;
+	case 2:
+		J.sin_assign();
+		J.inv_assign();
+		break;
+	case 3:
+		J.cos_assign();
+		J.inv_assign();
+		break;
+	}
+
+	result = setting.factorial_rec[order] * intProd * J;
+}
+
+inline void cos_taylor_remainder(Interval & result, const Interval & C, const Interval & tmRange, const unsigned int order, const Global_Setting & setting)
+{
+	Interval intProd = tmRange.pow(order);
+
+	Interval J(0,1);
+	J *= tmRange;
+	J += C;
+
+	int k = order % 4;
+
+	switch(k)
+	{
+	case 0:
+		J.cos_assign();
+		break;
+	case 1:
+		J.sin_assign();
+		J.inv_assign();
+		break;
+	case 2:
+		J.cos_assign();
+		J.inv_assign();
+		break;
+	case 3:
+		J.sin_assign();
+		break;
+	}
+
+	result = setting.factorial_rec[order] * intProd * J;
+}
+
+inline void log_taylor_remainder(Interval & result, const Interval & tmRange, const int order)
+{
+	Interval J(0,1);
+	J *= tmRange;
+	J += 1;
+	J.rec_assign();
+
+	Interval I = tmRange;
+	I *= J;
+
+	result = I.pow(order);
+
+	result /= order;
+
+	if((order+1)%2 == 1)		// order+1 is odd
+	{
+		result *= -1;
+	}
+}
+
+inline void sqrt_taylor_remainder(Interval & result, const Interval & tmRange, const int order, const Global_Setting & setting)
+{
+	Interval I(0,1);
+	I *= tmRange;
+	I += 1;
+	I.rec_assign();
+
+	Interval intTemp;
+	I.sqrt(intTemp);
+
+	I *= tmRange;
+	I /= 2;
+
+	Interval intProd = I.pow(order-1);
+
+	intProd /= intTemp;
+	intProd *= tmRange;
+	intProd /= 2;
+
+	result = setting.double_factorial[2*order-3] * setting.factorial_rec[order] * intProd;
+
+	if(order % 2 == 0)
+	{
+		result *= -1;
+	}
+}
+
+
 
 }
 

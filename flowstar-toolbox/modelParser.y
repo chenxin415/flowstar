@@ -286,7 +286,15 @@ expression '^' NUM
 |
 IDENT
 {
-	$$ = new flowstar::Expression<flowstar::Interval>(*$1, flowstar::expression_setting.pVars);
+	if(flowstar::expression_setting.pVars == NULL)
+	{
+		$$ = new flowstar::Expression<flowstar::Interval>();
+		$$->root = std::shared_ptr<AST_Node<flowstar::Interval> > (new AST_Node<flowstar::Interval>(VAR_ID, -1));
+	}
+	else
+	{
+		$$ = new flowstar::Expression<flowstar::Interval>(*$1, flowstar::expression_setting.pVars);
+	}
 
 	delete $1;
 }

@@ -73,6 +73,7 @@ public:
 public:
 	Zonotope();
 	Zonotope(const Matrix<Real> & c, const std::list<Matrix<Real> > & G);
+	Zonotope(const std::vector<Real> & c, const std::vector<std::vector<Real> > & G);
 	Zonotope(const Zonotope & zonotope);
 	Zonotope(const std::vector<Interval> & box);
 	Zonotope(Matrix<Interval> & box);

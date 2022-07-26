@@ -14,148 +14,6 @@ namespace flowstar
 {
 
 
-inline void exp_taylor_remainder(Interval & result, const Interval & tmRange, const unsigned int order, const Global_Setting & setting)
-{
-	Interval intProd = tmRange.pow(order);
-
-	Interval J(0,1);
-	J *= tmRange;
-	J.exp_assign();
-
-	result = setting.factorial_rec[order] * intProd * J;
-}
-
-inline void rec_taylor_remainder(Interval & result, const Interval & tmRange, const unsigned int order, const Global_Setting & setting)
-{
-	Interval J(0,1);
-	J *= tmRange;
-	J += 1;
-	J.rec_assign();
-
-	Interval intProd = J;
-	intProd *= tmRange;
-	intProd *= -1;
-
-	result = intProd.pow(order);
-	result *= J;
-}
-
-inline void sin_taylor_remainder(Interval & result, const Interval & C, const Interval & tmRange, const unsigned int order, const Global_Setting & setting)
-{
-	Interval intProd = tmRange.pow(order);
-
-	Interval J(0,1);
-	J *= tmRange;
-	J += C;
-
-	int k = order % 4;
-
-	switch(k)
-	{
-	case 0:
-		J.sin_assign();
-		break;
-	case 1:
-		J.cos_assign();
-		break;
-	case 2:
-		J.sin_assign();
-		J.inv_assign();
-		break;
-	case 3:
-		J.cos_assign();
-		J.inv_assign();
-		break;
-	}
-
-	result = setting.factorial_rec[order] * intProd * J;
-}
-
-inline void cos_taylor_remainder(Interval & result, const Interval & C, const Interval & tmRange, const unsigned int order, const Global_Setting & setting)
-{
-	Interval intProd = tmRange.pow(order);
-
-	Interval J(0,1);
-	J *= tmRange;
-	J += C;
-
-	int k = order % 4;
-
-	switch(k)
-	{
-	case 0:
-		J.cos_assign();
-		break;
-	case 1:
-		J.sin_assign();
-		J.inv_assign();
-		break;
-	case 2:
-		J.cos_assign();
-		J.inv_assign();
-		break;
-	case 3:
-		J.sin_assign();
-		break;
-	}
-
-	result = setting.factorial_rec[order] * intProd * J;
-}
-
-inline void log_taylor_remainder(Interval & result, const Interval & tmRange, const int order)
-{
-	Interval J(0,1);
-	J *= tmRange;
-	J += 1;
-	J.rec_assign();
-
-	Interval I = tmRange;
-	I *= J;
-
-	result = I.pow(order);
-
-	result /= order;
-
-	if((order+1)%2 == 1)		// order+1 is odd
-	{
-		result *= -1;
-	}
-}
-
-inline void sqrt_taylor_remainder(Interval & result, const Interval & tmRange, const int order, const Global_Setting & setting)
-{
-	Interval I(0,1);
-	I *= tmRange;
-	I += 1;
-	I.rec_assign();
-
-	Interval intTemp;
-	I.sqrt(intTemp);
-
-	I *= tmRange;
-	I /= 2;
-
-	Interval intProd = I.pow(order-1);
-
-	intProd /= intTemp;
-	intProd *= tmRange;
-	intProd /= 2;
-
-	result = setting.double_factorial[2*order-3] * setting.factorial_rec[order] * intProd;
-
-	if(order % 2 == 0)
-	{
-		result *= -1;
-	}
-}
-
-
-
-
-
-
-
-
 template <class DATA_TYPE>
 class HornerForm;
 
@@ -1334,18 +1192,34 @@ void TaylorModel<DATA_TYPE>::exp_taylor(TaylorModel<DATA_TYPE> & result, std::li
 	tmF.constant(const_part);
 	tmF.rmConstant();			// F = tm - c
 
-	const_part.exp_assign();	// exp(c)
-
 	if(tmF.isZero())			// tm = c
 	{
-		TaylorModel<DATA_TYPE> tmExp(const_part, numVars);
-		result = tmExp;
+		if(tmF.remainder.isZero())
+		{
+			const_part.exp_assign();
+			TaylorModel<DATA_TYPE> tmExp(const_part, numVars);
+			result = tmExp;
+		}
+		else
+		{
+			Interval I = remainder + const_part;
+			I.exp_assign();
+			double midpoint = I.remove_midpoint();
+
+			TaylorModel<DATA_TYPE> tmExp(midpoint, numVars);
+			result = tmExp;
+			result.remainder = I;
+
+			ranges.push_back(I);
+		}
 
 		Interval invalid(1,-1);
 		ranges.push_back(invalid);
 
 		return;
 	}
+
+	const_part.exp_assign();	// exp(c)
 
 	ranges.push_back(const_part);			// keep the unchanged part
 
@@ -1400,18 +1274,34 @@ void TaylorModel<DATA_TYPE>::rec_taylor(TaylorModel<DATA_TYPE> & result, std::li
 	tmF.constant(const_part);
 	tmF.rmConstant();			// F = tm - c
 
-	const_part.rec_assign();	// 1/c
-
 	if(tmF.isZero())			// tm = c
 	{
-		TaylorModel<DATA_TYPE> tmRec(const_part, numVars);
-		result = tmRec;
+		if(tmF.remainder.isZero())
+		{
+			const_part.rec_assign();
+			TaylorModel<DATA_TYPE> tmRec(const_part, numVars);
+			result = tmRec;
+		}
+		else
+		{
+			Interval I = remainder + const_part;
+			I.rec_assign();
+			double midpoint = I.remove_midpoint();
+
+			TaylorModel<DATA_TYPE> tmRec(midpoint, numVars);
+			result = tmRec;
+			result.remainder = I;
+
+			ranges.push_back(I);
+		}
 
 		Interval invalid(1,-1);
 		ranges.push_back(invalid);
 
 		return;
 	}
+
+	const_part.rec_assign();	// 1/c
 
 	Polynomial<DATA_TYPE> polyOne(1, numVars);
 	TaylorModel<DATA_TYPE> tmF_c = tmF * const_part;
@@ -1471,9 +1361,24 @@ void TaylorModel<DATA_TYPE>::sin_taylor(TaylorModel<DATA_TYPE> & result, std::li
 
 	if(tmF.isZero())			// tm = c
 	{
-		const_part.sin_assign();
-		TaylorModel<DATA_TYPE> tmSin(const_part, numVars);
-		result = tmSin;
+		if(tmF.remainder.isZero())
+		{
+			const_part.sin_assign();
+			TaylorModel<DATA_TYPE> tmSin(const_part, numVars);
+			result = tmSin;
+		}
+		else
+		{
+			Interval I = remainder + const_part;
+			I.sin_assign();
+			double midpoint = I.remove_midpoint();
+
+			TaylorModel<DATA_TYPE> tmSin(midpoint, numVars);
+			result = tmSin;
+			result.remainder = I;
+
+			ranges.push_back(I);
+		}
 
 		Interval invalid(1,-1);
 		ranges.push_back(invalid);
@@ -1605,9 +1510,24 @@ void TaylorModel<DATA_TYPE>::cos_taylor(TaylorModel<DATA_TYPE> & result, std::li
 
 	if(tmF.isZero())			// tm = c
 	{
-		const_part.cos_assign();
-		TaylorModel<DATA_TYPE> tmCos(const_part, numVars);
-		result = tmCos;
+		if(tmF.remainder.isZero())
+		{
+			const_part.cos_assign();
+			TaylorModel<DATA_TYPE> tmCos(const_part, numVars);
+			result = tmCos;
+		}
+		else
+		{
+			Interval I = remainder + const_part;
+			I.cos_assign();
+			double midpoint = I.remove_midpoint();
+
+			TaylorModel<DATA_TYPE> tmCos(midpoint, numVars);
+			result = tmCos;
+			result.remainder = I;
+
+			ranges.push_back(I);
+		}
 
 		Interval invalid(1,-1);
 		ranges.push_back(invalid);
@@ -1741,18 +1661,34 @@ void TaylorModel<DATA_TYPE>::log_taylor(TaylorModel<DATA_TYPE> & result, std::li
 	DATA_TYPE C = const_part;
 	ranges.push_back(const_part);			// keep the unchanged part
 
-	const_part.log_assign();	// log(c)
-
 	if(tmF.isZero())			// tm = c
 	{
-		TaylorModel<DATA_TYPE> tmLog(const_part, numVars);
-		result = tmLog;
+		if(tmF.remainder.isZero())
+		{
+			const_part.log_assign();
+			TaylorModel<DATA_TYPE> tmLog(const_part, numVars);
+			result = tmLog;
+		}
+		else
+		{
+			Interval I = remainder + const_part;
+			I.log_assign();
+			double midpoint = I.remove_midpoint();
+
+			TaylorModel<DATA_TYPE> tmLog(midpoint, numVars);
+			result = tmLog;
+			result.remainder = I;
+
+			ranges.push_back(I);
+		}
 
 		Interval invalid(1,-1);
 		ranges.push_back(invalid);
 
 		return;
 	}
+
+	const_part.log_assign();	// log(c)
 
 	TaylorModel<DATA_TYPE> tmF_c = tmF / C;
 	result = tmF_c / order;
@@ -1809,18 +1745,35 @@ void TaylorModel<DATA_TYPE>::sqrt_taylor(TaylorModel<DATA_TYPE> & result, std::l
 	DATA_TYPE C = const_part;
 	ranges.push_back(const_part);			// keep the unchanged part
 
-	const_part.sqrt_assign();	// sqrt(c)
 
 	if(tmF.isZero())			// tm = c
 	{
-		TaylorModel<DATA_TYPE> tmSqrt(const_part, numVars);
-		result = tmSqrt;
+		if(tmF.remainder.isZero())
+		{
+			const_part.sqrt_assign();
+			TaylorModel<DATA_TYPE> tmSqrt(const_part, numVars);
+			result = tmSqrt;
+		}
+		else
+		{
+			Interval I = remainder + const_part;
+			I.sqrt_assign();
+			double midpoint = I.remove_midpoint();
+
+			TaylorModel<DATA_TYPE> tmSqrt(midpoint, numVars);
+			result = tmSqrt;
+			result.remainder = I;
+
+			ranges.push_back(I);
+		}
 
 		Interval invalid(1,-1);
 		ranges.push_back(invalid);
 
 		return;
 	}
+
+	const_part.sqrt_assign();	// sqrt(c)
 
 	TaylorModel<DATA_TYPE> tmF_2c = tmF / (2*C);
 	Polynomial<DATA_TYPE> polyOne(1, numVars);
@@ -1879,17 +1832,31 @@ void TaylorModel<DATA_TYPE>::exp_taylor(TaylorModel<DATA_TYPE> & result, const s
 	tmF.constant(const_part);
 	tmF.rmConstant();			// F = tm - c
 
-	const_part.exp_assign();	// exp(c)
-
 	unsigned int numVars = domain.size();
 
 	if(tmF.isZero())			// tm = c
 	{
-		TaylorModel<DATA_TYPE> tmExp(const_part, numVars);
-		result = tmExp;
+		if(tmF.remainder.isZero())
+		{
+			const_part.exp_assign();
+			TaylorModel<DATA_TYPE> tmExp(const_part, numVars);
+			result = tmExp;
+		}
+		else
+		{
+			Interval I = remainder + const_part;
+			I.exp_assign();
+			double midpoint = I.remove_midpoint();
+
+			TaylorModel<DATA_TYPE> tmExp(midpoint, numVars);
+			result = tmExp;
+			result.remainder = I;
+		}
 
 		return;
 	}
+
+	const_part.exp_assign();	// exp(c)
 
 	Polynomial<DATA_TYPE> polyOne(1, numVars);
 
@@ -1935,15 +1902,29 @@ void TaylorModel<DATA_TYPE>::rec_taylor(TaylorModel<DATA_TYPE> & result, const s
 
 	unsigned int numVars = domain.size();
 
-	const_part.rec_assign();	// 1/c
-
 	if(tmF.isZero())			// tm = c
 	{
-		TaylorModel<DATA_TYPE> tmRec(const_part, numVars);
-		result = tmRec;
+		if(tmF.remainder.isZero())
+		{
+			const_part.rec_assign();
+			TaylorModel<DATA_TYPE> tmRec(const_part, numVars);
+			result = tmRec;
+		}
+		else
+		{
+			Interval I = remainder + const_part;
+			I.rec_assign();
+			double midpoint = I.remove_midpoint();
+
+			TaylorModel<DATA_TYPE> tmRec(midpoint, numVars);
+			result = tmRec;
+			result.remainder = I;
+		}
 
 		return;
 	}
+
+	const_part.rec_assign();
 
 	Polynomial<DATA_TYPE> polyOne(1, numVars);
 	TaylorModel<DATA_TYPE> tmF_c = tmF * const_part;
@@ -1994,9 +1975,22 @@ void TaylorModel<DATA_TYPE>::sin_taylor(TaylorModel<DATA_TYPE> & result, const s
 
 	if(tmF.isZero())			// tm = c
 	{
-		const_part.sin_assign();
-		TaylorModel<DATA_TYPE> tmSin(const_part, numVars);
-		result = tmSin;
+		if(tmF.remainder.isZero())
+		{
+			const_part.sin_assign();
+			TaylorModel<DATA_TYPE> tmSin(const_part, numVars);
+			result = tmSin;
+		}
+		else
+		{
+			Interval I = remainder + const_part;
+			I.sin_assign();
+			double midpoint = I.remove_midpoint();
+
+			TaylorModel<DATA_TYPE> tmSin(midpoint, numVars);
+			result = tmSin;
+			result.remainder = I;
+		}
 
 		return;
 	}
@@ -2097,9 +2091,22 @@ void TaylorModel<DATA_TYPE>::cos_taylor(TaylorModel<DATA_TYPE> & result, const s
 
 	if(tmF.isZero())			// tm = c
 	{
-		const_part.cos_assign();
-		TaylorModel<DATA_TYPE> tmCos(const_part, numVars);
-		result = tmCos;
+		if(tmF.remainder.isZero())
+		{
+			const_part.cos_assign();
+			TaylorModel<DATA_TYPE> tmCos(const_part, numVars);
+			result = tmCos;
+		}
+		else
+		{
+			Interval I = remainder + const_part;
+			I.cos_assign();
+			double midpoint = I.remove_midpoint();
+
+			TaylorModel<DATA_TYPE> tmCos(midpoint, numVars);
+			result = tmCos;
+			result.remainder = I;
+		}
 
 		return;
 	}
@@ -2201,15 +2208,29 @@ void TaylorModel<DATA_TYPE>::log_taylor(TaylorModel<DATA_TYPE> & result, const s
 
 	DATA_TYPE C = const_part;
 
-	const_part.log_assign();	// log(c)
-
 	if(tmF.isZero())			// tm = c
 	{
-		TaylorModel<DATA_TYPE> tmLog(const_part, numVars);
-		result = tmLog;
+		if(tmF.remainder.isZero())
+		{
+			const_part.log_assign();
+			TaylorModel<DATA_TYPE> tmLog(const_part, numVars);
+			result = tmLog;
+		}
+		else
+		{
+			Interval I = remainder + const_part;
+			I.log_assign();
+			double midpoint = I.remove_midpoint();
+
+			TaylorModel<DATA_TYPE> tmLog(midpoint, numVars);
+			result = tmLog;
+			result.remainder = I;
+		}
 
 		return;
 	}
+
+	const_part.log_assign();	// log(c)
 
 	TaylorModel<DATA_TYPE> tmF_c = tmF / C;
 	result = tmF_c / order;
@@ -2257,15 +2278,29 @@ void TaylorModel<DATA_TYPE>::sqrt_taylor(TaylorModel<DATA_TYPE> & result, const 
 
 	DATA_TYPE C = const_part;
 
-	const_part.sqrt_assign();	// sqrt(c)
-
 	if(tmF.isZero())			// tm = c
 	{
-		TaylorModel<DATA_TYPE> tmSqrt(const_part, numVars);
-		result = tmSqrt;
+		if(tmF.remainder.isZero())
+		{
+			const_part.sqrt_assign();
+			TaylorModel<DATA_TYPE> tmSqrt(const_part, numVars);
+			result = tmSqrt;
+		}
+		else
+		{
+			Interval I = remainder + const_part;
+			I.sqrt_assign();
+			double midpoint = I.remove_midpoint();
+
+			TaylorModel<DATA_TYPE> tmSqrt(midpoint, numVars);
+			result = tmSqrt;
+			result.remainder = I;
+		}
 
 		return;
 	}
+
+	const_part.sqrt_assign();	// sqrt(c)
 
 	TaylorModel<DATA_TYPE> tmF_2c = tmF / (2*C);
 	Polynomial<DATA_TYPE> polyOne(1, numVars);

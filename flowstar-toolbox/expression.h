@@ -44,6 +44,18 @@ inline void exp_taylor_only_remainder(Interval & result, const Interval & remain
 		return;
 	}
 
+	std::list<Interval>::iterator iterTmp = iterRange;
+	++iterTmp;
+
+	if(!iterTmp->valid())
+	{
+		result = *iterRange;
+
+		iterRange = iterTmp;
+		++iterRange;
+		return;
+	}
+
 	Interval const_part = *iterRange;
 	++iterRange;
 
@@ -82,6 +94,18 @@ inline void rec_taylor_only_remainder(Interval & result, const Interval & remain
 
 	if(!iterRange->valid())
 	{
+		++iterRange;
+		return;
+	}
+
+	std::list<Interval>::iterator iterTmp = iterRange;
+	++iterTmp;
+
+	if(!iterTmp->valid())
+	{
+		result = *iterRange;
+
+		iterRange = iterTmp;
 		++iterRange;
 		return;
 	}
@@ -127,6 +151,18 @@ inline void sin_taylor_only_remainder(Interval & result, const Interval & remain
 
 	if(!iterRange->valid())
 	{
+		++iterRange;
+		return;
+	}
+
+	std::list<Interval>::iterator iterTmp = iterRange;
+	++iterTmp;
+
+	if(!iterTmp->valid())
+	{
+		result = *iterRange;
+
+		iterRange = iterTmp;
 		++iterRange;
 		return;
 	}
@@ -179,6 +215,18 @@ inline void cos_taylor_only_remainder(Interval & result, const Interval & remain
 		return;
 	}
 
+	std::list<Interval>::iterator iterTmp = iterRange;
+	++iterTmp;
+
+	if(!iterTmp->valid())
+	{
+		result = *iterRange;
+
+		iterRange = iterTmp;
+		++iterRange;
+		return;
+	}
+
 	Interval const_part = *iterRange;
 	++iterRange;
 
@@ -221,14 +269,26 @@ inline void log_taylor_only_remainder(Interval & result, const Interval & remain
 {
 	result = 0;
 
+	Interval C = *iterRange;
+	++iterRange;
+
 	if(!iterRange->valid())
 	{
 		++iterRange;
 		return;
 	}
 
-	Interval C = *iterRange;
-	++iterRange;
+	std::list<Interval>::iterator iterTmp = iterRange;
+	++iterTmp;
+
+	if(!iterTmp->valid())
+	{
+		result = *iterRange;
+
+		iterRange = iterTmp;
+		++iterRange;
+		return;
+	}
 
 	Interval const_part = C;
 
@@ -271,14 +331,26 @@ inline void sqrt_taylor_only_remainder(Interval & result, const Interval & remai
 {
 	result = 0;
 
+	Interval C = *iterRange;
+	++iterRange;
+
 	if(!iterRange->valid())
 	{
 		++iterRange;
 		return;
 	}
 
-	Interval C = *iterRange;
-	++iterRange;
+	std::list<Interval>::iterator iterTmp = iterRange;
+	++iterTmp;
+
+	if(!iterTmp->valid())
+	{
+		result = *iterRange;
+
+		iterRange = iterTmp;
+		++iterRange;
+		return;
+	}
 
 	Interval const_part = C;
 	const_part.sqrt_assign();
@@ -436,7 +508,14 @@ public:
 	AST_Node(const DATA_TYPE & c);
 	~AST_Node();
 
+	// multivariate expression
 	void evaluate(Interval & result, const std::vector<Interval> & domain) const;
+
+	// univariate expression
+	void evaluate(Interval & result, const Interval & t) const;
+
+
+	// multivariate expression
 
 	template <class DATA_TYPE2>
 	void evaluate(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & step_exp_table, const Interval & cutoff_threshold, const unsigned int numVars, const Global_Setting & setting) const;
@@ -444,15 +523,12 @@ public:
 	template <class DATA_TYPE2>
 	void evaluate(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & domain, const Interval & cutoff_threshold, const Global_Setting & setting) const;
 
-//	void evaluate(Real & result, const std::vector<Real> & values_of_vars) const;
-//	void evaluate(Interval & result, const std::vector<Interval> & values_of_vars) const;
 
-//	void evaluate(TaylorModel<DATA_TYPE> & result, const std::vector<TaylorModel> & tms_of_vars, const int order, const Taylor_Model_Setting & setting) const;
-//	template <class DATA_TYPE2>
-//	void evaluate(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & domain, const Interval & cutoff_threshold, const Global_Setting & setting) const;
+	// univariate expression
+	void evaluate(UnivariateTaylorModel<Real> & result, const UnivariateTaylorModel<Real> & t, const unsigned int order, const Global_Setting & setting) const;
 
-//	template <class DATA_TYPE2>
-//	void evaluate(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & step_exp_table, const Interval & cutoff_threshold, const unsigned int numVars, const Global_Setting & setting) const;
+
+
 
 	// for internal use
 	template <class DATA_TYPE2>
@@ -464,11 +540,15 @@ public:
 	template <class DATA_TYPE2>
 	void evaluate_remainder(Interval & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, std::list<Interval>::iterator & iter, const Global_Setting & setting) const;
 
-
-//	void output(std::string & expression, const Taylor_Model_Setting & setting) const;
+	// multivariate
 	void output(std::string & expression, const Variables & variables) const;
 
+	// univariate
+	void output(std::string & expression) const;
+
 	void toReal(std::shared_ptr<AST_Node<Real> > & pNode) const;
+
+	bool isZero() const;
 
 	template <class DATA_TYPE2>
 	friend class Expression_AST;
@@ -599,6 +679,97 @@ void AST_Node<DATA_TYPE>::evaluate(Interval & result, const std::vector<Interval
 		if(node_value.var.type == VAR_ID)
 		{
 			result = domain[node_value.var.id];
+		}
+		else
+		{
+			// for the other variable types
+		}
+
+		break;
+
+	case NODE_CONST:
+		result = node_value.constant;
+		break;
+	}
+}
+
+template <class DATA_TYPE>
+void AST_Node<DATA_TYPE>::evaluate(Interval & result, const Interval & t) const
+{
+	switch(node_type)
+	{
+	case NODE_UNA_OPT:
+	{
+		node_value.opt.left_operand->evaluate(result, t);
+
+		switch(node_value.opt.type)
+		{
+		case OPT_NEG:
+			result *= -1;
+			break;
+
+		case OPT_SIN:
+			result.sin_assign();
+			break;
+
+		case OPT_COS:
+			result.cos_assign();
+			break;
+
+		case OPT_EXP:
+			result.exp_assign();
+			break;
+
+		case OPT_LOG:
+			result.log_assign();
+			break;
+
+		case OPT_SQRT:
+			result.sqrt_assign();
+			break;
+		}
+
+		break;
+	}
+	case NODE_BIN_OPT:
+	{
+		Interval I1, I2;
+
+		switch(node_value.opt.type)
+		{
+		case OPT_PLUS:
+			node_value.opt.left_operand->evaluate(I1, t);
+			node_value.opt.right_operand->evaluate(I2, t);
+			result = I1 + I2;
+			break;
+		case OPT_MINU:
+			node_value.opt.left_operand->evaluate(I1, t);
+			node_value.opt.right_operand->evaluate(I2, t);
+			result = I1 - I2;
+			break;
+		case OPT_MULT:
+			node_value.opt.left_operand->evaluate(I1, t);
+			node_value.opt.right_operand->evaluate(I2, t);
+			result = I1 * I2;
+			break;
+		case OPT_DIV:
+			node_value.opt.left_operand->evaluate(I1, t);
+			node_value.opt.right_operand->evaluate(I2, t);
+			result = I1 / I2;
+			break;
+		case OPT_POW:
+			node_value.opt.left_operand->evaluate(result, t);
+			result.pow_assign((int)node_value.opt.right_operand->node_value.constant.toDouble());
+			break;
+		}
+
+		break;
+	}
+
+	case NODE_VAR:
+		if(node_value.var.type == VAR_ID)
+		{
+			result = t;
 		}
 		else
 		{
@@ -900,6 +1071,122 @@ void AST_Node<DATA_TYPE>::evaluate(TaylorModel<DATA_TYPE2> & result, const std::
 	case NODE_CONST:
 	{
 		TaylorModel<DATA_TYPE2> temp(node_value.constant, domain.size());
+		result = temp;
+		break;
+	}
+	}
+}
+
+template <class DATA_TYPE>
+void AST_Node<DATA_TYPE>::evaluate(UnivariateTaylorModel<Real> & result, const UnivariateTaylorModel<Real> & t, const unsigned int order, const Global_Setting & setting) const
+{
+	switch(node_type)
+	{
+	case NODE_UNA_OPT:
+	{
+		UnivariateTaylorModel<Real> utmTemp;
+		node_value.opt.left_operand->evaluate(utmTemp, t, order, setting);
+
+		switch(node_value.opt.type)
+		{
+		case OPT_NEG:
+			utmTemp *= -1;
+			result = utmTemp;
+			break;
+
+		case OPT_SIN:
+			utmTemp.sin_taylor(result, interval_utm_setting.val, order, setting);
+			break;
+
+		case OPT_COS:
+			utmTemp.cos_taylor(result, interval_utm_setting.val, order, setting);
+			break;
+
+		case OPT_EXP:
+			utmTemp.exp_taylor(result, interval_utm_setting.val, order, setting);
+			break;
+
+		case OPT_LOG:
+			utmTemp.log_taylor(result, interval_utm_setting.val, order, setting);
+			break;
+
+		case OPT_SQRT:
+			utmTemp.sqrt_taylor(result, interval_utm_setting.val, order, setting);
+			break;
+		}
+		break;
+	}
+	case NODE_BIN_OPT:
+	{
+		UnivariateTaylorModel<Real> utm1, utm2;
+
+		switch(node_value.opt.type)
+		{
+		case OPT_PLUS:
+			node_value.opt.left_operand->evaluate(utm1, t, order, setting);
+			node_value.opt.right_operand->evaluate(utm2, t, order, setting);
+			result = utm1 + utm2;
+			break;
+
+		case OPT_MINU:
+			node_value.opt.left_operand->evaluate(utm1, t, order, setting);
+			node_value.opt.right_operand->evaluate(utm2, t, order, setting);
+			result = utm1 - utm2;
+			break;
+
+		case OPT_MULT:
+		{
+			node_value.opt.left_operand->evaluate(utm1, t, order, setting);
+			node_value.opt.right_operand->evaluate(utm2, t, order, setting);
+
+			result = utm1 * utm2;
+
+			break;
+		}
+
+		case OPT_DIV:
+		{
+			node_value.opt.left_operand->evaluate(result, t, order, setting);
+			node_value.opt.right_operand->evaluate(utm1, t, order, setting);
+
+			utm1.rec_taylor(utm2, interval_utm_setting.val, order, setting);
+
+			result *= utm2;
+
+			break;
+		}
+
+		case OPT_POW:
+		{
+			UnivariateTaylorModel<Real> utmTemp;
+			node_value.opt.left_operand->evaluate(utmTemp, t, order, setting);
+
+			unsigned int degree = (unsigned int)node_value.opt.right_operand->node_value.constant.toDouble();
+
+			utmTemp.pow(result, degree);
+
+			break;
+		}
+		}
+
+		break;
+	}
+
+	case NODE_VAR:
+		if(node_value.var.type == VAR_ID)
+		{
+			result = t;
+		}
+		else
+		{
+			// for the other variable types
+		}
+
+		break;
+
+	case NODE_CONST:
+	{
+		UnivariateTaylorModel<DATA_TYPE> temp(node_value.constant);
 		result = temp;
 		break;
 	}
@@ -1916,22 +2203,22 @@ void AST_Node<DATA_TYPE>::output(std::string & expression, const Variables & var
 		case OPT_PLUS:
 			node_value.opt.left_operand->output(temp1, variables);
 			node_value.opt.right_operand->output(temp2, variables);
-			expression = "(" + temp1 + "+" + temp2 + ")";
+			expression = "(" + temp1 + " + " + temp2 + ")";
 			break;
 		case OPT_MINU:
 			node_value.opt.left_operand->output(temp1, variables);
 			node_value.opt.right_operand->output(temp2, variables);
-			expression = "(" + temp1 + "-" + temp2 + ")";
+			expression = "(" + temp1 + " - " + temp2 + ")";
 			break;
 		case OPT_MULT:
 			node_value.opt.left_operand->output(temp1, variables);
 			node_value.opt.right_operand->output(temp2, variables);
-			expression = "(" + temp1 + "*" + temp2 + ")";
+			expression = "(" + temp1 + " * " + temp2 + ")";
 			break;
 		case OPT_DIV:
 			node_value.opt.left_operand->output(temp1, variables);
 			node_value.opt.right_operand->output(temp2, variables);
-			expression = "(" + temp1 + "/" + temp2 + ")";
+			expression = "(" + temp1 + " / " + temp2 + ")";
 			break;
 		case OPT_POW:
 			node_value.opt.left_operand->output(temp1, variables);
@@ -1952,6 +2239,89 @@ void AST_Node<DATA_TYPE>::output(std::string & expression, const Variables & var
 			variables.getVarName(expression, node_value.var.id);
 		}
 
+		break;
+
+	case NODE_CONST:
+		expression = node_value.constant.toString();
+		break;
+	}
+}
+
+template <class DATA_TYPE>
+void AST_Node<DATA_TYPE>::output(std::string & expression) const
+{
+	switch(node_type)
+	{
+	case NODE_UNA_OPT:
+	{
+		std::string temp;
+		node_value.opt.left_operand->output(temp);
+
+		switch(node_value.opt.type)
+		{
+		case OPT_NEG:
+			expression = "(-" + temp + ")";
+			break;
+
+		case OPT_SIN:
+			expression = "(SIN(" + temp + "))";
+			break;
+
+		case OPT_COS:
+			expression = "(COS(" + temp + "))";
+			break;
+
+		case OPT_EXP:
+			expression = "(EXP(" + temp + "))";
+			break;
+
+		case OPT_LOG:
+			expression = "(LOG(" + temp + "))";
+			break;
+
+		case OPT_SQRT:
+			expression = "(SQRT(" + temp + "))";
+			break;
+		}
+		break;
+	}
+	case NODE_BIN_OPT:
+	{
+		std::string temp1, temp2;
+
+		switch(node_value.opt.type)
+		{
+		case OPT_PLUS:
+			node_value.opt.left_operand->output(temp1);
+			node_value.opt.right_operand->output(temp2);
+			expression = "(" + temp1 + " + " + temp2 + ")";
+			break;
+		case OPT_MINU:
+			node_value.opt.left_operand->output(temp1);
+			node_value.opt.right_operand->output(temp2);
+			expression = "(" + temp1 + " - " + temp2 + ")";
+			break;
+		case OPT_MULT:
+			node_value.opt.left_operand->output(temp1);
+			node_value.opt.right_operand->output(temp2);
+			expression = "(" + temp1 + " * " + temp2 + ")";
+			break;
+		case OPT_DIV:
+			node_value.opt.left_operand->output(temp1);
+			node_value.opt.right_operand->output(temp2);
+			expression = "(" + temp1 + " / " + temp2 + ")";
+			break;
+		case OPT_POW:
+			node_value.opt.left_operand->output(temp1);
+			expression = temp1 + "^" + std::to_string((int)node_value.opt.right_operand->node_value.constant.toDouble());
+			break;
+		}
+
+		break;
+	}
+
+	case NODE_VAR:
+		expression = "t";
 		break;
 
 	case NODE_CONST:
@@ -1992,6 +2362,19 @@ inline void AST_Node<Interval>::toReal(std::shared_ptr<AST_Node<Real> > & pNode)
 	}
 }
 
+template <class DATA_TYPE>
+bool AST_Node<DATA_TYPE>::isZero() const
+{
+	if(node_type == NODE_CONST && node_value.constant == 0)
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
 
 
 
@@ -2000,7 +2383,7 @@ inline void AST_Node<Interval>::toReal(std::shared_ptr<AST_Node<Real> > & pNode)
 template <class DATA_TYPE>
 class Expression
 {
-protected:
+public:
 	std::shared_ptr<AST_Node<DATA_TYPE> > root;
 
 public:
@@ -2011,20 +2394,38 @@ public:
 
 	void toReal(Expression<Real> & expression) const;
 
-	// using lex
+	// multivariate expression
 	Expression(const std::string & strExpression, Variables & vars);
+
+	// univariate expression
+	Expression(const std::string & strExpression);
 
 	void clear();
 
+	// multivariate
 	void output(std::ostream & os, const Variables & variables) const;
 
+	// univariate
+	void output(std::ostream & os) const;
+
+	// multivariate expression
 	void evaluate(Interval & result, const std::vector<Interval> & domain) const;
+
+	// univariate expression
+	void evaluate(Interval & result, const Interval & t) const;
+
+
+	// multivariate expression
 
 	template <class DATA_TYPE2>
 	void evaluate(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & step_exp_table, const Interval & cutoff_threshold, const unsigned int numVars, const Global_Setting & setting) const;
 
 	template <class DATA_TYPE2>
 	void evaluate(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & domain, const Interval & cutoff_threshold, const Global_Setting & setting) const;
+
+	// univariate expression
+	void evaluate(UnivariateTaylorModel<Real> & result, const UnivariateTaylorModel<Real> & t, const unsigned int order, const Global_Setting & setting) const;
+
 
 	template <class DATA_TYPE2>
 	void evaluate_no_remainder(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const Interval & cutoff_threshold, const unsigned int numVars) const;
@@ -2036,6 +2437,7 @@ public:
 	void evaluate_remainder(Interval & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, std::list<Interval>::iterator & iter, const Global_Setting & setting) const;
 
 	bool isConstant(DATA_TYPE & c) const;
+	bool isZero() const;
 
 	Expression & operator = (const Expression & expression);
 	Expression & operator += (const Expression & expression);
@@ -2128,6 +2530,22 @@ inline Expression<Real>::Expression(const std::string & strExpression, Variables
 	expression_setting.result.toReal(*this);
 }
 
+template <>
+inline Expression<Real>::Expression(const std::string & strExpression)
+{
+	expression_setting.clear();
+
+	std::string prefix(str_prefix_expression_ast);
+	std::string suffix(str_suffix);
+
+	expression_setting.strExpression = prefix + strExpression + suffix;
+	expression_setting.pVars = NULL;
+
+	parseExpression();
+
+	expression_setting.result.toReal(*this);
+}
+
 template <class DATA_TYPE>
 void Expression<DATA_TYPE>::clear()
 {
@@ -2144,9 +2562,24 @@ void Expression<DATA_TYPE>::output(std::ostream & os, const Variables & variable
 }
 
 template <class DATA_TYPE>
+void Expression<DATA_TYPE>::output(std::ostream & os) const
+{
+	std::string expression;
+	root->output(expression);
+
+	os << expression;
+}
+
+template <class DATA_TYPE>
 void Expression<DATA_TYPE>::evaluate(Interval & result, const std::vector<Interval> & domain) const
 {
 	root->evaluate(result, domain);
+}
+
+template <class DATA_TYPE>
+void Expression<DATA_TYPE>::evaluate(Interval & result, const Interval & t) const
+{
+	root->evaluate(result, t);
 }
 
 template <class DATA_TYPE>
@@ -2162,6 +2595,20 @@ void Expression<DATA_TYPE>::evaluate(TaylorModel<DATA_TYPE2> & result, const std
 {
 	root->evaluate(result, tms_of_vars, order, domain, cutoff_threshold, setting);
 }
+
+template <class DATA_TYPE>
+void Expression<DATA_TYPE>::evaluate(UnivariateTaylorModel<Real> & result, const UnivariateTaylorModel<Real> & t, const unsigned int order, const Global_Setting & setting) const
+{
+	if(root == nullptr)
+	{
+		result.clear();
+	}
+	else
+	{
+		root->evaluate(result, t, order, setting);
+	}
+}
+
 
 template <class DATA_TYPE>
 template <class DATA_TYPE2>
@@ -2197,6 +2644,23 @@ bool Expression<DATA_TYPE>::isConstant(DATA_TYPE & c) const
 		return false;
 	}
 
+}
+
+template <class DATA_TYPE>
+bool Expression<DATA_TYPE>::isZero() const
+{
+	if(root == nullptr)
+	{
+		return true;
+	}
+	else if(root->isZero())
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
 }
 
 template <class DATA_TYPE>
@@ -2295,6 +2759,20 @@ void Expression<DATA_TYPE>::sqrt_assign()
 {
 	std::shared_ptr<AST_Node<DATA_TYPE> > tmp(new AST_Node<DATA_TYPE>(OPT_SQRT, root));
 	root = tmp;
+}
+
+
+
+
+
+inline void evaluate(Matrix<UnivariateTaylorModel<Real> > & result, const Matrix<Expression<Real> > & A, const UnivariateTaylorModel<Real> & t, const unsigned int order, const Global_Setting & setting)
+{
+	unsigned int wholeSize = A.size1 * A.size2;
+
+	for(unsigned int i=0; i<wholeSize; ++i)
+	{
+		A.data[i].evaluate(result.data[i], t, order, setting);
+	}
 }
 
 

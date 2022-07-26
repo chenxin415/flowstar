@@ -29,6 +29,8 @@ public:
 	bool getVarName(std::string & vName, const int id) const;
 	unsigned int size() const;
 
+	bool merge(const Variables & vars);
+
 	void output(std::ostream & os) const;
 
 	void clear();

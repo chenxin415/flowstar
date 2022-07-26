@@ -42,28 +42,14 @@ public:
 
 	void toMultivariateTaylorModel(TaylorModel<DATA_TYPE> & result, const unsigned int numVars) const;
 
-	void evaluate(Interval & result) const;
-
-	template <class DATA_TYPE2>
-	void evaluate(Interval & result, const std::vector<DATA_TYPE2> & val_exp_table) const;
-
 	template <class DATA_TYPE2>
 	void evaluate(Interval & result, const DATA_TYPE2 & val) const;
-
-	template <class DATA_TYPE2>
-	void evaluate(Real & result, const std::vector<DATA_TYPE2> & val_exp_table) const;
-
-	template <class DATA_TYPE2>
-	void evaluate(UnivariateTaylorModel<DATA_TYPE> & result, const std::vector<DATA_TYPE2> & val_exp_table) const;
 
 	template <class DATA_TYPE2>
 	void evaluate(UnivariateTaylorModel<DATA_TYPE> & result, const DATA_TYPE2 & val) const;
 
 	template <class DATA_TYPE2>
 	void evaluate_assign(const DATA_TYPE2 & val);
-
-	template <class DATA_TYPE2>
-	void ctrunc(const unsigned int order, const std::vector<DATA_TYPE2> & val_exp_table);
 
 	void ctrunc(const unsigned int order);
 	void nctrunc(const unsigned int order);
@@ -81,6 +67,7 @@ public:
 
 	void constant(DATA_TYPE & c) const;
 
+	void clear();
 
 	UnivariateTaylorModel<DATA_TYPE> & operator = (const UnivariateTaylorModel<DATA_TYPE> & utm);
 	UnivariateTaylorModel<DATA_TYPE> & operator = (const UnivariatePolynomial<DATA_TYPE> & up);
@@ -152,6 +139,18 @@ public:
 
 	bool operator != (const int n) const;
 
+	void pow(UnivariateTaylorModel<DATA_TYPE> & result, const unsigned int n) const;
+
+	void exp_taylor(UnivariateTaylorModel<DATA_TYPE> & result, const Interval & t, const unsigned int order, const Global_Setting & setting) const;
+	void rec_taylor(UnivariateTaylorModel<DATA_TYPE> & result, const Interval & t, const unsigned int order, const Global_Setting & setting) const;
+	void sin_taylor(UnivariateTaylorModel<DATA_TYPE> & result, const Interval & t, const unsigned int order, const Global_Setting & setting) const;
+	void cos_taylor(UnivariateTaylorModel<DATA_TYPE> & result, const Interval & t, const unsigned int order, const Global_Setting & setting) const;
+	void log_taylor(UnivariateTaylorModel<DATA_TYPE> & result, const Interval & t, const unsigned int order, const Global_Setting & setting) const;
+	void sqrt_taylor(UnivariateTaylorModel<DATA_TYPE> & result, const Interval & t, const unsigned int order, const Global_Setting & setting) const;
+
+	void sigmoid_taylor(UnivariateTaylorModel<DATA_TYPE> & result, const Interval & t, const unsigned int order, const Global_Setting & setting) const;
+	void tanh_taylor(UnivariateTaylorModel<DATA_TYPE> & result, const Interval & t, const unsigned int order, const Global_Setting & setting) const;
+
 
 	template <class DATA_TYPE2>
 	operator UnivariateTaylorModel<DATA_TYPE2> () const;
@@ -166,7 +165,6 @@ public:
 	friend class TaylorModel;
 
 	friend class Real;
-//	friend class LinearFlowpipe;
 };
 
 
@@ -237,22 +235,6 @@ void UnivariateTaylorModel<DATA_TYPE>::toMultivariateTaylorModel(TaylorModel<DAT
 	result.remainder = remainder;
 }
 
-
-template <class DATA_TYPE>
-void UnivariateTaylorModel<DATA_TYPE>::evaluate(Interval & result) const
-{
-	expansion.evaluate(result, interval_utm_setting.val_exp_table);
-	result += remainder;
-}
-
-template <class DATA_TYPE>
-template <class DATA_TYPE2>
-void UnivariateTaylorModel<DATA_TYPE>::evaluate(Interval & result, const std::vector<DATA_TYPE2> & val_exp_table) const
-{
-	expansion.evaluate(result, val_exp_table);
-	result += remainder;
-}
-
 template <class DATA_TYPE>
 template <class DATA_TYPE2>
 void UnivariateTaylorModel<DATA_TYPE>::evaluate(Interval & result, const DATA_TYPE2 & val) const
@@ -263,64 +245,16 @@ void UnivariateTaylorModel<DATA_TYPE>::evaluate(Interval & result, const DATA_TY
 
 template <class DATA_TYPE>
 template <class DATA_TYPE2>
-void UnivariateTaylorModel<DATA_TYPE>::evaluate(Real & result, const std::vector<DATA_TYPE2> & val_exp_table) const
-{
-	if(expansion.coefficients.size() == 0)
-	{
-		result = 0;
-	}
-	else
-	{
-		result = expansion.coefficients[0];
-
-		for(unsigned int i=1; i<expansion.coefficients.size(); ++i)
-		{
-			result += expansion.coefficients[i] * (val_exp_table[i].toReal());
-		}
-	}
-}
-
-template <>
-template <>
-inline void UnivariateTaylorModel<Real>::evaluate<Real>(Real & result, const std::vector<Real> & val_exp_table) const
-{
-	if(expansion.coefficients.size() == 0)
-	{
-		result = 0;
-	}
-	else
-	{
-		result = expansion.coefficients[0];
-
-		for(unsigned int i=1; i<expansion.coefficients.size(); ++i)
-		{
-			result += expansion.coefficients[i] * val_exp_table[i];
-		}
-	}
-}
-
-template <class DATA_TYPE>
-template <class DATA_TYPE2>
-void UnivariateTaylorModel<DATA_TYPE>::evaluate(UnivariateTaylorModel<DATA_TYPE> & result, const std::vector<DATA_TYPE2> & val_exp_table) const
+void UnivariateTaylorModel<DATA_TYPE>::evaluate(UnivariateTaylorModel<DATA_TYPE> & result, const DATA_TYPE2 & val) const
 {
 	Interval I;
-	expansion.evaluate(I, val_exp_table);
+	expansion.evaluate(I, val);
 
 	Real c;
 	I.remove_midpoint(c);
 
 	result.expansion = c;
 	result.remainder = remainder + I;
-}
-
-template <class DATA_TYPE>
-template <class DATA_TYPE2>
-void UnivariateTaylorModel<DATA_TYPE>::evaluate(UnivariateTaylorModel<DATA_TYPE> & result, const DATA_TYPE2 & val) const
-{
-	DATA_TYPE2 c;
-	expansion.evaluate(c, val);
-
-	result.expansion = c;
 }
 
 template <class DATA_TYPE>
@@ -334,19 +268,10 @@ void UnivariateTaylorModel<DATA_TYPE>::evaluate_assign(const DATA_TYPE2 & val)
 }
 
 template <class DATA_TYPE>
-template <class DATA_TYPE2>
-void UnivariateTaylorModel<DATA_TYPE>::ctrunc(const unsigned int order, const std::vector<DATA_TYPE2> & val_exp_table)
-{
-	Interval tmp;
-	expansion.ctrunc(tmp, order, val_exp_table);
-	remainder += tmp;
-}
-
-template <class DATA_TYPE>
 void UnivariateTaylorModel<DATA_TYPE>::ctrunc(const unsigned int order)
 {
 	Interval tmp;
-	expansion.ctrunc(tmp, order, interval_utm_setting.val_exp_table);
+	expansion.ctrunc(tmp, order, interval_utm_setting.val);
 	remainder += tmp;
 }
 
@@ -426,6 +351,13 @@ void UnivariateTaylorModel<DATA_TYPE>::constant(DATA_TYPE & c) const
 }
 
 template <class DATA_TYPE>
+void UnivariateTaylorModel<DATA_TYPE>::clear()
+{
+	expansion.clear();
+	remainder = 0;
+}
+
+template <class DATA_TYPE>
 UnivariateTaylorModel<DATA_TYPE> & UnivariateTaylorModel<DATA_TYPE>::operator = (const UnivariateTaylorModel<DATA_TYPE> & utm)
 {
 	if(this == &utm)
@@ -491,20 +423,20 @@ UnivariateTaylorModel<DATA_TYPE> & UnivariateTaylorModel<DATA_TYPE>::operator *=
 	Interval tmp1;
 	if(!(remainder == 0))
 	{
-		utm.evaluate(tmp1, interval_utm_setting.val_exp_table);
+		utm.evaluate(tmp1, interval_utm_setting.val);
 		tmp1 *= remainder;
 	}
 
 	Interval tmp2;
 	if(!(utm.remainder == 0))
 	{
-		expansion.evaluate(tmp2, interval_utm_setting.val_exp_table);
+		expansion.evaluate(tmp2, interval_utm_setting.val);
 		tmp2 *= utm.remainder;
 	}
 
 	Interval tmp3;
 	expansion *= utm.expansion;
-	expansion.ctrunc(tmp3, interval_utm_setting.order, interval_utm_setting.val_exp_table);
+	expansion.ctrunc(tmp3, interval_utm_setting.order, interval_utm_setting.val);
 
 	remainder = tmp1 + tmp2 + tmp3;
 
@@ -537,12 +469,12 @@ UnivariateTaylorModel<DATA_TYPE> & UnivariateTaylorModel<DATA_TYPE>::operator *=
 
 	if(!(remainder == 0))
 	{
-		up.evaluate(tmp, interval_utm_setting.val_exp_table);
+		up.evaluate(tmp, interval_utm_setting.val);
 		remainder += tmp * remainder;
 	}
 
 	expansion *= up;
-	expansion.ctrunc(tmp, interval_utm_setting.order, interval_utm_setting.val_exp_table);
+	expansion.ctrunc(tmp, interval_utm_setting.order, interval_utm_setting.val);
 	remainder += tmp;
 
 	return *this;
@@ -695,6 +627,415 @@ bool UnivariateTaylorModel<DATA_TYPE>::operator != (const int n) const
 
 	return true;
 }
+
+template <class DATA_TYPE>
+void UnivariateTaylorModel<DATA_TYPE>::pow(UnivariateTaylorModel<DATA_TYPE> & result, const unsigned int n) const
+{
+	UnivariateTaylorModel<DATA_TYPE> utm = *this;
+
+	UnivariateTaylorModel<DATA_TYPE> tmp = utm;
+	result = utm;
+
+	for(int d = n - 1; d > 0;)
+	{
+		if(d & 1)
+		{
+			result *= tmp;
+		}
+
+		d >>= 1;
+
+		if(d > 0)
+		{
+			tmp *= tmp;
+		}
+	}
+}
+
+template <class DATA_TYPE>
+void UnivariateTaylorModel<DATA_TYPE>::exp_taylor(UnivariateTaylorModel<DATA_TYPE> & result, const Interval & t, const unsigned int order, const Global_Setting & setting) const
+{
+	DATA_TYPE const_part;
+
+	UnivariateTaylorModel<DATA_TYPE> utmF = *this;
+
+	Interval tmRange;
+	utmF.evaluate(tmRange, t);
+
+	tmRange.remove_midpoint(const_part);
+
+	utmF -= const_part;
+
+	const_part.exp_assign();	// exp(c)
+
+
+	if(tmRange.isZero())			// tm = c
+	{
+		UnivariateTaylorModel<DATA_TYPE> utmExp(const_part);
+		result = utmExp;
+
+		return;
+	}
+
+	UnivariatePolynomial<DATA_TYPE> polyOne(1);
+
+	// to compute the expression 1 + F + (1/2!)F^2 + ... + (1/k!)F^k,
+	// we evaluate its Horner form (...((1/(k-1))((1/k)*F+1)*F + 1) ... + 1)
+
+	result.expansion = polyOne;
+	result.remainder = 0;
+
+	for(int i=order; i>0; --i)
+	{
+		result /= i;
+		result *= utmF;
+		result.expansion += polyOne;
+	}
+
+	result *= const_part;
+
+	Interval rem;
+	exp_taylor_remainder(rem, tmRange, order+1, setting);
+
+	result.remainder += const_part * rem;
+}
+
+template <class DATA_TYPE>
+void UnivariateTaylorModel<DATA_TYPE>::rec_taylor(UnivariateTaylorModel<DATA_TYPE> & result, const Interval & t, const unsigned int order, const Global_Setting & setting) const
+{
+	DATA_TYPE const_part;
+
+	UnivariateTaylorModel<DATA_TYPE> utmF = *this;
+
+	Interval tmRange;
+	utmF.evaluate(tmRange, t);
+
+	tmRange.remove_midpoint(const_part);
+
+	utmF -= const_part;
+
+	const_part.rec_assign();	// 1/c
+
+	if(tmRange.isZero())			// tm = c
+	{
+		UnivariateTaylorModel<DATA_TYPE> utmRec(const_part);
+		result = utmRec;
+
+		return;
+	}
+
+	UnivariatePolynomial<DATA_TYPE> polyOne(1);
+	UnivariateTaylorModel<DATA_TYPE> utmF_c = utmF * const_part;
+
+
+	// to compute the expression 1 - F/c + (F/c)^2 - ... + (-1)^k (F/c)^k,
+	// we evaluate its Horner form (-1)*(...((-1)*(-F/c + 1)*F/c + 1)...) + 1
+
+	result.expansion = polyOne;
+	result.remainder = 0;
+
+
+	for(int i=order; i>0; --i)
+	{
+		result *= -1;
+		result *= utmF_c;
+		result.expansion += polyOne;
+	}
+
+	result *= const_part;
+
+	Interval rem;
+
+	rec_taylor_remainder(rem, tmRange, order+1, setting);
+
+	result.remainder += rem * const_part;
+}
+
+template <class DATA_TYPE>
+void UnivariateTaylorModel<DATA_TYPE>::sin_taylor(UnivariateTaylorModel<DATA_TYPE> & result, const Interval & t, const unsigned int order, const Global_Setting & setting) const
+{
+	DATA_TYPE const_part;
+
+	UnivariateTaylorModel<DATA_TYPE> tmF = *this;
+
+	Interval tmRange;
+	tmF.evaluate(tmRange, t);
+
+	tmRange.remove_midpoint(const_part);
+
+	tmF -= const_part;
+
+	if(tmRange.isZero())
+	{
+		const_part.sin_assign();
+		result.clear();
+		result.expansion.coefficients.push_back(const_part);
+
+		return;
+	}
+
+	DATA_TYPE sinc, cosc, msinc, mcosc;
+	const_part.sin(sinc);
+	const_part.cos(cosc);
+
+	msinc = -sinc;
+	mcosc = -cosc;
+
+	UnivariateTaylorModel<DATA_TYPE> utmTmp(sinc);
+	result = utmTmp;
+
+
+	int k = 1;
+
+	UnivariateTaylorModel<DATA_TYPE> utmPowerTmF(1);
+
+	for(int i=1; i<=order; ++i, ++k)
+	{
+		k %= 4;
+
+		utmPowerTmF *= tmF;
+
+		switch(k)
+		{
+		case 0:
+		{
+			utmPowerTmF *= sinc / i;
+			break;
+		}
+		case 1:
+		{
+			utmPowerTmF *= cosc / i;
+			break;
+		}
+		case 2:
+		{
+			utmPowerTmF *= msinc / i;
+			break;
+		}
+		case 3:
+		{
+			utmPowerTmF *= mcosc / i;
+			break;
+		}
+		}
+
+		result += utmPowerTmF;
+	}
+
+	Interval rem;
+
+	sin_taylor_remainder(rem, const_part, tmRange, order+1, setting);
+
+	result.remainder += rem;
+}
+
+template <class DATA_TYPE>
+void UnivariateTaylorModel<DATA_TYPE>::cos_taylor(UnivariateTaylorModel<DATA_TYPE> & result, const Interval & t, const unsigned int order, const Global_Setting & setting) const
+{
+	DATA_TYPE const_part;
+
+	UnivariateTaylorModel<DATA_TYPE> utmF = *this;
+
+	Interval tmRange;
+	utmF.evaluate(tmRange, t);
+
+	tmRange.remove_midpoint(const_part);
+
+	utmF -= const_part;
+
+	if(tmRange.isZero())
+	{
+		const_part.cos_assign();
+		result.clear();
+		result.expansion.coefficients.push_back(const_part);
+
+		return;
+	}
+
+	DATA_TYPE sinc, cosc, msinc, mcosc;
+	const_part.sin(sinc);
+	const_part.cos(cosc);
+
+	msinc = -sinc;
+	mcosc = -cosc;
+
+
+	UnivariateTaylorModel<DATA_TYPE> utmTmp(cosc);
+	result = utmTmp;
+
+
+	int k = 1;
+
+	UnivariateTaylorModel<DATA_TYPE> utmPowerTmF(1);
+
+	for(int i=1; i<=order; ++i, ++k)
+	{
+		k %= 4;
+
+		utmPowerTmF *= utmF;
+
+		switch(k)
+		{
+		case 0:
+		{
+			utmPowerTmF *= cosc / i;
+			break;
+		}
+		case 1:
+		{
+			utmPowerTmF *= msinc / i;
+			break;
+		}
+		case 2:
+		{
+			utmPowerTmF *= mcosc / i;
+			break;
+		}
+		case 3:
+		{
+			utmPowerTmF *= sinc / i;
+			break;
+		}
+		}
+
+		result += utmPowerTmF;
+	}
+
+	Interval rem;
+
+	cos_taylor_remainder(rem, const_part, tmRange, order+1, setting);
+
+	result.remainder += rem;
+}
+
+template <class DATA_TYPE>
+void UnivariateTaylorModel<DATA_TYPE>::log_taylor(UnivariateTaylorModel<DATA_TYPE> & result, const Interval & t, const unsigned int order, const Global_Setting & setting) const
+{
+	DATA_TYPE const_part;
+
+	UnivariateTaylorModel<DATA_TYPE> utmF = *this;
+
+	Interval tmRange;
+	utmF.evaluate(tmRange, t);
+
+	tmRange.remove_midpoint(const_part);
+
+	utmF -= const_part;
+
+
+//	DATA_TYPE C = const_part;
+
+	const_part.log_assign();	// log(c)
+
+	if(tmRange.isZero())			// tm = c
+	{
+		UnivariateTaylorModel<DATA_TYPE> utmLog(const_part);
+		result = utmLog;
+
+		return;
+	}
+
+	UnivariateTaylorModel<DATA_TYPE> utmF_c = utmF / const_part;
+	result = utmF_c / order;
+
+
+	for(int i=order-1; i>=1; --i)
+	{
+		result -= (1/i);
+		result *= -1;
+
+		result *= utmF_c;
+	}
+
+	UnivariateTaylorModel<DATA_TYPE> const_part_utm(const_part);
+	result += const_part_utm;
+
+	Interval rem;
+
+	log_taylor_remainder(rem, tmRange / const_part, order+1);
+
+	result.remainder += rem;
+}
+
+template <class DATA_TYPE>
+void UnivariateTaylorModel<DATA_TYPE>::sqrt_taylor(UnivariateTaylorModel<DATA_TYPE> & result, const Interval & t, const unsigned int order, const Global_Setting & setting) const
+{
+	DATA_TYPE const_part;
+
+	UnivariateTaylorModel<DATA_TYPE> utmF = *this;
+
+	Interval tmRange;
+	utmF.evaluate(tmRange, t);
+
+	tmRange.remove_midpoint(const_part);
+
+	utmF -= const_part;
+
+	const_part.sqrt_assign();	// sqrt(c)
+
+	if(tmRange.isZero())			// tm = c
+	{
+		UnivariateTaylorModel<DATA_TYPE> utmSqrt(const_part);
+		result = utmSqrt;
+
+		return;
+	}
+
+	UnivariateTaylorModel<DATA_TYPE> utmF_2c = utmF / (2*const_part);
+	UnivariatePolynomial<DATA_TYPE> polyOne(1);
+
+	result = utmF_2c;
+
+	for(int i=order, j=2*order-3; i>=2; --i, j-=2)
+	{
+		result *= -(j / i);
+		result.expansion += polyOne;
+		result *= utmF_2c;
+	}
+
+	result.expansion += polyOne;
+
+	result *= const_part;
+
+	Interval rem;
+
+	sqrt_taylor_remainder(rem, tmRange / const_part, order+1, setting);
+
+	result.remainder += rem * const_part;
+}
+
+template <class DATA_TYPE>
+void UnivariateTaylorModel<DATA_TYPE>::sigmoid_taylor(UnivariateTaylorModel<DATA_TYPE> & result, const Interval & t, const unsigned int order, const Global_Setting & setting) const
+{
+	UnivariateTaylorModel<DATA_TYPE> utm_x = *this;
+	utm_x *= -1;
+
+	UnivariateTaylorModel<DATA_TYPE> utm_tmp1;
+	utm_x.exp_taylor(utm_tmp1, t, order, setting);
+
+	utm_tmp1 += 1;
+
+	utm_tmp1.rec_taylor(result, t, order, setting);
+}
+
+template <class DATA_TYPE>
+void UnivariateTaylorModel<DATA_TYPE>::tanh_taylor(UnivariateTaylorModel<DATA_TYPE> & result, const Interval & t, const unsigned int order, const Global_Setting & setting) const
+{
+	UnivariateTaylorModel<DATA_TYPE> utm_2x = *this;
+	utm_2x *= 2;
+
+	UnivariateTaylorModel<DATA_TYPE> utm_exp_2x;
+	utm_2x.exp_taylor(utm_exp_2x, t, order, setting);
+
+	UnivariateTaylorModel<DATA_TYPE> utm_nom = utm_exp_2x - 1;
+	UnivariateTaylorModel<DATA_TYPE> utm_dom = utm_exp_2x + 1;
+
+	UnivariateTaylorModel<DATA_TYPE> utm_rec_dom;
+	utm_dom.rec_taylor(utm_rec_dom, t, order, setting);
+
+	result = utm_nom * utm_rec_dom;
+}
+
 
 template <class DATA_TYPE>
 template <class DATA_TYPE2>
