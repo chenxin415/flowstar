@@ -597,16 +597,16 @@ int ODE<DATA_TYPE>::reach(std::list<Flowpipe> & flowpipes, const double time, co
 	{
 		int res = currentFlowpipe.advance(newFlowpipe, expressions, tm_setting, dummy_invariant, g_setting);
 
-		double remaining_time = time - t;
-
-		if(remaining_time < step)
-		{
-			step = remaining_time;
-			newFlowpipe.domain[0].setSup(remaining_time);
-		}
-
 		if(res == 1)
 		{
+			double remaining_time = time - t;
+
+			if(remaining_time < step)
+			{
+				step = remaining_time;
+				newFlowpipe.domain[0].setSup(remaining_time);
+			}
+
 			if(bSafetyChecking)
 			{
 				int safety = newFlowpipe.safetyChecking(safeSet, tm_setting, g_setting);
@@ -672,18 +672,18 @@ int ODE<DATA_TYPE>::reach_adaptive_stepsize(std::list<Flowpipe> & flowpipes, con
 	{
 		int res = currentFlowpipe.advance_adaptive_stepsize(newFlowpipe, expressions, new_stepsize, tm_setting, dummy_invariant, g_setting);
 
-		double current_stepsize = tm_setting.step_exp_table[1].sup();
-
-		double remaining_time = time - t;
-
-		if(remaining_time < current_stepsize)
-		{
-			current_stepsize = remaining_time;
-			newFlowpipe.domain[0].setSup(remaining_time);
-		}
-
 		if(res == 1)
 		{
+			double current_stepsize = tm_setting.step_exp_table[1].sup();
+
+			double remaining_time = time - t;
+
+			if(remaining_time < current_stepsize)
+			{
+				current_stepsize = remaining_time;
+				newFlowpipe.domain[0].setSup(remaining_time);
+			}
+
 			if(bSafetyChecking)
 			{
 				int safety = newFlowpipe.safetyChecking(safeSet, tm_setting, g_setting);
@@ -757,16 +757,16 @@ int ODE<DATA_TYPE>::reach_adaptive_order(std::list<Flowpipe> & flowpipes, const 
 	{
 		int res = currentFlowpipe.advance_adaptive_order(newFlowpipe, expressions, tm_setting, dummy_invariant, g_setting);
 
-		double remaining_time = time - t;
-
-		if(remaining_time < step)
-		{
-			step = remaining_time;
-			newFlowpipe.domain[0].setSup(remaining_time);
-		}
-
 		if(res == 1)
 		{
+			double remaining_time = time - t;
+
+			if(remaining_time < step)
+			{
+				step = remaining_time;
+				newFlowpipe.domain[0].setSup(remaining_time);
+			}
+
 			if(bSafetyChecking)
 			{
 				int safety = newFlowpipe.safetyChecking(safeSet, tm_setting, g_setting);
@@ -839,16 +839,16 @@ int ODE<DATA_TYPE>::reach_symbolic_remainder(std::list<Flowpipe> & flowpipes, co
 	{
 		int res = currentFlowpipe.advance(newFlowpipe, expressions, tm_setting, dummy_invariant, g_setting, symbolic_remainder);
 
-		double remaining_time = time - t;
-
-		if(remaining_time < step)
-		{
-			step = remaining_time;
-			newFlowpipe.domain[0].setSup(remaining_time);
-		}
-
 		if(res == 1)
 		{
+			double remaining_time = time - t;
+
+			if(remaining_time < step)
+			{
+				step = remaining_time;
+				newFlowpipe.domain[0].setSup(remaining_time);
+			}
+
 			if(bSafetyChecking)
 			{
 				int safety = newFlowpipe.safetyChecking(safeSet, tm_setting, g_setting);
@@ -922,18 +922,18 @@ int ODE<DATA_TYPE>::reach_symbolic_remainder_adaptive_stepsize(std::list<Flowpip
 	{
 		int res = currentFlowpipe.advance_adaptive_stepsize(newFlowpipe, expressions, new_stepsize, tm_setting, dummy_invariant, g_setting, symbolic_remainder);
 
-		double current_stepsize = tm_setting.step_exp_table[1].sup();
-
-		double remaining_time = time - t;
-
-		if(remaining_time < current_stepsize)
-		{
-			current_stepsize = remaining_time;
-			newFlowpipe.domain[0].setSup(remaining_time);
-		}
-
 		if(res == 1)
 		{
+			double current_stepsize = tm_setting.step_exp_table[1].sup();
+
+			double remaining_time = time - t;
+
+			if(remaining_time < current_stepsize)
+			{
+				current_stepsize = remaining_time;
+				newFlowpipe.domain[0].setSup(remaining_time);
+			}
+
 			if(bSafetyChecking)
 			{
 				int safety = newFlowpipe.safetyChecking(safeSet, tm_setting, g_setting);
@@ -1011,17 +1011,16 @@ int ODE<DATA_TYPE>::reach_symbolic_remainder_adaptive_order(std::list<Flowpipe> 
 	{
 		int res = currentFlowpipe.advance_adaptive_order(newFlowpipe, expressions, tm_setting, dummy_invariant, g_setting, symbolic_remainder);
 
-		double remaining_time = time - t;
-
-		if(remaining_time < step)
-		{
-			step = remaining_time;
-			newFlowpipe.domain[0].setSup(remaining_time);
-		}
-
-
 		if(res == 1)
 		{
+			double remaining_time = time - t;
+
+			if(remaining_time < step)
+			{
+				step = remaining_time;
+				newFlowpipe.domain[0].setSup(remaining_time);
+			}
+
 			if(bSafetyChecking)
 			{
 				int safety = newFlowpipe.safetyChecking(safeSet, tm_setting, g_setting);
