@@ -1,4 +1,4 @@
-<h1> <img src="images/flowstar.png" alt="flowstar" width='40'> <font style="font-size:20pt;font-family: "Times New Roman", Times, serif"> <font color="#0000AA">Flow* Toolbox</font> - <br></font> A Platform for Modeling and Analysis of Cyber-Physical Systems </h1>
+<h1> <img src="images/flowstar.png" alt="flowstar" width='40'> Flow* Toolbox</font> - <br> A Platform for Modeling and Analysis of Cyber-Physical Systems </h1>
 
 
 
