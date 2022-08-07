@@ -38,5 +38,17 @@ The Flow\* toolbox does not have a specific interface, it is compiled as a stati
 
 The tool can also be used to find potential counterexamples when the overapproximated flowmap is deterministic. E.g., when an unsafe intersection is detected for a TM $p(x_0,t)$, you may use the domain contraction function to reduce $x_0$'s range, which is the initial set, and find an overapproximation of the unsafe initial states.
 
+
+
+# Getting Started
+
+
+### *Installation*
+
+The following GNU open-source libraries should be pre-installed: M4, GMP, MPFR, GSL, GLPK, BISON, FLEX. Most of them are available at [https://ftp.gnu.org/](https://ftp.gnu.org/).
+
+Flow\* does not require an installation. You may simply run **make** to compile the source code and a static library file libflowstar.a will be generated. The compilation should be done by GCC 8.0 or a later version. You may need to rename 'g++' in the makefile to ensure that an appropriate compiler is called.
+
+
 --
 **More content will be added.**
