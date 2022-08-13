@@ -658,6 +658,166 @@ int Flowpipe::safetyChecking(const std::vector<Constraint> & safeSet, const Tayl
 	}
 }
 
+int Flowpipe::unsafetyChecking(const std::vector<Constraint> & unsafeSet, const Taylor_Model_Setting & tm_setting, const Global_Setting & g_setting) const
+{
+	if(unsafeSet.size() == 0)
+	{
+		return SAFE;
+	}
+
+	unsigned int rangeDim = tmvPre.tms.size();
+	int result = UNKNOWN;
+	bool bContained = true;
+
+	std::vector<Interval> tmvRange;
+	tmvPre.intEvalNormal(tmvRange, tm_setting.step_exp_table);
+
+	for(unsigned int i=0; i<unsafeSet.size(); ++i)
+	{
+		Interval I;
+
+		// interval evaluation on the constraint
+		unsafeSet[i].expression.evaluate(I, tmvRange);
+
+		if(unsafeSet[i].bound < I.inf())
+		{
+			// no intersection with the unsafe set
+			result = SAFE;
+			break;
+		}
+		else
+		{
+			if(!(unsafeSet[i].bound >= I.sup()) && bContained)
+			{
+				bContained = false;
+			}
+		}
+	}
+
+	if(result == UNKNOWN)
+	{
+		if(bContained)
+		{
+			return UNSAFE;
+		}
+		else
+		{
+			if(domain[0].width() <= REFINEMENT_PREC)
+				return UNKNOWN;
+
+
+			// do a simple branch & bound for safety checking
+			TaylorModelVec<Real> tmvFlowpipe;
+			compose(tmvFlowpipe, tm_setting.order, tm_setting.cutoff_threshold);
+
+			std::vector<HornerForm<Real> > obj_hfs;
+			std::vector<Interval> obj_rems;
+
+			result = SAFE;
+
+			for(unsigned int i=0; i<unsafeSet.size(); ++i)
+			{
+				TaylorModel<Real> tmTmp;
+
+				// interval evaluation on the constraint
+				unsafeSet[i].expression.evaluate(tmTmp, tmvFlowpipe.tms, tm_setting.order, domain, tm_setting.cutoff_threshold, g_setting);
+
+				HornerForm<Real> obj_hf;
+				tmTmp.expansion.toHornerForm(obj_hf);
+				obj_hfs.push_back(obj_hf);
+				obj_rems.push_back(tmTmp.remainder);
+			}
+
+			std::vector<Interval> refined_domain = domain;
+
+			std::list<Interval> subdivisions;
+
+			if(domain[0].width() > REFINEMENT_PREC)
+			{
+				subdivisions.push_back(domain[0]);
+			}
+
+			for(; subdivisions.size() > 0; )
+			{
+				Interval subdivision = subdivisions.front();
+				subdivisions.pop_front();
+
+				int result_iter = UNKNOWN;
+				bool bContained_iter = true;
+
+				refined_domain[0] = subdivision;
+
+				for(int i=0; i<unsafeSet.size(); ++i)
+				{
+					Interval I;
+					obj_hfs[i].evaluate(I, refined_domain);
+
+					I += obj_rems[i];
+
+					if(unsafeSet[i].bound < I.inf())
+					{
+						// no intersection with the unsafe set
+						result_iter = SAFE;
+						break;
+					}
+					else
+					{
+						if(!(unsafeSet[i].bound >= I.sup()) && bContained_iter)
+						{
+							bContained_iter = false;
+						}
+					}
+				}
+
+				if(result_iter == UNKNOWN)
+				{
+					if(bContained_iter)
+					{
+						return UNSAFE;
+					}
+					else
+					{
+						if(subdivision.width() <= REFINEMENT_PREC)
+						{
+							return UNKNOWN;
+						}
+
+						// split the domain
+						Interval I1, I2;
+						subdivision.split(I1, I2);
+
+						if(I1.width() <= REFINEMENT_PREC)
+						{
+							if(result == SAFE)
+								result = UNKNOWN;
+						}
+						else
+						{
+							subdivisions.push_back(I1);
+						}
+
+						if(I2.width() <= REFINEMENT_PREC)
+						{
+							if(result == SAFE)
+								result = UNKNOWN;
+						}
+						else
+						{
+							subdivisions.push_back(I2);
+						}
+					}
+				}
+			}
+
+			return result;
+		}
+	}
+	else
+	{
+		return SAFE;
+	}
+}
+
 bool Flowpipe::isInTarget(const std::vector<Constraint> & targetSet, const Taylor_Model_Setting & tm_setting, const Global_Setting & g_setting) const
 {
 	std::vector<Interval> tmvRange;
@@ -791,7 +951,6 @@ int Flowpipe::advance(Flowpipe & result, const std::vector<Expression<Real> > & 
 	}
 
 	result.tmv.scale_assign(invS);
-//	result.tmv.cutoff_normal(tm_setting.step_end_exp_table, tm_setting.cutoff_threshold);
 
 	TaylorModelVec<Real> new_x0(S);
 	new_x0 += tmv_c0;
@@ -802,8 +961,6 @@ int Flowpipe::advance(Flowpipe & result, const std::vector<Expression<Real> > & 
 		x.Picard_no_remainder_assign(new_x0, ode, rangeDimExt, i, tm_setting.cutoff_threshold);
 	}
 
-//	x.cutoff(tm_setting.cutoff_threshold);
-
 	bool bfound = true;
 
 	for(unsigned int i=0; i<rangeDim; ++i)
@@ -811,7 +968,7 @@ int Flowpipe::advance(Flowpipe & result, const std::vector<Expression<Real> > & 
 		x.tms[i].remainder = tm_setting.remainder_estimation[i];
 	}
 
-	TaylorModelVec<Real> tmvTmp;
+	TaylorModelVec<Interval> tmvTmp;
 	std::list<Interval> intermediate_ranges;
 
 	x.Picard_ctrunc_normal(tmvTmp, new_x0, ode, tm_setting.step_exp_table, rangeDimExt, tm_setting.order, tm_setting.cutoff_threshold, intermediate_ranges, g_setting);
@@ -820,7 +977,7 @@ int Flowpipe::advance(Flowpipe & result, const std::vector<Expression<Real> > & 
 	std::vector<Interval> intDifferences;
 	for(unsigned int i=0; i<rangeDim; ++i)
 	{
-		Polynomial<Real> polyTmp;
+		Polynomial<Interval> polyTmp;
 		polyTmp = tmvTmp.tms[i].expansion - x.tms[i].expansion;
 
 		Interval I;
@@ -982,7 +1139,6 @@ int Flowpipe::advance(Flowpipe & result, const std::vector<Expression<Interval> 
 	}
 
 	result.tmv.scale_assign(invS);
-//	result.tmv.cutoff_normal(tm_setting.step_end_exp_table, tm_setting.cutoff_threshold);
 
 	TaylorModelVec<Real> new_x0(S);
 	new_x0 += tmv_c0;
@@ -993,8 +1149,6 @@ int Flowpipe::advance(Flowpipe & result, const std::vector<Expression<Interval> 
 		x.Picard_no_remainder_assign(new_x0, ode, rangeDimExt, i, tm_setting.cutoff_threshold);
 	}
 
-//	x.cutoff(tm_setting.cutoff_threshold);
-
 	bool bfound = true;
 
 	for(unsigned int i=0; i<rangeDim; ++i)
@@ -1002,7 +1156,7 @@ int Flowpipe::advance(Flowpipe & result, const std::vector<Expression<Interval> 
 		x.tms[i].remainder = tm_setting.remainder_estimation[i];
 	}
 
-	TaylorModelVec<Real> tmvTmp;
+	TaylorModelVec<Interval> tmvTmp;
 	std::list<Interval> intermediate_ranges;
 
 	x.Picard_ctrunc_normal(tmvTmp, new_x0, ode, tm_setting.step_exp_table, rangeDimExt, tm_setting.order, tm_setting.cutoff_threshold, intermediate_ranges, g_setting);
@@ -1011,7 +1165,7 @@ int Flowpipe::advance(Flowpipe & result, const std::vector<Expression<Interval> 
 	std::vector<Interval> intDifferences;
 	for(unsigned int i=0; i<rangeDim; ++i)
 	{
-		Polynomial<Real> polyTmp;
+		Polynomial<Interval> polyTmp;
 		polyTmp = tmvTmp.tms[i].expansion - x.tms[i].expansion;
 
 		Interval I;
@@ -1173,7 +1327,6 @@ int Flowpipe::advance_adaptive_stepsize(Flowpipe & result, const std::vector<Exp
 	}
 
 	result.tmv.scale_assign(invS);
-//	result.tmv.cutoff_normal(tm_setting.step_end_exp_table, tm_setting.cutoff_threshold);
 
 	TaylorModelVec<Real> new_x0(S);
 	new_x0 += tmv_c0;
@@ -1183,9 +1336,6 @@ int Flowpipe::advance_adaptive_stepsize(Flowpipe & result, const std::vector<Exp
 	{
 		x.Picard_no_remainder_assign(new_x0, ode, rangeDimExt, i, tm_setting.cutoff_threshold);
 	}
-
-//	x.cutoff(tm_setting.cutoff_threshold);
-
 
 	if(new_stepsize > 0)
 	{
@@ -1200,17 +1350,17 @@ int Flowpipe::advance_adaptive_stepsize(Flowpipe & result, const std::vector<Exp
 		x.tms[i].remainder = tm_setting.remainder_estimation[i];
 	}
 
-	TaylorModelVec<Real> tmvTmp;
+	TaylorModelVec<Interval> tmvTmp;
 	std::list<Interval> intermediate_ranges;
 
 	x.Picard_ctrunc_normal(tmvTmp, new_x0, ode, tm_setting.step_exp_table, rangeDimExt, tm_setting.order, tm_setting.cutoff_threshold, intermediate_ranges, g_setting);
 
 	// compute the interval evaluation of the polynomial difference due to the roundoff error
 	std::vector<Interval> intDifferences;
-	std::vector<Polynomial<Real> > polyDifferences;
+	std::vector<Polynomial<Interval> > polyDifferences;
 	for(unsigned int i=0; i<rangeDim; ++i)
 	{
-		Polynomial<Real> polyTmp;
+		Polynomial<Interval> polyTmp;
 		polyTmp = tmvTmp.tms[i].expansion - x.tms[i].expansion;
 		polyDifferences.push_back(polyTmp);
 
@@ -1418,17 +1568,17 @@ int Flowpipe::advance_adaptive_stepsize(Flowpipe & result, const std::vector<Exp
 		x.tms[i].remainder = tm_setting.remainder_estimation[i];
 	}
 
-	TaylorModelVec<Real> tmvTmp;
+	TaylorModelVec<Interval> tmvTmp;
 	std::list<Interval> intermediate_ranges;
 
 	x.Picard_ctrunc_normal(tmvTmp, new_x0, ode, tm_setting.step_exp_table, rangeDimExt, tm_setting.order, tm_setting.cutoff_threshold, intermediate_ranges, g_setting);
 
 	// compute the interval evaluation of the polynomial difference due to the roundoff error
 	std::vector<Interval> intDifferences;
-	std::vector<Polynomial<Real> > polyDifferences;
+	std::vector<Polynomial<Interval> > polyDifferences;
 	for(unsigned int i=0; i<rangeDim; ++i)
 	{
-		Polynomial<Real> polyTmp;
+		Polynomial<Interval> polyTmp;
 		polyTmp = tmvTmp.tms[i].expansion - x.tms[i].expansion;
 		polyDifferences.push_back(polyTmp);
 
@@ -1631,7 +1781,7 @@ int Flowpipe::advance_adaptive_order(Flowpipe & result, const std::vector<Expres
 		x.tms[i].remainder = tm_setting.remainder_estimation[i];
 	}
 
-	TaylorModelVec<Real> tmvTmp;
+	TaylorModelVec<Interval> tmvTmp;
 	std::list<Interval> intermediate_ranges;
 
 	x.Picard_ctrunc_normal(tmvTmp, new_x0, ode, tm_setting.step_exp_table, rangeDimExt, tm_setting.order, tm_setting.cutoff_threshold, intermediate_ranges, g_setting);
@@ -1641,7 +1791,7 @@ int Flowpipe::advance_adaptive_order(Flowpipe & result, const std::vector<Expres
 
 	for(unsigned int i=0; i<rangeDim; ++i)
 	{
-		Polynomial<Real> polyTmp;
+		Polynomial<Interval> polyTmp;
 		polyTmp = tmvTmp.tms[i].expansion - x.tms[i].expansion;
 
 		Interval I;
@@ -1686,7 +1836,7 @@ int Flowpipe::advance_adaptive_order(Flowpipe & result, const std::vector<Expres
 		// recompute the interval evaluation of the polynomial differences
 		for(int i=0; i<rangeDim; ++i)
 		{
-			Polynomial<Real> polyTmp;
+			Polynomial<Interval> polyTmp;
 			polyTmp = tmvTmp.tms[i].expansion - x.tms[i].expansion;
 
 			Interval I;
@@ -1855,7 +2005,7 @@ int Flowpipe::advance_adaptive_order(Flowpipe & result, const std::vector<Expres
 		x.tms[i].remainder = tm_setting.remainder_estimation[i];
 	}
 
-	TaylorModelVec<Real> tmvTmp;
+	TaylorModelVec<Interval> tmvTmp;
 	std::list<Interval> intermediate_ranges;
 
 	x.Picard_ctrunc_normal(tmvTmp, new_x0, ode, tm_setting.step_exp_table, rangeDimExt, tm_setting.order, tm_setting.cutoff_threshold, intermediate_ranges, g_setting);
@@ -1865,7 +2015,7 @@ int Flowpipe::advance_adaptive_order(Flowpipe & result, const std::vector<Expres
 
 	for(unsigned int i=0; i<rangeDim; ++i)
 	{
-		Polynomial<Real> polyTmp;
+		Polynomial<Interval> polyTmp;
 		polyTmp = tmvTmp.tms[i].expansion - x.tms[i].expansion;
 
 		Interval I;
@@ -1910,7 +2060,7 @@ int Flowpipe::advance_adaptive_order(Flowpipe & result, const std::vector<Expres
 		// recompute the interval evaluation of the polynomial differences
 		for(int i=0; i<rangeDim; ++i)
 		{
-			Polynomial<Real> polyTmp;
+			Polynomial<Interval> polyTmp;
 			polyTmp = tmvTmp.tms[i].expansion - x.tms[i].expansion;
 
 			Interval I;
@@ -2186,7 +2336,7 @@ int Flowpipe::advance(Flowpipe & result, const std::vector<Expression<Real> > & 
 		x.tms[i].remainder = tm_setting.remainder_estimation[i];
 	}
 
-	TaylorModelVec<Real> tmvTmp;
+	TaylorModelVec<Interval> tmvTmp;
 	std::list<Interval> intermediate_ranges;
 
 	x.Picard_ctrunc_normal(tmvTmp, new_x0, ode, tm_setting.step_exp_table, rangeDimExt, tm_setting.order, tm_setting.cutoff_threshold, intermediate_ranges, g_setting);
@@ -2195,7 +2345,7 @@ int Flowpipe::advance(Flowpipe & result, const std::vector<Expression<Real> > & 
 	std::vector<Interval> intDifferences;
 	for(unsigned int i=0; i<rangeDim; ++i)
 	{
-		Polynomial<Real> polyTmp;
+		Polynomial<Interval> polyTmp;
 		polyTmp = tmvTmp.tms[i].expansion - x.tms[i].expansion;
 
 		Interval I;
@@ -2476,7 +2626,7 @@ int Flowpipe::advance(Flowpipe & result, const std::vector<Expression<Interval> 
 		x.tms[i].remainder = tm_setting.remainder_estimation[i];
 	}
 
-	TaylorModelVec<Real> tmvTmp;
+	TaylorModelVec<Interval> tmvTmp;
 	std::list<Interval> intermediate_ranges;
 
 	x.Picard_ctrunc_normal(tmvTmp, new_x0, ode, tm_setting.step_exp_table, rangeDimExt, tm_setting.order, tm_setting.cutoff_threshold, intermediate_ranges, g_setting);
@@ -2485,7 +2635,7 @@ int Flowpipe::advance(Flowpipe & result, const std::vector<Expression<Interval> 
 	std::vector<Interval> intDifferences;
 	for(unsigned int i=0; i<rangeDim; ++i)
 	{
-		Polynomial<Real> polyTmp;
+		Polynomial<Interval> polyTmp;
 		polyTmp = tmvTmp.tms[i].expansion - x.tms[i].expansion;
 
 		Interval I;
@@ -2771,17 +2921,17 @@ int Flowpipe::advance_adaptive_stepsize(Flowpipe & result, const std::vector<Exp
 		x.tms[i].remainder = tm_setting.remainder_estimation[i];
 	}
 
-	TaylorModelVec<Real> tmvTmp;
+	TaylorModelVec<Interval> tmvTmp;
 	std::list<Interval> intermediate_ranges;
 
 	x.Picard_ctrunc_normal(tmvTmp, new_x0, ode, tm_setting.step_exp_table, rangeDimExt, tm_setting.order, tm_setting.cutoff_threshold, intermediate_ranges, g_setting);
 
 	// compute the interval evaluation of the polynomial difference due to the roundoff error
 	std::vector<Interval> intDifferences;
-	std::vector<Polynomial<Real> > polyDifferences;
+	std::vector<Polynomial<Interval> > polyDifferences;
 	for(unsigned int i=0; i<rangeDim; ++i)
 	{
-		Polynomial<Real> polyTmp;
+		Polynomial<Interval> polyTmp;
 		polyTmp = tmvTmp.tms[i].expansion - x.tms[i].expansion;
 		polyDifferences.push_back(polyTmp);
 
@@ -3091,17 +3241,17 @@ int Flowpipe::advance_adaptive_stepsize(Flowpipe & result, const std::vector<Exp
 		x.tms[i].remainder = tm_setting.remainder_estimation[i];
 	}
 
-	TaylorModelVec<Real> tmvTmp;
+	TaylorModelVec<Interval> tmvTmp;
 	std::list<Interval> intermediate_ranges;
 
 	x.Picard_ctrunc_normal(tmvTmp, new_x0, ode, tm_setting.step_exp_table, rangeDimExt, tm_setting.order, tm_setting.cutoff_threshold, intermediate_ranges, g_setting);
 
 	// compute the interval evaluation of the polynomial difference due to the roundoff error
 	std::vector<Interval> intDifferences;
-	std::vector<Polynomial<Real> > polyDifferences;
+	std::vector<Polynomial<Interval> > polyDifferences;
 	for(unsigned int i=0; i<rangeDim; ++i)
 	{
-		Polynomial<Real> polyTmp;
+		Polynomial<Interval> polyTmp;
 		polyTmp = tmvTmp.tms[i].expansion - x.tms[i].expansion;
 		polyDifferences.push_back(polyTmp);
 
@@ -3406,7 +3556,7 @@ int Flowpipe::advance_adaptive_order(Flowpipe & result, const std::vector<Expres
 		x.tms[i].remainder = tm_setting.remainder_estimation[i];
 	}
 
-	TaylorModelVec<Real> tmvTmp;
+	TaylorModelVec<Interval> tmvTmp;
 	std::list<Interval> intermediate_ranges;
 
 	x.Picard_ctrunc_normal(tmvTmp, new_x0, ode, tm_setting.step_exp_table, rangeDimExt, tm_setting.order, tm_setting.cutoff_threshold, intermediate_ranges, g_setting);
@@ -3415,7 +3565,7 @@ int Flowpipe::advance_adaptive_order(Flowpipe & result, const std::vector<Expres
 	std::vector<Interval> intDifferences;
 	for(unsigned int i=0; i<rangeDim; ++i)
 	{
-		Polynomial<Real> polyTmp;
+		Polynomial<Interval> polyTmp;
 		polyTmp = tmvTmp.tms[i].expansion - x.tms[i].expansion;
 
 		Interval I;
@@ -3460,7 +3610,7 @@ int Flowpipe::advance_adaptive_order(Flowpipe & result, const std::vector<Expres
 		// recompute the interval evaluation of the polynomial differences
 		for(int i=0; i<rangeDim; ++i)
 		{
-			Polynomial<Real> polyTmp;
+			Polynomial<Interval> polyTmp;
 			polyTmp = tmvTmp.tms[i].expansion - x.tms[i].expansion;
 
 			Interval I;
@@ -3731,7 +3881,7 @@ int Flowpipe::advance_adaptive_order(Flowpipe & result, const std::vector<Expres
 		x.tms[i].remainder = tm_setting.remainder_estimation[i];
 	}
 
-	TaylorModelVec<Real> tmvTmp;
+	TaylorModelVec<Interval> tmvTmp;
 	std::list<Interval> intermediate_ranges;
 
 	x.Picard_ctrunc_normal(tmvTmp, new_x0, ode, tm_setting.step_exp_table, rangeDimExt, tm_setting.order, tm_setting.cutoff_threshold, intermediate_ranges, g_setting);
@@ -3740,7 +3890,7 @@ int Flowpipe::advance_adaptive_order(Flowpipe & result, const std::vector<Expres
 	std::vector<Interval> intDifferences;
 	for(unsigned int i=0; i<rangeDim; ++i)
 	{
-		Polynomial<Real> polyTmp;
+		Polynomial<Interval> polyTmp;
 		polyTmp = tmvTmp.tms[i].expansion - x.tms[i].expansion;
 
 		Interval I;
@@ -3785,7 +3935,7 @@ int Flowpipe::advance_adaptive_order(Flowpipe & result, const std::vector<Expres
 		// recompute the interval evaluation of the polynomial differences
 		for(int i=0; i<rangeDim; ++i)
 		{
-			Polynomial<Real> polyTmp;
+			Polynomial<Interval> polyTmp;
 			polyTmp = tmvTmp.tms[i].expansion - x.tms[i].expansion;
 
 			Interval I;
@@ -4973,6 +5123,70 @@ void Result_of_Reachability::merge(const Result_of_Reachability & result)
 	{
 		tmv_flowpipes.merge(result.tmv_flowpipes);
 	}
+}
+
+Flowpipe & Result_of_Reachability::safetyChecking(const std::vector<Constraint> & safeSet, const Taylor_Model_Setting & tm_setting, const Global_Setting & g_setting)
+{
+	// no safety constraint, the whole state space is safe
+	if(safeSet.size() == 0)
+	{
+		status = COMPLETED_SAFE;
+		return flowpipes.front();
+	}
+
+	status = COMPLETED_SAFE;
+
+	std::list<Flowpipe>::iterator iter = flowpipes.begin();
+
+	for(; iter != flowpipes.end(); ++iter)
+	{
+		int safety = iter->safetyChecking(safeSet, tm_setting, g_setting);
+
+		if(safety == UNSAFE && !iter->bConstrained)
+		{
+			status = COMPLETED_UNSAFE;
+			return *iter;
+		}
+
+		if(safety != SAFE && status == COMPLETED_SAFE)
+		{
+			status = COMPLETED_UNKNOWN;
+		}
+	}
+
+	return flowpipes.front();
+}
+
+Flowpipe & Result_of_Reachability::unsafetyChecking(const std::vector<Constraint> & unsafeSet, const Taylor_Model_Setting & tm_setting, const Global_Setting & g_setting)
+{
+	// no unsafety constraint, the whole state space is safe
+	if(unsafeSet.size() == 0)
+	{
+		status = COMPLETED_SAFE;
+		return flowpipes.front();
+	}
+
+	status = COMPLETED_SAFE;
+
+	std::list<Flowpipe>::iterator iter = flowpipes.begin();
+
+	for(; iter != flowpipes.end(); ++iter)
+	{
+		int safety = iter->unsafetyChecking(unsafeSet, tm_setting, g_setting);
+
+		if(safety == UNSAFE && !iter->bConstrained)
+		{
+			status = COMPLETED_UNSAFE;
+			return *iter;
+		}
+
+		if(safety != SAFE && status == COMPLETED_SAFE)
+		{
+			status = COMPLETED_UNKNOWN;
+		}
+	}
+
+	return flowpipes.front();
 }
 
 void Result_of_Reachability::transformToTaylorModels(const Computational_Setting & c_setting)
@@ -10774,6 +10988,163 @@ int safetyChecking(const TaylorModelVec<Real> & tmv, const std::vector<Interval>
 		return UNSAFE;
 	}
 }
+
+int unsafetyChecking(const TaylorModelVec<Real> & tmv, const std::vector<Interval> & domain, const std::vector<Constraint> & unsafeSet, const Taylor_Model_Setting & tm_setting, const Global_Setting & g_setting)
+{
+	if(unsafeSet.size() == 0)
+	{
+		return SAFE;
+	}
+
+	int result = UNKNOWN;
+	bool bContained = true;
+
+	std::vector<Interval> tmvRange;
+	tmv.intEval(tmvRange, domain);
+
+	for(unsigned int i=0; i<unsafeSet.size(); ++i)
+	{
+		Interval I;
+
+		// interval evaluation on the constraint
+		unsafeSet[i].expression.evaluate(I, tmvRange);
+
+		if(unsafeSet[i].bound < I.inf())
+		{
+			// no intersection with the unsafe set
+			result = SAFE;
+			break;
+		}
+		else
+		{
+			if(!(unsafeSet[i].bound >= I.sup()) && bContained)
+			{
+				bContained = false;
+			}
+		}
+	}
+
+	if(result == UNKNOWN)
+	{
+		if(bContained)
+		{
+			return UNSAFE;
+		}
+		else
+		{
+			if(domain[0].width() <= REFINEMENT_PREC)
+				return UNKNOWN;
+
+
+			// do a simple branch & bound for safety checking
+			std::vector<HornerForm<Real> > obj_hfs;
+			std::vector<Interval> obj_rems;
+
+			result = SAFE;
+
+			for(unsigned int i=0; i<unsafeSet.size(); ++i)
+			{
+				TaylorModel<Real> tmTmp;
+
+				// interval evaluation on the constraint
+				unsafeSet[i].expression.evaluate(tmTmp, tmv.tms, tm_setting.order, domain, tm_setting.cutoff_threshold, g_setting);
+
+				HornerForm<Real> obj_hf;
+				tmTmp.expansion.toHornerForm(obj_hf);
+				obj_hfs.push_back(obj_hf);
+				obj_rems.push_back(tmTmp.remainder);
+			}
+
+			std::vector<Interval> refined_domain = domain;
+
+			std::list<Interval> subdivisions;
+
+			if(domain[0].width() > REFINEMENT_PREC)
+			{
+				subdivisions.push_back(domain[0]);
+			}
+
+			for(; subdivisions.size() > 0; )
+			{
+				Interval subdivision = subdivisions.front();
+				subdivisions.pop_front();
+
+				int result_iter = UNKNOWN;
+				bool bContained_iter = true;
+
+				refined_domain[0] = subdivision;
+
+				for(int i=0; i<unsafeSet.size(); ++i)
+				{
+					Interval I;
+					obj_hfs[i].evaluate(I, refined_domain);
+
+					I += obj_rems[i];
+
+					if(unsafeSet[i].bound < I.inf())
+					{
+						// no intersection with the unsafe set
+						result_iter = SAFE;
+						break;
+					}
+					else
+					{
+						if(!(unsafeSet[i].bound >= I.sup()) && bContained_iter)
+						{
+							bContained_iter = false;
+						}
+					}
+				}
+
+				if(result_iter == UNKNOWN)
+				{
+					if(bContained_iter)
+					{
+						return UNSAFE;
+					}
+					else
+					{
+						if(subdivision.width() <= REFINEMENT_PREC)
+						{
+							return UNKNOWN;
+						}
+
+						// split the domain
+						Interval I1, I2;
+						subdivision.split(I1, I2);
+
+						if(I1.width() <= REFINEMENT_PREC)
+						{
+							if(result == SAFE)
+								result = UNKNOWN;
+						}
+						else
+						{
+							subdivisions.push_back(I1);
+						}
+
+						if(I2.width() <= REFINEMENT_PREC)
+						{
+							if(result == SAFE)
+								result = UNKNOWN;
+						}
+						else
+						{
+							subdivisions.push_back(I2);
+						}
+					}
+				}
+			}
+
+			return result;
+		}
+	}
+	else
+	{
+		return SAFE;
+	}
+}
+
 
 void gridBox(std::list<std::vector<Interval> > & grids, const std::vector<Interval> & box, const unsigned int num)
 {

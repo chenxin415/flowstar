@@ -55,7 +55,7 @@ bool Real::isZero() const
 	}
 }
 
-bool Real::belongsTo(const Interval & I) const
+bool Real::subseteq(const Interval & I) const
 {
 	if(mpfr_cmp(value, I.lo) >= 0 && mpfr_cmp(value, I.up) <= 0)
 	{
@@ -318,29 +318,44 @@ void Real::sqrt_assign()
 	mpfr_sqrt(value, value, MPFR_RNDN);
 }
 
-void Real::sin(Real & c) const
+Real Real::sin() const
 {
-	mpfr_sin(c.value, value, MPFR_RNDN);
+	Real result;
+	mpfr_sin(result.value, value, MPFR_RNDN);
+
+	return result;
 }
 
-void Real::cos(Real & c) const
+Real Real::cos() const
 {
-	mpfr_cos(c.value, value, MPFR_RNDN);
+	Real result;
+	mpfr_cos(result.value, value, MPFR_RNDN);
+
+	return result;
 }
 
-void Real::exp(Real & c) const
+Real Real::exp() const
 {
-	mpfr_exp(c.value, value, MPFR_RNDN);
+	Real result;
+	mpfr_exp(result.value, value, MPFR_RNDN);
+
+	return result;
 }
 
-void Real::log(Real & c) const
+Real Real::log() const
 {
-	mpfr_log(c.value, value, MPFR_RNDN);
+	Real result;
+	mpfr_log(result.value, value, MPFR_RNDN);
+
+	return result;
 }
 
-void Real::sqrt(Real & c) const
+Real Real::sqrt() const
 {
-	mpfr_sqrt(c.value, value, MPFR_RNDN);
+	Real result;
+	mpfr_sqrt(result.value, value, MPFR_RNDN);
+
+	return result;
 }
 
 double Real::toDouble() const
