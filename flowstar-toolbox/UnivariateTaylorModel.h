@@ -775,8 +775,8 @@ void UnivariateTaylorModel<DATA_TYPE>::sin_taylor(UnivariateTaylorModel<DATA_TYP
 	}
 
 	DATA_TYPE sinc, cosc, msinc, mcosc;
-	const_part.sin(sinc);
-	const_part.cos(cosc);
+	sinc = const_part.sin();
+	cosc = const_part.cos();
 
 	msinc = -sinc;
 	mcosc = -cosc;
@@ -795,31 +795,33 @@ void UnivariateTaylorModel<DATA_TYPE>::sin_taylor(UnivariateTaylorModel<DATA_TYP
 
 		utmPowerTmF *= tmF;
 
+		UnivariateTaylorModel<DATA_TYPE> utmTmp2 = utmPowerTmF;
+
 		switch(k)
 		{
 		case 0:
 		{
-			utmPowerTmF *= sinc / i;
+			utmTmp2 *= sinc / i;
 			break;
 		}
 		case 1:
 		{
-			utmPowerTmF *= cosc / i;
+			utmTmp2 *= cosc / i;
 			break;
 		}
 		case 2:
 		{
-			utmPowerTmF *= msinc / i;
+			utmTmp2*= msinc / i;
 			break;
 		}
 		case 3:
 		{
-			utmPowerTmF *= mcosc / i;
+			utmTmp2 *= mcosc / i;
 			break;
 		}
 		}
 
-		result += utmPowerTmF;
+		result += utmTmp2;
 	}
 
 	Interval rem;
@@ -853,8 +855,8 @@ void UnivariateTaylorModel<DATA_TYPE>::cos_taylor(UnivariateTaylorModel<DATA_TYP
 	}
 
 	DATA_TYPE sinc, cosc, msinc, mcosc;
-	const_part.sin(sinc);
-	const_part.cos(cosc);
+	sinc = const_part.sin();
+	cosc = const_part.cos();
 
 	msinc = -sinc;
 	mcosc = -cosc;
@@ -874,31 +876,33 @@ void UnivariateTaylorModel<DATA_TYPE>::cos_taylor(UnivariateTaylorModel<DATA_TYP
 
 		utmPowerTmF *= utmF;
 
+		UnivariateTaylorModel<DATA_TYPE> utmTmp2 = utmPowerTmF;
+
 		switch(k)
 		{
 		case 0:
 		{
-			utmPowerTmF *= cosc / i;
+			utmTmp2 *= cosc / i;
 			break;
 		}
 		case 1:
 		{
-			utmPowerTmF *= msinc / i;
+			utmTmp2 *= msinc / i;
 			break;
 		}
 		case 2:
 		{
-			utmPowerTmF *= mcosc / i;
+			utmTmp2 *= mcosc / i;
 			break;
 		}
 		case 3:
 		{
-			utmPowerTmF *= sinc / i;
+			utmTmp2 *= sinc / i;
 			break;
 		}
 		}
 
-		result += utmPowerTmF;
+		result += utmTmp2;
 	}
 
 	Interval rem;

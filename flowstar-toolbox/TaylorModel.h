@@ -77,21 +77,32 @@ public:
 	template <class DATA_TYPE2>
 	void ctrunc_normal(const std::vector<DATA_TYPE2> & step_exp_table, const unsigned int order);
 
-	TaylorModel<DATA_TYPE> & operator = (const TaylorModel<DATA_TYPE> & tm);
+	template <class DATA_TYPE2>
+	TaylorModel<DATA_TYPE> & operator = (const TaylorModel<DATA_TYPE2> & tm);
+
 	TaylorModel<DATA_TYPE> & operator = (const Polynomial<DATA_TYPE> & p);
 
-	TaylorModel<DATA_TYPE> & operator += (const TaylorModel<DATA_TYPE> & tm);
+	template <class DATA_TYPE2>
+	TaylorModel<DATA_TYPE> & operator += (const TaylorModel<DATA_TYPE2> & tm);
+
 	TaylorModel<DATA_TYPE> & operator += (const Polynomial<DATA_TYPE> & p);
 
 	// only for nonempty polynomial parts
 	TaylorModel<DATA_TYPE> & operator += (const DATA_TYPE & c);
 
-	TaylorModel<DATA_TYPE> & operator -= (const TaylorModel<DATA_TYPE> & tm);
+	template <class DATA_TYPE2>
+	TaylorModel<DATA_TYPE> & operator -= (const TaylorModel<DATA_TYPE2> & tm);
+
 	TaylorModel<DATA_TYPE> & operator -= (const Polynomial<DATA_TYPE> & p);
 
-	TaylorModel<DATA_TYPE> operator + (const TaylorModel<DATA_TYPE> & tm) const;
+	template <class DATA_TYPE2>
+	TaylorModel<DATA_TYPE> operator + (const TaylorModel<DATA_TYPE2> & tm) const;
+
 	TaylorModel<DATA_TYPE> operator + (const Polynomial<DATA_TYPE> & p) const;
-	TaylorModel<DATA_TYPE> operator - (const TaylorModel<DATA_TYPE> & tm) const;
+
+	template <class DATA_TYPE2>
+	TaylorModel<DATA_TYPE> operator - (const TaylorModel<DATA_TYPE2> & tm) const;
+
 	TaylorModel<DATA_TYPE> operator - (const Polynomial<DATA_TYPE> & p) const;
 
 	TaylorModel<DATA_TYPE> & operator *= (const DATA_TYPE & c);
@@ -205,8 +216,6 @@ public:
 	bool isZero() const;
 	bool isFreeOfT() const;
 
-//	void center_nc();
-
 	void rmZeroTerms(const std::vector<unsigned int> & indices);
 
 	void normalize(std::vector<Interval> & domain, const Interval & cutoff_threshold);
@@ -265,6 +274,14 @@ TaylorModel<DATA_TYPE>::TaylorModel(const DATA_TYPE2 & c, const unsigned int num
 
 template <>
 template <>
+inline TaylorModel<Real>::TaylorModel(const Real & c, const unsigned int numVars)
+{
+	Polynomial<Real> p(c, numVars);
+	expansion = p;
+}
+
+template <>
+template <>
 inline TaylorModel<Real>::TaylorModel(const Interval & I, const unsigned int numVars)
 {
 	Real center;
@@ -272,6 +289,18 @@ inline TaylorModel<Real>::TaylorModel(const Interval & I, const unsigned int num
 	remainder.remove_midpoint(center);
 
 	Polynomial<Real> p(center, numVars);
+	expansion = p;
+}
+
+template <>
+template <>
+inline TaylorModel<Interval>::TaylorModel(const Interval & I, const unsigned int numVars)
+{
+	Real center;
+	remainder = I;
+	remainder.remove_midpoint(center);
+
+	Polynomial<Interval> p(center, numVars);
 	expansion = p;
 }
 
@@ -432,9 +461,10 @@ void TaylorModel<DATA_TYPE>::ctrunc_normal(const std::vector<DATA_TYPE2> & step_
 }
 
 template <class DATA_TYPE>
-TaylorModel<DATA_TYPE> & TaylorModel<DATA_TYPE>::operator = (const TaylorModel<DATA_TYPE> & tm)
+template <class DATA_TYPE2>
+TaylorModel<DATA_TYPE> & TaylorModel<DATA_TYPE>::operator = (const TaylorModel<DATA_TYPE2> & tm)
 {
-	if(this == &tm)
+	if((void *)this == (void *)(&tm))
 		return *this;
 
 	expansion = tm.expansion;
@@ -453,7 +483,8 @@ TaylorModel<DATA_TYPE> & TaylorModel<DATA_TYPE>::operator = (const Polynomial<DA
 }
 
 template <class DATA_TYPE>
-TaylorModel<DATA_TYPE> & TaylorModel<DATA_TYPE>::operator += (const TaylorModel<DATA_TYPE> & tm)
+template <class DATA_TYPE2>
+TaylorModel<DATA_TYPE> & TaylorModel<DATA_TYPE>::operator += (const TaylorModel<DATA_TYPE2> & tm)
 {
 	expansion += tm.expansion;
 	remainder += tm.remainder;
@@ -478,7 +509,8 @@ TaylorModel<DATA_TYPE> & TaylorModel<DATA_TYPE>::operator += (const DATA_TYPE & 
 }
 
 template <class DATA_TYPE>
-TaylorModel<DATA_TYPE> & TaylorModel<DATA_TYPE>::operator -= (const TaylorModel<DATA_TYPE> & tm)
+template <class DATA_TYPE2>
+TaylorModel<DATA_TYPE> & TaylorModel<DATA_TYPE>::operator -= (const TaylorModel<DATA_TYPE2> & tm)
 {
 	expansion -= tm.expansion;
 	remainder -= tm.remainder;
@@ -495,7 +527,8 @@ TaylorModel<DATA_TYPE> & TaylorModel<DATA_TYPE>::operator -= (const Polynomial<D
 }
 
 template <class DATA_TYPE>
-TaylorModel<DATA_TYPE> TaylorModel<DATA_TYPE>::operator + (const TaylorModel<DATA_TYPE> & tm) const
+template <class DATA_TYPE2>
+TaylorModel<DATA_TYPE> TaylorModel<DATA_TYPE>::operator + (const TaylorModel<DATA_TYPE2> & tm) const
 {
 	TaylorModel<DATA_TYPE> result = *this;
 	result += tm;
@@ -513,7 +546,8 @@ TaylorModel<DATA_TYPE> TaylorModel<DATA_TYPE>::operator + (const Polynomial<DATA
 }
 
 template <class DATA_TYPE>
-TaylorModel<DATA_TYPE> TaylorModel<DATA_TYPE>::operator - (const TaylorModel<DATA_TYPE> & tm) const
+template <class DATA_TYPE2>
+TaylorModel<DATA_TYPE> TaylorModel<DATA_TYPE>::operator - (const TaylorModel<DATA_TYPE2> & tm) const
 {
 	TaylorModel<DATA_TYPE> result = *this;
 	result -= tm;
@@ -1105,7 +1139,39 @@ bool TaylorModel<DATA_TYPE>::isFreeOfT() const
 {
 	return expansion.isFreeOfT();
 }
+/*
+template <>
+template <class DATA_TYPE2>
+void TaylorModel<Interval>::narrow(TaylorModel<Real> & result, const std::vector<DATA_TYPE2> & step_exp_table) const
+{
+	std::list<Term<Interval> >::const_iterator iter = expansion.terms.begin();
 
+	Polynomial<Interval> polyRem;
+	result.expansion.clear();
+	result.remainder = remainder;
+
+	for(; iter != expansion.terms.end(); ++iter)
+	{
+		Interval I = iter->coefficient;
+
+		Real c;
+		I.remove_midpoint(c);
+
+		polyRem.terms.push_back(*iter);
+		polyRem.terms.back().coefficient = I;
+
+		Term<Real> term;
+		term.coefficient = c;
+		term.degrees = iter->degrees;
+		term.d = iter->d;
+		result.expansion.terms.push_back(term);
+	}
+
+	Interval J;
+	polyRem.intEvalNormal(J, step_exp_table);
+
+}
+*/
 template <class DATA_TYPE>
 void TaylorModel<DATA_TYPE>::rmZeroTerms(const std::vector<unsigned int> & indices)
 {
@@ -1249,12 +1315,7 @@ void TaylorModel<DATA_TYPE>::exp_taylor(TaylorModel<DATA_TYPE> & result, std::li
 	}
 
 	result *= const_part;
-/*
-	Interval intCutoff;
-	result.expansion.cutoff_normal(intCutoff, step_exp_table, cutoff_threshold);
-	ranges.push_back(intCutoff);			// keep the unchanged part
-	result.remainder += intCutoff;
-*/
+
 	Interval rem, tmRange;
 	ranges.push_back(tmFPolyRange);			// keep the unchanged part
 	tmRange = tmFPolyRange + tmF.remainder;
@@ -1333,12 +1394,7 @@ void TaylorModel<DATA_TYPE>::rec_taylor(TaylorModel<DATA_TYPE> & result, std::li
 	}
 
 	result *= const_part;
-/*
-	Interval intCutoff;
-	result.expansion.cutoff_normal(intCutoff, step_exp_table, cutoff_threshold);
-	ranges.push_back(intCutoff);			// keep the unchanged part
-	result.remainder += intCutoff;
-*/
+
 	Interval rem, tmF_cRange;
 	ranges.push_back(tmF_cPolyRange);		// keep the unchanged part
 	tmF_cRange = tmF_cPolyRange + tmF_c.remainder;
@@ -1389,8 +1445,8 @@ void TaylorModel<DATA_TYPE>::sin_taylor(TaylorModel<DATA_TYPE> & result, std::li
 	ranges.push_back(const_part);				// keep the unchanged part
 
 	DATA_TYPE sinc, cosc, msinc, mcosc;
-	const_part.sin(sinc);
-	const_part.cos(cosc);
+	sinc = const_part.sin();
+	cosc = const_part.cos();
 
 	msinc = -sinc;
 	mcosc = -cosc;
@@ -1401,13 +1457,12 @@ void TaylorModel<DATA_TYPE>::sin_taylor(TaylorModel<DATA_TYPE> & result, std::li
 	Interval tmFPolyRange;
 	tmF.polyRangeNormal(tmFPolyRange, step_exp_table);
 
-	int k = 1;
-
 	TaylorModel<DATA_TYPE> tmPowerTmF(1, numVars);
 
-	for(int i=1; i<=order; ++i, ++k)
+
+	for(int i=1; i<=order; ++i)
 	{
-		k %= 4;
+		int k = i % 4;
 
 		switch(k)
 		{
@@ -1420,11 +1475,13 @@ void TaylorModel<DATA_TYPE>::sin_taylor(TaylorModel<DATA_TYPE> & result, std::li
 			ranges.push_back(tmFPolyRange);		// keep the unchanged part
 			ranges.push_back(intTrunc);			// keep the unchanged part
 
-			Real tmp = sinc / i;
+			DATA_TYPE tmp = sinc / i;
 			ranges.push_back(tmp);				// keep the unchanged part
 
-			tmPowerTmF *= tmp;
-			result += tmPowerTmF;
+			TaylorModel<DATA_TYPE> tmTemp = tmPowerTmF;
+			tmTemp *= tmp;
+
+			result += tmTemp;
 
 			break;
 		}
@@ -1437,11 +1494,13 @@ void TaylorModel<DATA_TYPE>::sin_taylor(TaylorModel<DATA_TYPE> & result, std::li
 			ranges.push_back(tmFPolyRange);		// keep the unchanged part
 			ranges.push_back(intTrunc);			// keep the unchanged part
 
-			Real tmp = cosc / i;
+			DATA_TYPE tmp = cosc / i;
 			ranges.push_back(tmp);				// keep the unchanged part
 
-			tmPowerTmF *= tmp;
-			result += tmPowerTmF;
+			TaylorModel<DATA_TYPE> tmTemp = tmPowerTmF;
+			tmTemp *= tmp;
+
+			result += tmTemp;
 
 			break;
 		}
@@ -1454,11 +1513,13 @@ void TaylorModel<DATA_TYPE>::sin_taylor(TaylorModel<DATA_TYPE> & result, std::li
 			ranges.push_back(tmFPolyRange);		// keep the unchanged part
 			ranges.push_back(intTrunc);			// keep the unchanged part
 
-			Real tmp = msinc / i;
+			DATA_TYPE tmp = msinc / i;
 			ranges.push_back(tmp);				// keep the unchanged part
 
-			tmPowerTmF *= tmp;
-			result += tmPowerTmF;
+			TaylorModel<DATA_TYPE> tmTemp = tmPowerTmF;
+			tmTemp *= tmp;
+
+			result += tmTemp;
 
 			break;
 		}
@@ -1471,25 +1532,22 @@ void TaylorModel<DATA_TYPE>::sin_taylor(TaylorModel<DATA_TYPE> & result, std::li
 			ranges.push_back(tmFPolyRange);		// keep the unchanged part
 			ranges.push_back(intTrunc);			// keep the unchanged part
 
-			Real tmp = mcosc / i;
+			DATA_TYPE tmp = mcosc / i;
 			ranges.push_back(tmp);				// keep the unchanged part
 
-			tmPowerTmF *= tmp;
-			result += tmPowerTmF;
+			TaylorModel<DATA_TYPE> tmTemp = tmPowerTmF;
+			tmTemp *= tmp;
+
+			result += tmTemp;
 
 			break;
 		}
 		}
 	}
-/*
-	Interval intCutoff;
-	result.expansion.cutoff_normal(intCutoff, step_exp_table, cutoff_threshold);
-	ranges.push_back(intCutoff);				// keep the unchanged part
-	result.remainder += intCutoff;
-*/
+
 	// evaluate the remainder
 	Interval tmRange, rem;
-	tmRange = tmFPolyRange + tmF.remainder;
+	tmRange = tmFPolyRange + remainder;
 
 	ranges.push_back(tmFPolyRange);				// keep the unchanged part
 	sin_taylor_remainder(rem, const_part, tmRange, order+1, setting);
@@ -1538,8 +1596,8 @@ void TaylorModel<DATA_TYPE>::cos_taylor(TaylorModel<DATA_TYPE> & result, std::li
 	ranges.push_back(const_part);				// keep the unchanged part
 
 	DATA_TYPE sinc, cosc, msinc, mcosc;
-	const_part.sin(sinc);
-	const_part.cos(cosc);
+	sinc = const_part.sin();
+	cosc = const_part.cos();
 
 	msinc = -sinc;
 	mcosc = -cosc;
@@ -1570,11 +1628,13 @@ void TaylorModel<DATA_TYPE>::cos_taylor(TaylorModel<DATA_TYPE> & result, std::li
 			ranges.push_back(tmFPolyRange);		// keep the unchanged part
 			ranges.push_back(intTrunc);			// keep the unchanged part
 
-			Real tmp = cosc / i;
+			DATA_TYPE tmp = cosc / i;
 			ranges.push_back(tmp);				// keep the unchanged part
 
-			tmPowerTmF *= tmp;
-			result += tmPowerTmF;
+			TaylorModel<DATA_TYPE> tmTemp = tmPowerTmF;
+			tmTemp *= tmp;
+
+			result += tmTemp;
 
 			break;
 		}
@@ -1587,11 +1647,13 @@ void TaylorModel<DATA_TYPE>::cos_taylor(TaylorModel<DATA_TYPE> & result, std::li
 			ranges.push_back(tmFPolyRange);		// keep the unchanged part
 			ranges.push_back(intTrunc);			// keep the unchanged part
 
-			Real tmp = msinc / i;
+			DATA_TYPE tmp = msinc / i;
 			ranges.push_back(tmp);				// keep the unchanged part
 
-			tmPowerTmF *= tmp;
-			result += tmPowerTmF;
+			TaylorModel<DATA_TYPE> tmTemp = tmPowerTmF;
+			tmTemp *= tmp;
+
+			result += tmTemp;
 
 			break;
 		}
@@ -1604,11 +1666,13 @@ void TaylorModel<DATA_TYPE>::cos_taylor(TaylorModel<DATA_TYPE> & result, std::li
 			ranges.push_back(tmFPolyRange);		// keep the unchanged part
 			ranges.push_back(intTrunc);			// keep the unchanged part
 
-			Real tmp = mcosc / i;
+			DATA_TYPE tmp = mcosc / i;
 			ranges.push_back(tmp);				// keep the unchanged part
 
-			tmPowerTmF *= tmp;
-			result += tmPowerTmF;
+			TaylorModel<DATA_TYPE> tmTemp = tmPowerTmF;
+			tmTemp *= tmp;
+
+			result += tmTemp;
 
 			break;
 		}
@@ -1621,22 +1685,19 @@ void TaylorModel<DATA_TYPE>::cos_taylor(TaylorModel<DATA_TYPE> & result, std::li
 			ranges.push_back(tmFPolyRange);		// keep the unchanged part
 			ranges.push_back(intTrunc);			// keep the unchanged part
 
-			Real tmp = sinc / i;
+			DATA_TYPE tmp = sinc / i;
 			ranges.push_back(tmp);				// keep the unchanged part
 
-			tmPowerTmF *= tmp;
-			result += tmPowerTmF;
+			TaylorModel<DATA_TYPE> tmTemp = tmPowerTmF;
+			tmTemp *= tmp;
+
+			result += tmTemp;
 
 			break;
 		}
 		}
 	}
-/*
-	Interval intCutoff;
-	result.expansion.cutoff_normal(intCutoff, step_exp_table, cutoff_threshold);
-	ranges.push_back(intCutoff);				// keep the unchanged part
-	result.remainder += intCutoff;
-*/
+
 	// evaluate the remainder
 	Interval tmRange, rem;
 	tmRange = tmFPolyRange + tmF.remainder;
@@ -1716,12 +1777,7 @@ void TaylorModel<DATA_TYPE>::log_taylor(TaylorModel<DATA_TYPE> & result, std::li
 
 	TaylorModel const_part_tm(const_part, numVars);
 	result += const_part_tm;
-/*
-	Interval intCutoff;
-	result.expansion.cutoff_normal(intCutoff, step_exp_table, cutoff_threshold);
-	ranges.push_back(intCutoff);			// keep the unchanged part
-	result.remainder += intCutoff;
-*/
+
 	Interval rem, tmF_cRange;
 	ranges.push_back(tmF_cPolyRange);		// keep the unchanged part
 	tmF_cRange = tmF_cPolyRange + tmF_c.remainder;
@@ -1775,7 +1831,10 @@ void TaylorModel<DATA_TYPE>::sqrt_taylor(TaylorModel<DATA_TYPE> & result, std::l
 
 	const_part.sqrt_assign();	// sqrt(c)
 
-	TaylorModel<DATA_TYPE> tmF_2c = tmF / (2*C);
+	DATA_TYPE tmp = C;
+	tmp *= 2;
+
+	TaylorModel<DATA_TYPE> tmF_2c = tmF / tmp;
 	Polynomial<DATA_TYPE> polyOne(1, numVars);
 
 	result = tmF_2c;
@@ -1801,12 +1860,7 @@ void TaylorModel<DATA_TYPE>::sqrt_taylor(TaylorModel<DATA_TYPE> & result, std::l
 	result.expansion += polyOne;
 
 	result *= const_part;
-/*
-	Interval intCutoff;
-	result.expansion.cutoff_normal(intCutoff, step_exp_table, cutoff_threshold);
-	ranges.push_back(intCutoff);			// keep the unchanged part
-	result.remainder += intCutoff;
-*/
+
 	Interval rem, tmF_cRange = tmF_2cPolyRange;
 	tmF_cRange *= 2;
 
@@ -1996,8 +2050,8 @@ void TaylorModel<DATA_TYPE>::sin_taylor(TaylorModel<DATA_TYPE> & result, const s
 	}
 
 	DATA_TYPE sinc, cosc, msinc, mcosc;
-	const_part.sin(sinc);
-	const_part.cos(cosc);
+	sinc = const_part.sin();
+	cosc = const_part.cos();
 
 	msinc = -sinc;
 	mcosc = -cosc;
@@ -2022,10 +2076,12 @@ void TaylorModel<DATA_TYPE>::sin_taylor(TaylorModel<DATA_TYPE> & result, const s
 		{
 			tmPowerTmF.mul_insert_ctrunc_assign(tmF, tmFPolyRange, domain, order, cutoff_threshold);
 
-			Real tmp = sinc / i;
+			DATA_TYPE tmp = sinc / i;
 
-			tmPowerTmF *= tmp;
-			result += tmPowerTmF;
+			TaylorModel<DATA_TYPE> tmTemp = tmPowerTmF;
+			tmTemp *= tmp;
+
+			result += tmTemp;
 
 			break;
 		}
@@ -2033,10 +2089,12 @@ void TaylorModel<DATA_TYPE>::sin_taylor(TaylorModel<DATA_TYPE> & result, const s
 		{
 			tmPowerTmF.mul_insert_ctrunc_assign(tmF, tmFPolyRange, domain, order, cutoff_threshold);
 
-			Real tmp = cosc / i;
+			DATA_TYPE tmp = cosc / i;
 
-			tmPowerTmF *= tmp;
-			result += tmPowerTmF;
+			TaylorModel<DATA_TYPE> tmTemp = tmPowerTmF;
+			tmTemp *= tmp;
+
+			result += tmTemp;
 
 			break;
 		}
@@ -2044,10 +2102,12 @@ void TaylorModel<DATA_TYPE>::sin_taylor(TaylorModel<DATA_TYPE> & result, const s
 		{
 			tmPowerTmF.mul_insert_ctrunc_assign(tmF, tmFPolyRange, domain, order, cutoff_threshold);
 
-			Real tmp = msinc / i;
+			DATA_TYPE tmp = msinc / i;
 
-			tmPowerTmF *= tmp;
-			result += tmPowerTmF;
+			TaylorModel<DATA_TYPE> tmTemp = tmPowerTmF;
+			tmTemp *= tmp;
+
+			result += tmTemp;
 
 			break;
 		}
@@ -2055,10 +2115,12 @@ void TaylorModel<DATA_TYPE>::sin_taylor(TaylorModel<DATA_TYPE> & result, const s
 		{
 			tmPowerTmF.mul_insert_ctrunc_assign(tmF, tmFPolyRange, domain, order, cutoff_threshold);
 
-			Real tmp = mcosc / i;
+			DATA_TYPE tmp = mcosc / i;
 
-			tmPowerTmF *= tmp;
-			result += tmPowerTmF;
+			TaylorModel<DATA_TYPE> tmTemp = tmPowerTmF;
+			tmTemp *= tmp;
+
+			result += tmTemp;
 
 			break;
 		}
@@ -2112,8 +2174,8 @@ void TaylorModel<DATA_TYPE>::cos_taylor(TaylorModel<DATA_TYPE> & result, const s
 	}
 
 	DATA_TYPE sinc, cosc, msinc, mcosc;
-	const_part.sin(sinc);
-	const_part.cos(cosc);
+	sinc = const_part.sin();
+	cosc = const_part.cos();
 
 	msinc = -sinc;
 	mcosc = -cosc;
@@ -2139,10 +2201,12 @@ void TaylorModel<DATA_TYPE>::cos_taylor(TaylorModel<DATA_TYPE> & result, const s
 		{
 			tmPowerTmF.mul_insert_ctrunc_assign(tmF, tmFPolyRange, domain, order, cutoff_threshold);
 
-			Real tmp = cosc / i;
+			DATA_TYPE tmp = cosc / i;
 
-			tmPowerTmF *= tmp;
-			result += tmPowerTmF;
+			TaylorModel<DATA_TYPE> tmTemp = tmPowerTmF;
+			tmTemp *= tmp;
+
+			result += tmTemp;
 
 			break;
 		}
@@ -2150,10 +2214,12 @@ void TaylorModel<DATA_TYPE>::cos_taylor(TaylorModel<DATA_TYPE> & result, const s
 		{
 			tmPowerTmF.mul_insert_ctrunc_normal_assign(tmF, tmFPolyRange, domain, order, cutoff_threshold);
 
-			Real tmp = msinc / i;
+			DATA_TYPE tmp = msinc / i;
 
-			tmPowerTmF *= tmp;
-			result += tmPowerTmF;
+			TaylorModel<DATA_TYPE> tmTemp = tmPowerTmF;
+			tmTemp *= tmp;
+
+			result += tmTemp;
 
 			break;
 		}
@@ -2161,10 +2227,12 @@ void TaylorModel<DATA_TYPE>::cos_taylor(TaylorModel<DATA_TYPE> & result, const s
 		{
 			tmPowerTmF.mul_insert_ctrunc_normal_assign(tmF, tmFPolyRange, domain, order, cutoff_threshold);
 
-			Real tmp = mcosc / i;
+			DATA_TYPE tmp = mcosc / i;
 
-			tmPowerTmF *= tmp;
-			result += tmPowerTmF;
+			TaylorModel<DATA_TYPE> tmTemp = tmPowerTmF;
+			tmTemp *= tmp;
+
+			result += tmTemp;
 
 			break;
 		}
@@ -2172,10 +2240,12 @@ void TaylorModel<DATA_TYPE>::cos_taylor(TaylorModel<DATA_TYPE> & result, const s
 		{
 			tmPowerTmF.mul_insert_ctrunc_normal_assign(tmF, tmFPolyRange, domain, order, cutoff_threshold);
 
-			Real tmp = sinc / i;
+			DATA_TYPE tmp = sinc / i;
 
-			tmPowerTmF *= tmp;
-			result += tmPowerTmF;
+			TaylorModel<DATA_TYPE> tmTemp = tmPowerTmF;
+			tmTemp *= tmp;
+
+			result += tmTemp;
 
 			break;
 		}
@@ -2302,7 +2372,10 @@ void TaylorModel<DATA_TYPE>::sqrt_taylor(TaylorModel<DATA_TYPE> & result, const 
 
 	const_part.sqrt_assign();	// sqrt(c)
 
-	TaylorModel<DATA_TYPE> tmF_2c = tmF / (2*C);
+	DATA_TYPE tmp = C;
+	tmp *= 2;
+
+	TaylorModel<DATA_TYPE> tmF_2c = tmF / tmp;
 	Polynomial<DATA_TYPE> polyOne(1, numVars);
 
 	result = tmF_2c;
@@ -2410,17 +2483,22 @@ public:
 	template <class DATA_TYPE2>
 	void ctrunc_normal(const std::vector<DATA_TYPE2> & step_exp_table, const std::vector<unsigned int> & orders);
 
-
 	TaylorModelVec<DATA_TYPE> & operator = (const TaylorModelVec<DATA_TYPE> & tmv);
 	TaylorModelVec<DATA_TYPE> & operator = (const std::vector<Polynomial<DATA_TYPE> > & pv);
 
-	TaylorModelVec<DATA_TYPE> & operator += (const TaylorModelVec<DATA_TYPE> & tmv);
+	template <class DATA_TYPE2>
+	TaylorModelVec<DATA_TYPE> & operator += (const TaylorModelVec<DATA_TYPE2> & tmv);
+
 	TaylorModelVec<DATA_TYPE> & operator += (const Matrix<DATA_TYPE> & colVec);
 
-	TaylorModelVec<DATA_TYPE> & operator -= (const TaylorModelVec<DATA_TYPE> & tmv);
+	template <class DATA_TYPE2>
+	TaylorModelVec<DATA_TYPE> & operator -= (const TaylorModelVec<DATA_TYPE2> & tmv);
 
-	TaylorModelVec<DATA_TYPE> operator + (const TaylorModelVec<DATA_TYPE> & tmv) const;
-	TaylorModelVec<DATA_TYPE> operator - (const TaylorModelVec<DATA_TYPE> & tmv) const;
+	template <class DATA_TYPE2>
+	TaylorModelVec<DATA_TYPE> operator + (const TaylorModelVec<DATA_TYPE2> & tmv) const;
+
+	template <class DATA_TYPE2>
+	TaylorModelVec<DATA_TYPE> operator - (const TaylorModelVec<DATA_TYPE2> & tmv) const;
 
 	TaylorModelVec<DATA_TYPE> & operator *= (const DATA_TYPE & c);
 	TaylorModelVec<DATA_TYPE> & operator /= (const DATA_TYPE & c);
@@ -2509,7 +2587,7 @@ public:
 //	void extend(const int num);
 //	void extend();
 
-
+/*
 	template <class DATA_TYPE2>
 	void Picard_no_remainder(TaylorModelVec<DATA_TYPE> & result, const TaylorModelVec<DATA_TYPE> & x0, const std::vector<HornerForm<DATA_TYPE2> > & ode, const unsigned int numVars, const unsigned int order, const Interval & cutoff_threshold) const;
 
@@ -2531,7 +2609,7 @@ public:
 
 	template <class DATA_TYPE2, class DATA_TYPE3>
 	void Picard_ctrunc_normal(TaylorModelVec<DATA_TYPE> & result, const TaylorModelVec<DATA_TYPE> & x0, const std::vector<HornerForm<DATA_TYPE2> > & ode, const std::vector<DATA_TYPE3> & varsPolyRange, const std::vector<DATA_TYPE3> & step_exp_table, const unsigned int numVars, const std::vector<unsigned int> & orders, const Interval & cutoff_threshold, std::list<Interval> & intermediate_ranges) const;
-
+*/
 
 	template <class DATA_TYPE2>
 	void Picard_no_remainder(TaylorModelVec<DATA_TYPE> & result, const TaylorModelVec<DATA_TYPE> & x0, const std::vector<Expression<DATA_TYPE2> > & ode, const unsigned int numVars, const unsigned int order, const Interval & cutoff_threshold) const;
@@ -2540,7 +2618,7 @@ public:
 	void Picard_no_remainder_assign(const TaylorModelVec<DATA_TYPE> & x0, const std::vector<Expression<DATA_TYPE2> > & ode, const unsigned int numVars, const unsigned int order, const Interval & cutoff_threshold);
 
 	template <class DATA_TYPE2, class DATA_TYPE3>
-	void Picard_ctrunc_normal(TaylorModelVec<DATA_TYPE> & result, const TaylorModelVec<DATA_TYPE> & x0, const std::vector<Expression<DATA_TYPE2> > & ode, const std::vector<DATA_TYPE3> & step_exp_table, const unsigned int numVars, const unsigned int order, const Interval & cutoff_threshold, std::list<Interval> & intermediate_ranges, const Global_Setting & setting) const;
+	void Picard_ctrunc_normal(TaylorModelVec<Interval> & result, const TaylorModelVec<DATA_TYPE> & x0, const std::vector<Expression<DATA_TYPE2> > & ode, const std::vector<DATA_TYPE3> & step_exp_table, const unsigned int numVars, const unsigned int order, const Interval & cutoff_threshold, std::list<Interval> & intermediate_ranges, const Global_Setting & setting) const;
 
 	template <class DATA_TYPE2>
 	void Picard_ctrunc_normal_remainder(std::vector<Interval> & result, const std::vector<Expression<DATA_TYPE2> > & ode, const Interval & timeStep, const unsigned int order, std::list<Interval> & intermediate_ranges, const Global_Setting & setting) const;
@@ -2825,7 +2903,7 @@ TaylorModelVec<DATA_TYPE>::TaylorModelVec(const unsigned int dim)
 	unsigned int domainDim = dim + 1;
 	for(unsigned int i=1; i<domainDim; ++i)
 	{
-		TaylorModel<DATA_TYPE> tmTmp(1, domainDim);
+		TaylorModel<DATA_TYPE> tmTmp((DATA_TYPE)1, domainDim);
 		tmTmp.mul_assign(i, 1);
 		tms.push_back(tmTmp);
 	}
@@ -3024,7 +3102,8 @@ TaylorModelVec<DATA_TYPE> & TaylorModelVec<DATA_TYPE>::operator = (const std::ve
 }
 
 template <class DATA_TYPE>
-TaylorModelVec<DATA_TYPE> & TaylorModelVec<DATA_TYPE>::operator += (const TaylorModelVec<DATA_TYPE> & tmv)
+template <class DATA_TYPE2>
+TaylorModelVec<DATA_TYPE> & TaylorModelVec<DATA_TYPE>::operator += (const TaylorModelVec<DATA_TYPE2> & tmv)
 {
 	if(tms.size() != tmv.tms.size())
 	{
@@ -3062,7 +3141,8 @@ TaylorModelVec<DATA_TYPE> & TaylorModelVec<DATA_TYPE>::operator += (const Matrix
 }
 
 template <class DATA_TYPE>
-TaylorModelVec<DATA_TYPE> & TaylorModelVec<DATA_TYPE>::operator -= (const TaylorModelVec<DATA_TYPE> & tmv)
+template <class DATA_TYPE2>
+TaylorModelVec<DATA_TYPE> & TaylorModelVec<DATA_TYPE>::operator -= (const TaylorModelVec<DATA_TYPE2> & tmv)
 {
 	if(tms.size() != tmv.tms.size())
 	{
@@ -3081,7 +3161,8 @@ TaylorModelVec<DATA_TYPE> & TaylorModelVec<DATA_TYPE>::operator -= (const Taylor
 }
 
 template <class DATA_TYPE>
-TaylorModelVec<DATA_TYPE> TaylorModelVec<DATA_TYPE>::operator + (const TaylorModelVec<DATA_TYPE> & tmv) const
+template <class DATA_TYPE2>
+TaylorModelVec<DATA_TYPE> TaylorModelVec<DATA_TYPE>::operator + (const TaylorModelVec<DATA_TYPE2> & tmv) const
 {
 	TaylorModelVec<DATA_TYPE> result = *this;
 	result += tmv;
@@ -3089,7 +3170,8 @@ TaylorModelVec<DATA_TYPE> TaylorModelVec<DATA_TYPE>::operator + (const TaylorMod
 }
 
 template <class DATA_TYPE>
-TaylorModelVec<DATA_TYPE> TaylorModelVec<DATA_TYPE>::operator - (const TaylorModelVec<DATA_TYPE> & tmv) const
+template <class DATA_TYPE2>
+TaylorModelVec<DATA_TYPE> TaylorModelVec<DATA_TYPE>::operator - (const TaylorModelVec<DATA_TYPE2> & tmv) const
 {
 	TaylorModelVec<DATA_TYPE> result = *this;
 	result -= tmv;
@@ -3448,7 +3530,7 @@ void TaylorModelVec<DATA_TYPE>::Remainder(Matrix<Interval> & rem) const
 		*(p + i) = tms[i].remainder;
 	}
 }
-
+/*
 template <class DATA_TYPE>
 template <class DATA_TYPE2>
 void TaylorModelVec<DATA_TYPE>::Picard_no_remainder(TaylorModelVec<DATA_TYPE> & result, const TaylorModelVec<DATA_TYPE> & x0, const std::vector<HornerForm<DATA_TYPE2> > & ode, const unsigned int numVars, const unsigned int order, const Interval & cutoff_threshold) const
@@ -3525,7 +3607,9 @@ void TaylorModelVec<DATA_TYPE>::Picard_ctrunc_normal(TaylorModelVec<DATA_TYPE> &
 	}
 
 	TaylorModelVec<DATA_TYPE> tmvTmp2;
+
 	tmvTmp.integral_time(tmvTmp2, step_exp_table[1]);
+
 	result = x0 + tmvTmp2;
 }
 
@@ -3567,7 +3651,7 @@ void TaylorModelVec<DATA_TYPE>::Picard_ctrunc_normal(TaylorModelVec<DATA_TYPE> &
 
 	result = x0 + tmvTmp2;
 }
-
+*/
 template <class DATA_TYPE>
 template <class DATA_TYPE2>
 void TaylorModelVec<DATA_TYPE>::Picard_no_remainder(TaylorModelVec<DATA_TYPE> & result, const TaylorModelVec<DATA_TYPE> & x0, const std::vector<Expression<DATA_TYPE2> > & ode, const unsigned int numVars, const unsigned int order, const Interval & cutoff_threshold) const
@@ -3600,23 +3684,23 @@ void TaylorModelVec<DATA_TYPE>::Picard_no_remainder_assign(const TaylorModelVec<
 
 template <class DATA_TYPE>
 template <class DATA_TYPE2, class DATA_TYPE3>
-void TaylorModelVec<DATA_TYPE>::Picard_ctrunc_normal(TaylorModelVec<DATA_TYPE> & result, const TaylorModelVec<DATA_TYPE> & x0, const std::vector<Expression<DATA_TYPE2> > & ode, const std::vector<DATA_TYPE3> & step_exp_table, const unsigned int numVars, const unsigned int order, const Interval & cutoff_threshold, std::list<Interval> & intermediate_ranges, const Global_Setting & setting) const
+void TaylorModelVec<DATA_TYPE>::Picard_ctrunc_normal(TaylorModelVec<Interval> & result, const TaylorModelVec<DATA_TYPE> & x0, const std::vector<Expression<DATA_TYPE2> > & ode, const std::vector<DATA_TYPE3> & step_exp_table, const unsigned int numVars, const unsigned int order, const Interval & cutoff_threshold, std::list<Interval> & intermediate_ranges, const Global_Setting & setting) const
 {
-	TaylorModelVec<DATA_TYPE> tmvTmp;
+	TaylorModelVec<Interval> tmvTmp;
 
 	unsigned int k = order - 1;
 
 	for(int i=0; i<ode.size(); ++i)
 	{
-		TaylorModel<DATA_TYPE> tmTmp;
+		TaylorModel<Interval> tmTmp;
 		ode[i].evaluate(tmTmp, this->tms, k, step_exp_table, cutoff_threshold, numVars, intermediate_ranges, setting);
 		tmvTmp.tms.push_back(tmTmp);
 	}
 
-	TaylorModelVec tmvTmp2;
+	TaylorModelVec<Interval> tmvTmp2;
 	tmvTmp.integral_time(tmvTmp2, step_exp_table[1]);
 
-	result = x0 + tmvTmp2;
+	result = tmvTmp2 + x0;
 }
 
 template <class DATA_TYPE>

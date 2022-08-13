@@ -27,7 +27,7 @@ public:
 
 	void set(const double c);
 	bool isZero() const;
-	bool belongsTo(const Interval & I) const;
+	bool subseteq(const Interval & I) const;
 
 	double getValue_RNDD() const;
 	double getValue_RNDU() const;
@@ -91,11 +91,11 @@ public:
 	void log_assign();
 	void sqrt_assign();
 
-	void sin(Real & c) const;
-	void cos(Real & c) const;
-	void exp(Real & c) const;
-	void log(Real & c) const;
-	void sqrt(Real & c) const;
+	Real sin() const;
+	Real cos() const;
+	Real exp() const;
+	Real log() const;
+	Real sqrt() const;
 
 	double toDouble() const;
 	std::string toString() const;

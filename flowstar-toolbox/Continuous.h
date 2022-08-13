@@ -109,6 +109,7 @@ public:
 	void normalize(const Interval & cutoff_threshold);
 
 	int safetyChecking(const std::vector<Constraint> & safeSet, const Taylor_Model_Setting & tm_setting, const Global_Setting & g_setting) const;
+	int unsafetyChecking(const std::vector<Constraint> & unsafeSet, const Taylor_Model_Setting & tm_setting, const Global_Setting & g_setting) const;
 
 	bool isInTarget(const std::vector<Constraint> & targetSet, const Taylor_Model_Setting & tm_setting, const Global_Setting & g_setting) const;
 	bool isInTarget(const std::vector<Constraint> & targetSet, const Computational_Setting & setting) const;
@@ -285,6 +286,9 @@ public:
 	void clear();
 	void merge(const Result_of_Reachability & result);
 
+	Flowpipe & safetyChecking(const std::vector<Constraint> & safeSet, const Taylor_Model_Setting & tm_setting, const Global_Setting & g_setting);
+	Flowpipe & unsafetyChecking(const std::vector<Constraint> & unsafeSet, const Taylor_Model_Setting & tm_setting, const Global_Setting & g_setting);
+
 	// transforming all of the flowpipes to Taylor model flowpipes and appending them to tmv_flowpipes
 	void transformToTaylorModels(const Computational_Setting & setting);
 
@@ -427,6 +431,8 @@ public:
 
 
 int safetyChecking(const TaylorModelVec<Real> & tmv, const std::vector<Interval> & domain, const std::vector<Constraint> & safeSet, const Taylor_Model_Setting & tm_setting, const Global_Setting & g_setting);
+int unsafetyChecking(const TaylorModelVec<Real> & tmv, const std::vector<Interval> & domain, const std::vector<Constraint> & unsafeSet, const Taylor_Model_Setting & tm_setting, const Global_Setting & g_setting);
+
 int remainder_contraction_int(const std::vector<Interval> & polyRange, std::vector<Interval> & remainders, const std::vector<Constraint> & constraints);
 int domain_contraction_int(const TaylorModelVec<Real> & tmv_flowpipe, std::vector<Interval> & domain, const std::vector<Constraint> & constraints, const unsigned int order, const Interval & cutoff_threshold, const Global_Setting & g_setting);
 

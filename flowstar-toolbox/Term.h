@@ -39,7 +39,8 @@ public:
 	template <class DATA_TYPE2>
 	void intEvalNormal(Interval & result, const std::vector<DATA_TYPE2> & step_exp_table) const;
 
-	Term<DATA_TYPE> & operator = (const Term<DATA_TYPE> & term);
+	template <class DATA_TYPE2>
+	Term<DATA_TYPE> & operator = (const Term<DATA_TYPE2> & term);
 
 	Term<DATA_TYPE> & operator += (const Term<DATA_TYPE> & term);			// we assume the two terms can be added up
 	Term<DATA_TYPE> & operator -= (const Term<DATA_TYPE> & term);
@@ -56,8 +57,11 @@ public:
 	void output(std::ostream & os, const Variables & vars) const;
 	void output_constraint(std::ostream & os, const Variables & vars) const;
 
-	bool operator < (const Term<DATA_TYPE> & term) const;					// Define a partial order over the terms
-	bool operator == (const Term<DATA_TYPE> & term) const;
+	template <class DATA_TYPE2>
+	bool operator < (const Term<DATA_TYPE2> & term) const;					// Define a partial order over the terms
+
+	template <class DATA_TYPE2>
+	bool operator == (const Term<DATA_TYPE2> & term) const;
 
 	bool center();
 
@@ -66,6 +70,9 @@ public:
 
 	void extend(const unsigned int num);
 	void extend();
+
+	template <class DATA_TYPE2>
+	friend class Term;
 
 	template <class DATA_TYPE2>
 	friend class Polynomial;
@@ -196,12 +203,13 @@ void Term<DATA_TYPE>::intEvalNormal(Interval & result, const std::vector<DATA_TY
 }
 
 template <class DATA_TYPE>
-Term<DATA_TYPE> & Term<DATA_TYPE>::operator = (const Term<DATA_TYPE> & term)
+template <class DATA_TYPE2>
+Term<DATA_TYPE> & Term<DATA_TYPE>::operator = (const Term<DATA_TYPE2> & term)
 {
 	if(this == &term)
 		return *this;
 
-	coefficient = term.coefficient;
+	coefficient = DATA_TYPE(term.coefficient);
 	degrees = term.degrees;
 	d = term.d;
 
@@ -344,7 +352,8 @@ void Term<DATA_TYPE>::output_constraint(std::ostream & os, const Variables & var
 }
 
 template <class DATA_TYPE>
-bool Term<DATA_TYPE>::operator == (const Term<DATA_TYPE> & term) const
+template <class DATA_TYPE2>
+bool Term<DATA_TYPE>::operator == (const Term<DATA_TYPE2> & term) const
 {
 	if (d == term.d)
 	{
@@ -361,7 +370,8 @@ bool Term<DATA_TYPE>::operator == (const Term<DATA_TYPE> & term) const
 }
 
 template <class DATA_TYPE>
-bool Term<DATA_TYPE>::operator < (const Term<DATA_TYPE> & term) const
+template <class DATA_TYPE2>
+bool Term<DATA_TYPE>::operator < (const Term<DATA_TYPE2> & term) const
 {
 	if(d < term.d)
 	{

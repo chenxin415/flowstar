@@ -76,10 +76,7 @@ inline void exp_taylor_only_remainder(Interval & result, const Interval & remain
 	}
 
 	result *= const_part;
-/*
-	result += (*iterRange);						// cutoff error
-	++iterRange;
-*/
+
 	Interval tmRange = (*iterRange) + remainder;
 	++iterRange;
 
@@ -132,10 +129,7 @@ inline void rec_taylor_only_remainder(Interval & result, const Interval & remain
 	}
 
 	result *= const_part;
-/*
-	result += (*iterRange);		// cutoff error
-	++iterRange;
-*/
+
 	Interval rem, tmF_cRange;
 	tmF_cRange = (*iterRange) + tmF_c_remainder;
 	++iterRange;
@@ -176,11 +170,14 @@ inline void sin_taylor_only_remainder(Interval & result, const Interval & remain
 	{
 		Interval intTemp;
 		intTemp = (*iterRange) * remainder;					// P1 x I2
+
 		++iterRange;
 		intTemp += (*iterRange) * tmPowerTmF_remainder;		// P2 x I1
+
 		intTemp += remainder * tmPowerTmF_remainder;		// I2 x I1
 		++iterRange;
 		intTemp += (*iterRange);							// truncation
+
 		++iterRange;
 
 		tmPowerTmF_remainder = intTemp;
@@ -188,14 +185,12 @@ inline void sin_taylor_only_remainder(Interval & result, const Interval & remain
 		Interval intTemp2 = tmPowerTmF_remainder;
 
 		intTemp2 *= (*iterRange);
+
 		++iterRange;
 
 		result += intTemp2;
 	}
-/*
-	result += (*iterRange);		// cutoff error
-	++iterRange;
-*/
+
 	Interval tmRange, rem;
 	tmRange = (*iterRange) + remainder;
 	++iterRange;
@@ -252,10 +247,7 @@ inline void cos_taylor_only_remainder(Interval & result, const Interval & remain
 
 		result += intTemp2;
 	}
-/*
-	result += (*iterRange);		// cutoff error
-	++iterRange;
-*/
+
 	Interval tmRange, rem;
 	tmRange = (*iterRange) + remainder;
 	++iterRange;
@@ -314,10 +306,7 @@ inline void log_taylor_only_remainder(Interval & result, const Interval & remain
 
 		result = intTemp;
 	}
-/*
-	result += (*iterRange);		// cutoff error
-	++iterRange;
-*/
+
 	Interval rem, tmF_cRange;
 	tmF_cRange = (*iterRange) + tmF_c_remainder;
 	++iterRange;
@@ -379,10 +368,7 @@ inline void sqrt_taylor_only_remainder(Interval & result, const Interval & remai
 	}
 
 	result *= const_part;
-/*
-	result += (*iterRange);		// cutoff error
-	++iterRange;
-*/
+
 	Interval rem, tmF_cRange;
 	tmF_cRange = (*iterRange);
 	++iterRange;
@@ -535,7 +521,7 @@ public:
 	void evaluate_no_remainder(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const Interval & cutoff_threshold, const unsigned int numVars) const;
 
 	template <class DATA_TYPE2>
-	void evaluate(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & step_exp_table, const Interval & cutoff_threshold, const unsigned int numVars, std::list<Interval> & intermediate_ranges, const Global_Setting & setting) const;
+	void evaluate(TaylorModel<Interval> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & step_exp_table, const Interval & cutoff_threshold, const unsigned int numVars, std::list<Interval> & intermediate_ranges, const Global_Setting & setting) const;
 
 	template <class DATA_TYPE2>
 	void evaluate_remainder(Interval & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, std::list<Interval>::iterator & iter, const Global_Setting & setting) const;
@@ -1489,13 +1475,13 @@ inline void AST_Node<Interval>::evaluate_no_remainder<Real>(TaylorModel<Real> & 
 
 template <class DATA_TYPE>
 template <class DATA_TYPE2>
-void AST_Node<DATA_TYPE>::evaluate(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & step_exp_table, const Interval & cutoff_threshold, const unsigned int numVars, std::list<Interval> & intermediate_ranges, const Global_Setting & setting) const
+void AST_Node<DATA_TYPE>::evaluate(TaylorModel<Interval> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & step_exp_table, const Interval & cutoff_threshold, const unsigned int numVars, std::list<Interval> & intermediate_ranges, const Global_Setting & setting) const
 {
 	switch(node_type)
 	{
 	case NODE_UNA_OPT:
 	{
-		TaylorModel<DATA_TYPE2> tmTemp;
+		TaylorModel<Interval> tmTemp;
 		node_value.opt.left_operand->evaluate(tmTemp, tms_of_vars, order, step_exp_table, cutoff_threshold, numVars, intermediate_ranges, setting);
 
 		switch(node_value.opt.type)
@@ -1529,7 +1515,7 @@ void AST_Node<DATA_TYPE>::evaluate(TaylorModel<DATA_TYPE2> & result, const std::
 	}
 	case NODE_BIN_OPT:
 	{
-		TaylorModel<DATA_TYPE2> tm1, tm2;
+		TaylorModel<Interval> tm1, tm2;
 
 		switch(node_value.opt.type)
 		{
@@ -1567,7 +1553,7 @@ void AST_Node<DATA_TYPE>::evaluate(TaylorModel<DATA_TYPE2> & result, const std::
 			node_value.opt.left_operand->evaluate(result, tms_of_vars, order, step_exp_table, cutoff_threshold, numVars, intermediate_ranges, setting);
 			node_value.opt.right_operand->evaluate(tm2, tms_of_vars, order, step_exp_table, cutoff_threshold, numVars, intermediate_ranges, setting);
 
-			TaylorModel<DATA_TYPE2> tmTemp;
+			TaylorModel<Interval> tmTemp;
 			tm2.rec_taylor(tmTemp, intermediate_ranges, step_exp_table, numVars, order, cutoff_threshold, setting);
 
 			Interval intPoly1, intPoly2, intTrunc;
@@ -1590,12 +1576,12 @@ void AST_Node<DATA_TYPE>::evaluate(TaylorModel<DATA_TYPE2> & result, const std::
 
 			if(degree == 0)
 			{
-				TaylorModel<DATA_TYPE2> tm(1, numVars);
+				TaylorModel<Interval> tm(1, numVars);
 				result = tm;
 			}
 			else if(degree > 1)
 			{
-				TaylorModel<DATA_TYPE2> temp = result;
+				TaylorModel<Interval> temp = result;
 				Interval intPoly1, intPoly2, intTrunc;
 
 				for(int i = degree - 1; i > 0;)
@@ -1648,13 +1634,21 @@ void AST_Node<DATA_TYPE>::evaluate(TaylorModel<DATA_TYPE2> & result, const std::
 
 	case NODE_CONST:
 	{
-		TaylorModel<DATA_TYPE2> temp(node_value.constant, numVars);
+		Interval I = node_value.constant;
+		Real c;
+		I.remove_midpoint(c);
+
+		TaylorModel<Interval> temp(c, numVars);
+
 		result = temp;
+		result.remainder = I;
+
+		intermediate_ranges.push_back(I);
 		break;
 	}
 	}
 }
-
+/*
 template <>
 template <>
 inline void AST_Node<Interval>::evaluate<Real>(TaylorModel<Real> & result, const std::vector<TaylorModel<Real> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & step_exp_table, const Interval & cutoff_threshold, const unsigned int numVars, std::list<Interval> & intermediate_ranges, const Global_Setting & setting) const
@@ -1830,7 +1824,7 @@ inline void AST_Node<Interval>::evaluate<Real>(TaylorModel<Real> & result, const
 	}
 	}
 }
-
+*/
 template <class DATA_TYPE>
 template <class DATA_TYPE2>
 void AST_Node<DATA_TYPE>::evaluate_remainder(Interval & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, std::list<Interval>::iterator & iter, const Global_Setting & setting) const
@@ -1987,12 +1981,13 @@ void AST_Node<DATA_TYPE>::evaluate_remainder(Interval & result, const std::vecto
 
 	case NODE_CONST:
 	{
-		result = 0;
+		result = *iter;
+		++iter;
 		break;
 	}
 	}
 }
-
+/*
 template <>
 template <>
 inline void AST_Node<Interval>::evaluate_remainder<Real>(Interval & result, const std::vector<TaylorModel<Real> > & tms_of_vars, const unsigned int order, std::list<Interval>::iterator & iter, const Global_Setting & setting) const
@@ -2155,7 +2150,7 @@ inline void AST_Node<Interval>::evaluate_remainder<Real>(Interval & result, cons
 	}
 	}
 }
-
+*/
 template <class DATA_TYPE>
 void AST_Node<DATA_TYPE>::output(std::string & expression, const Variables & variables) const
 {
@@ -2431,7 +2426,7 @@ public:
 	void evaluate_no_remainder(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const Interval & cutoff_threshold, const unsigned int numVars) const;
 
 	template <class DATA_TYPE2>
-	void evaluate(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & step_exp_table, const Interval & cutoff_threshold, const unsigned int numVars, std::list<Interval> & intermediate_ranges, const Global_Setting & setting) const;
+	void evaluate(TaylorModel<Interval> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & step_exp_table, const Interval & cutoff_threshold, const unsigned int numVars, std::list<Interval> & intermediate_ranges, const Global_Setting & setting) const;
 
 	template <class DATA_TYPE2>
 	void evaluate_remainder(Interval & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, std::list<Interval>::iterator & iter, const Global_Setting & setting) const;
@@ -2619,7 +2614,7 @@ void Expression<DATA_TYPE>::evaluate_no_remainder(TaylorModel<DATA_TYPE2> & resu
 
 template <class DATA_TYPE>
 template <class DATA_TYPE2>
-void Expression<DATA_TYPE>::evaluate(TaylorModel<DATA_TYPE2> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & step_exp_table, const Interval & cutoff_threshold, const unsigned int numVars, std::list<Interval> & intermediate_ranges, const Global_Setting & setting) const
+void Expression<DATA_TYPE>::evaluate(TaylorModel<Interval> & result, const std::vector<TaylorModel<DATA_TYPE2> > & tms_of_vars, const unsigned int order, const std::vector<Interval> & step_exp_table, const Interval & cutoff_threshold, const unsigned int numVars, std::list<Interval> & intermediate_ranges, const Global_Setting & setting) const
 {
 	root->evaluate(result, tms_of_vars, order, step_exp_table, cutoff_threshold, numVars, intermediate_ranges, setting);
 }

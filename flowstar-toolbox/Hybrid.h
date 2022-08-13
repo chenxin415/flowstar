@@ -16,6 +16,7 @@
  * The dynamics is defined by an ODE x' = f(x,u) such that the control variable(s) u
  * is updated every delta time (including t = 0) by the feedback law u = g(x).
  */
+
 template <class DATA_TYPE>
 class Feedback
 {
@@ -43,7 +44,7 @@ Feedback<DATA_TYPE>::Feedback(const Variables & vars, const double control_steps
 {
 	ode.stateVars = vars;
 
-	Expression<DATA_TYPE> zero(0);
+	Expression<DATA_TYPE> zero(DATA_TYPE(0));
 	ode.expressions.resize(vars.size(), zero);
 
 	int numOfcontrolVars = str_feedback_law.size();
@@ -192,7 +193,7 @@ void Feedback<DATA_TYPE>::reach(Result_of_Reachability & result, const Flowpipe 
 		// computing the flowpipes in one control step
 		if(remaining_time >= delta)
 		{
-			ode.reach(result, step_initial_set, delta, setting, safeSet);
+			ode.reach(result, step_initial_set, delta, setting, safeSet, symbolic_remainder);
 
 			if(result.status > 3)
 			{

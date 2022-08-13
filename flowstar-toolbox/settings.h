@@ -75,18 +75,12 @@ class UTM_Setting
 public:
 	unsigned int order;
 	DATA_TYPE val;
-//	std::vector<DATA_TYPE> val_exp_table;
 
 public:
 	UTM_Setting();
 	UTM_Setting(const UTM_Setting<DATA_TYPE> & setting);
 	~UTM_Setting();
-/*
-	bool setValue(const DATA_TYPE & value, const unsigned int k);
-	bool resetValue(const DATA_TYPE & value);
-	bool setOrder(const unsigned int k);
-	bool resetOrder(const DATA_TYPE & value, const unsigned int k);
-*/
+
 	UTM_Setting<DATA_TYPE> & operator = (const UTM_Setting<DATA_TYPE> & setting);
 };
 
@@ -107,96 +101,7 @@ template <class DATA_TYPE>
 UTM_Setting<DATA_TYPE>::~UTM_Setting()
 {
 }
-/*
-template <class DATA_TYPE>
-bool UTM_Setting<DATA_TYPE>::setValue(const DATA_TYPE & value, const unsigned int k)
-{
-	if(k == 0)
-	{
-		std::cout << "The order should be a positive integer." <<std::endl;
-		return false;
-	}
-	else
-	{
-		val_exp_table.clear();
-		order = k;
 
-		val_exp_table.push_back(1);
-		val_exp_table.push_back(value);
-
-		DATA_TYPE tmp = value;
-		unsigned int nec_order = 2*k + 1;
-
-		for(unsigned int i=2; i<=nec_order; ++i)
-		{
-			tmp *= value;
-			val_exp_table.push_back(tmp);
-		}
-
-		return true;
-	}
-}
-
-template <class DATA_TYPE>
-bool UTM_Setting<DATA_TYPE>::resetValue(const DATA_TYPE & value)
-{
-	unsigned int k = val_exp_table.size();
-
-	return setValue(value, k);
-}
-
-template <class DATA_TYPE>
-bool UTM_Setting<DATA_TYPE>::resetOrder(const DATA_TYPE & value, const unsigned int k)
-{
-	if(k == 0)
-	{
-		std::cout << "The order should be a positive integer." <<std::endl;
-		return false;
-	}
-	else if(k < order)
-	{
-		order = k;
-		return true;
-	}
-	else if(order == 0)
-	{
-		setValue(value, k);
-		return true;
-	}
-	else
-	{
-		unsigned int diff = k - order;
-		DATA_TYPE tmp;
-
-		tmp = val_exp_table.back();
-
-		for(unsigned int i=0; i<diff; ++i)
-		{
-			tmp *= value;
-			val_exp_table.push_back(tmp);
-		}
-
-		order = k;
-
-		return true;
-	}
-}
-
-template <class DATA_TYPE>
-bool UTM_Setting<DATA_TYPE>::setOrder(const unsigned int k)
-{
-	if(k == 0)
-	{
-		std::cout << "The order should be a positive integer." <<std::endl;
-		return false;
-	}
-	else
-	{
-		order = k;
-		return true;
-	}
-}
-*/
 template <class DATA_TYPE>
 UTM_Setting<DATA_TYPE> & UTM_Setting<DATA_TYPE>::operator = (const UTM_Setting<DATA_TYPE> & setting)
 {
@@ -444,8 +349,8 @@ inline void sin_taylor_remainder(Interval & result, const Interval & C, const In
 {
 	Interval intProd = tmRange.pow(order);
 
-	Interval J(0,1);
-	J *= tmRange;
+//	Interval J(0,1);
+	Interval J = tmRange;
 	J += C;
 
 	int k = order % 4;

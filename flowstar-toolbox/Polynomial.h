@@ -86,17 +86,22 @@ public:
 	void mul_assign(const unsigned int varIndex, const unsigned int degree);		// multiplied by a term x^d
 	void mul(Polynomial<DATA_TYPE> result, const unsigned int varIndex, const unsigned int degree) const;
 
-	Polynomial<DATA_TYPE> & operator = (const Polynomial<DATA_TYPE> & polynomial);
+	template <class DATA_TYPE2>
+	Polynomial<DATA_TYPE> & operator = (const Polynomial<DATA_TYPE2> & polynomial);
+
 	Polynomial<DATA_TYPE> & operator = (const Term<DATA_TYPE> & term);
 
-	Polynomial<DATA_TYPE> & operator += (const Polynomial<DATA_TYPE> & polynomial);
+	template <class DATA_TYPE2>
+	Polynomial<DATA_TYPE> & operator += (const Polynomial<DATA_TYPE2> & polynomial);
+
 	Polynomial<DATA_TYPE> & operator += (const Term<DATA_TYPE> & term);
 
 	// only for nonempty polynomials
 	Polynomial<DATA_TYPE> & operator += (const DATA_TYPE & c);
 
+	template <class DATA_TYPE2>
+	Polynomial<DATA_TYPE> & operator -= (const Polynomial<DATA_TYPE2> & polynomial);
 
-	Polynomial<DATA_TYPE> & operator -= (const Polynomial<DATA_TYPE> & polynomial);
 	Polynomial<DATA_TYPE> & operator -= (const Term<DATA_TYPE> & term);
 
 	Polynomial<DATA_TYPE> & operator *= (const Polynomial<DATA_TYPE> & polynomial);
@@ -105,9 +110,15 @@ public:
 
 	Polynomial<DATA_TYPE> & operator /= (const DATA_TYPE & c);
 
-	Polynomial<DATA_TYPE> operator + (const Polynomial<DATA_TYPE> & polynomial) const;
+	template <class DATA_TYPE2>
+	Polynomial<DATA_TYPE> operator + (const Polynomial<DATA_TYPE2> & polynomial) const;
+
 	Polynomial<DATA_TYPE> operator + (const Term<DATA_TYPE> & term) const;
-	Polynomial<DATA_TYPE> operator - (const Polynomial<DATA_TYPE> & polynomial) const;
+
+	template <class DATA_TYPE2>
+	Polynomial<DATA_TYPE> operator - (const Polynomial<DATA_TYPE2> & polynomial) const;
+
+
 	Polynomial<DATA_TYPE> operator - (const Term<DATA_TYPE> & term) const;
 
 	Polynomial<DATA_TYPE> operator * (const Polynomial<DATA_TYPE> & polynomial) const;
@@ -115,6 +126,8 @@ public:
 	Polynomial<DATA_TYPE> operator * (const DATA_TYPE & c) const;
 
 	Polynomial<DATA_TYPE> operator / (const DATA_TYPE & c) const;
+
+
 
 	template <class DATA_TYPE2, class DATA_TYPE3>
 	void ctrunc(DATA_TYPE2 & remainder, const std::vector<DATA_TYPE3> & domain, const unsigned int order);
@@ -710,12 +723,24 @@ void Polynomial<DATA_TYPE>::mul(Polynomial<DATA_TYPE> result, const unsigned int
 }
 
 template <class DATA_TYPE>
-Polynomial<DATA_TYPE> & Polynomial<DATA_TYPE>::operator = (const Polynomial<DATA_TYPE> & polynomial)
+template <class DATA_TYPE2>
+Polynomial<DATA_TYPE> & Polynomial<DATA_TYPE>::operator = (const Polynomial<DATA_TYPE2> & polynomial)
 {
-	if(this == &polynomial)
+	if((void *)this == (void *)(&polynomial))
 		return *this;
 
-	terms = polynomial.terms;
+	typename std::list<Term<DATA_TYPE2> >::const_iterator iter = polynomial.terms.begin();
+
+	for(; iter != polynomial.terms.end(); ++iter)
+	{
+		Term<DATA_TYPE> term;
+		term.coefficient = DATA_TYPE(iter->coefficient);
+		term.degrees = iter->degrees;
+		term.d = iter->d;
+
+		terms.push_back(term);
+	}
+
 	return *this;
 }
 
@@ -729,7 +754,8 @@ Polynomial<DATA_TYPE> & Polynomial<DATA_TYPE>::operator = (const Term<DATA_TYPE>
 }
 
 template <class DATA_TYPE>
-Polynomial<DATA_TYPE> & Polynomial<DATA_TYPE>::operator += (const Polynomial<DATA_TYPE> & polynomial)
+template <class DATA_TYPE2>
+Polynomial<DATA_TYPE> & Polynomial<DATA_TYPE>::operator += (const Polynomial<DATA_TYPE2> & polynomial)
 {
 	Polynomial<DATA_TYPE> result;
 
@@ -783,6 +809,74 @@ Polynomial<DATA_TYPE> & Polynomial<DATA_TYPE>::operator += (const Polynomial<DAT
 	return *this;
 }
 
+template <>
+template <>
+inline Polynomial<Interval> & Polynomial<Interval>::operator += (const Polynomial<Real> & polynomial)
+{
+	Polynomial<Interval> result;
+
+	std::list<Term<Interval> >::const_iterator iterA;		// polynomial A
+	std::list<Term<Real> >::const_iterator iterB;			// polynomial B
+
+	for(iterA = terms.begin(), iterB = polynomial.terms.begin(); ; )
+	{
+		if(iterA == terms.end() || iterB == polynomial.terms.end())
+			break;
+
+		if((*iterA) < (*iterB))
+	    {
+			result.terms.push_back(*iterA);
+			++iterA;
+	    }
+		else if((*iterB) < (*iterA))
+	    {
+			Term<Interval> term;
+			term.coefficient = iterB->coefficient;
+			term.degrees = iterB->degrees;
+			term.d = iterB->d;
+
+			result.terms.push_back(term);
+			++iterB;
+	    }
+		else
+		{
+			Interval tmp;
+			tmp = iterA->coefficient + iterB->coefficient;
+
+			if(tmp != 0)
+			{
+				Term<Interval> term(*iterA);
+				term.coefficient = tmp;
+				result.terms.push_back(term);
+			}
+
+			++iterA;
+			++iterB;
+		}
+	}
+
+	if(iterA == terms.end() && iterB != polynomial.terms.end())
+	{
+		for(; iterB != polynomial.terms.end(); ++iterB)
+		{
+			Term<Interval> term;
+			term.coefficient = iterB->coefficient;
+			term.degrees = iterB->degrees;
+			term.d = iterB->d;
+
+			result.terms.push_back(term);
+		}
+	}
+	else if(iterA != terms.end() && iterB == polynomial.terms.end())
+	{
+		for(; iterA != terms.end(); ++iterA)
+			result.terms.push_back(*iterA);
+	}
+
+	*this = result;
+	return *this;
+}
+
 template <class DATA_TYPE>
 Polynomial<DATA_TYPE> & Polynomial<DATA_TYPE>::operator += (const Term<DATA_TYPE> & term)
 {
@@ -825,7 +919,8 @@ Polynomial<DATA_TYPE> & Polynomial<DATA_TYPE>::operator += (const Term<DATA_TYPE
 }
 
 template <class DATA_TYPE>
-Polynomial<DATA_TYPE> & Polynomial<DATA_TYPE>::operator -= (const Polynomial<DATA_TYPE> & polynomial)
+template <class DATA_TYPE2>
+Polynomial<DATA_TYPE> & Polynomial<DATA_TYPE>::operator -= (const Polynomial<DATA_TYPE2> & polynomial)
 {
 	Polynomial<DATA_TYPE> result;
 
@@ -868,6 +963,74 @@ Polynomial<DATA_TYPE> & Polynomial<DATA_TYPE>::operator -= (const Polynomial<DAT
 	{
 		for(; iterB != polynomial.terms.end(); ++iterB)
 			result.terms.push_back(-(*iterB));
+	}
+	else if(iterA != terms.end() && iterB == polynomial.terms.end())
+	{
+		for(; iterA != terms.end(); ++iterA)
+			result.terms.push_back(*iterA);
+	}
+
+	*this = result;
+	return *this;
+}
+
+template <>
+template <>
+inline Polynomial<Interval> & Polynomial<Interval>::operator -= (const Polynomial<Real> & polynomial)
+{
+	Polynomial<Interval> result;
+
+	std::list<Term<Interval> >::const_iterator iterA;		// polynomial A
+	std::list<Term<Real> >::const_iterator iterB;			// polynomial B
+
+	for(iterA = terms.begin(), iterB = polynomial.terms.begin(); ; )
+	{
+		if(iterA == terms.end() || iterB == polynomial.terms.end())
+			break;
+
+		if((*iterA) < (*iterB))
+	    {
+			result.terms.push_back(*iterA);
+			++iterA;
+	    }
+		else if((*iterB) < (*iterA))
+	    {
+			Term<Interval> term;
+			term.coefficient = -(iterB->coefficient);
+			term.degrees = iterB->degrees;
+			term.d = iterB->d;
+
+			result.terms.push_back(term);
+			++iterB;
+	    }
+		else
+		{
+			Interval tmp;
+			tmp = iterA->coefficient - iterB->coefficient;
+
+			if(tmp != 0)
+			{
+				Term<Interval> term(*iterA);
+				term.coefficient = tmp;
+				result.terms.push_back(term);
+			}
+
+			++iterA;
+			++iterB;
+		}
+	}
+
+	if(iterA == terms.end() && iterB != polynomial.terms.end())
+	{
+		for(; iterB != polynomial.terms.end(); ++iterB)
+		{
+			Term<Interval> term;
+			term.coefficient = -(iterB->coefficient);
+			term.degrees = iterB->degrees;
+			term.d = iterB->d;
+
+			result.terms.push_back(term);
+		}
 	}
 	else if(iterA != terms.end() && iterB == polynomial.terms.end())
 	{
@@ -1016,7 +1179,8 @@ Polynomial<DATA_TYPE> & Polynomial<DATA_TYPE>::operator /= (const DATA_TYPE & c)
 }
 
 template <class DATA_TYPE>
-Polynomial<DATA_TYPE> Polynomial<DATA_TYPE>::operator + (const Polynomial<DATA_TYPE> & polynomial) const
+template <class DATA_TYPE2>
+Polynomial<DATA_TYPE> Polynomial<DATA_TYPE>::operator + (const Polynomial<DATA_TYPE2> & polynomial) const
 {
 	Polynomial<DATA_TYPE> result;
 
@@ -1069,6 +1233,73 @@ Polynomial<DATA_TYPE> Polynomial<DATA_TYPE>::operator + (const Polynomial<DATA_T
 	return result;
 }
 
+template <>
+template <>
+inline Polynomial<Interval> Polynomial<Interval>::operator + (const Polynomial<Real> & polynomial) const
+{
+	Polynomial<Interval> result;
+
+	std::list<Term<Interval> >::const_iterator iterA;		// polynomial A
+	std::list<Term<Real> >::const_iterator iterB;			// polynomial B
+
+	for(iterA = terms.begin(), iterB = polynomial.terms.begin(); ; )
+	{
+		if(iterA == terms.end() || iterB == polynomial.terms.end())
+			break;
+
+		if((*iterA) < (*iterB))
+	    {
+			result.terms.push_back(*iterA);
+			++iterA;
+	    }
+		else if((*iterB) < (*iterA))
+	    {
+			Term<Interval> term;
+			term.coefficient = iterB->coefficient;
+			term.degrees = iterB->degrees;
+			term.d = iterB->d;
+
+			result.terms.push_back(term);
+			++iterB;
+	    }
+		else
+		{
+			Interval tmp;
+			tmp = iterA->coefficient + iterB->coefficient;
+
+			if(tmp != 0)
+			{
+				Term<Interval> term(*iterA);
+				term.coefficient = tmp;
+				result.terms.push_back(term);
+			}
+
+			++iterA;
+			++iterB;
+		}
+	}
+
+	if(iterA == terms.end() && iterB != polynomial.terms.end())
+	{
+		for(; iterB != polynomial.terms.end(); ++iterB)
+		{
+			Term<Interval> term;
+			term.coefficient = iterB->coefficient;
+			term.degrees = iterB->degrees;
+			term.d = iterB->d;
+
+			result.terms.push_back(term);
+		}
+	}
+	else if(iterA != terms.end() && iterB == polynomial.terms.end())
+	{
+		for(; iterA != terms.end(); ++iterA)
+			result.terms.push_back(*iterA);
+	}
+
+	return result;
+}
+
 template <class DATA_TYPE>
 Polynomial<DATA_TYPE> Polynomial<DATA_TYPE>::operator + (const Term<DATA_TYPE> & term) const
 {
@@ -1078,7 +1309,8 @@ Polynomial<DATA_TYPE> Polynomial<DATA_TYPE>::operator + (const Term<DATA_TYPE> &
 }
 
 template <class DATA_TYPE>
-Polynomial<DATA_TYPE> Polynomial<DATA_TYPE>::operator - (const Polynomial<DATA_TYPE> & polynomial) const
+template <class DATA_TYPE2>
+Polynomial<DATA_TYPE> Polynomial<DATA_TYPE>::operator - (const Polynomial<DATA_TYPE2> & polynomial) const
 {
 	Polynomial<DATA_TYPE> result;
 
@@ -1121,6 +1353,73 @@ Polynomial<DATA_TYPE> Polynomial<DATA_TYPE>::operator - (const Polynomial<DATA_T
 	{
 		for(; iterB != polynomial.terms.end(); ++iterB)
 			result.terms.push_back(-(*iterB));
+	}
+	else if(iterA != terms.end() && iterB == polynomial.terms.end())
+	{
+		for(; iterA != terms.end(); ++iterA)
+			result.terms.push_back(*iterA);
+	}
+
+	return result;
+}
+
+template <>
+template <>
+inline Polynomial<Interval> Polynomial<Interval>::operator - (const Polynomial<Real> & polynomial) const
+{
+	Polynomial<Interval> result;
+
+	std::list<Term<Interval> >::const_iterator iterA;		// polynomial A
+	std::list<Term<Real> >::const_iterator iterB;			// polynomial B
+
+	for(iterA = terms.begin(), iterB = polynomial.terms.begin(); ; )
+	{
+		if(iterA == terms.end() || iterB == polynomial.terms.end())
+			break;
+
+		if((*iterA) < (*iterB))
+	    {
+			result.terms.push_back(*iterA);
+			++iterA;
+	    }
+		else if((*iterB) < (*iterA))
+	    {
+			Term<Interval> term;
+			term.coefficient = -(iterB->coefficient);
+			term.degrees = iterB->degrees;
+			term.d = iterB->d;
+
+			result.terms.push_back(term);
+			++iterB;
+	    }
+		else
+		{
+			Interval tmp;
+			tmp = iterA->coefficient - iterB->coefficient;
+
+			if(tmp != 0)
+			{
+				Term<Interval> term(*iterA);
+				term.coefficient = tmp;
+				result.terms.push_back(term);
+			}
+
+			++iterA;
+			++iterB;
+		}
+	}
+
+	if(iterA == terms.end() && iterB != polynomial.terms.end())
+	{
+		for(; iterB != polynomial.terms.end(); ++iterB)
+		{
+			Term<Interval> term;
+			term.coefficient = -(iterB->coefficient);
+			term.degrees = iterB->degrees;
+			term.d = iterB->d;
+
+			result.terms.push_back(term);
+		}
 	}
 	else if(iterA != terms.end() && iterB == polynomial.terms.end())
 	{
@@ -1496,7 +1795,7 @@ void Polynomial<DATA_TYPE>::cutoff_normal(Interval & intRem, const std::vector<D
 	typename std::list<Term<DATA_TYPE> >::iterator iter;
 	for(iter = terms.begin(); iter != terms.end(); )
 	{
-		if(iter->coefficient.belongsTo(cutoff_threshold))
+		if(iter->coefficient.subseteq(cutoff_threshold))
 		{
 			polyTmp.terms.push_back(*iter);
 			iter = terms.erase(iter);
@@ -1519,7 +1818,7 @@ void Polynomial<DATA_TYPE>::cutoff(Interval & intRem, const std::vector<DATA_TYP
 	typename std::list<Term<DATA_TYPE> >::iterator iter;
 	for(iter = terms.begin(); iter != terms.end(); )
 	{
-		if(iter->coefficient.belongsTo(cutoff_threshold))
+		if(iter->coefficient.subseteq(cutoff_threshold))
 		{
 			polyTmp.terms.push_back(*iter);
 			iter = terms.erase(iter);
@@ -1539,7 +1838,7 @@ void Polynomial<DATA_TYPE>::cutoff(const Interval & cutoff_threshold)
 	typename std::list<Term<DATA_TYPE> >::iterator iter;
 	for(iter = terms.begin(); iter != terms.end(); )
 	{
-		if(iter->coefficient.belongsTo(cutoff_threshold))
+		if(iter->coefficient.subseteq(cutoff_threshold))
 		{
 			iter = terms.erase(iter);
 		}
@@ -1692,8 +1991,8 @@ void Polynomial<DATA_TYPE>::sin_taylor(Polynomial<DATA_TYPE> & result, const uns
 	}
 
 	DATA_TYPE sinc, cosc, msinc, mcosc;
-	const_part.sin(sinc);
-	const_part.cos(cosc);
+	sinc = const_part.sin();
+	cosc = const_part.cos();
 
 	msinc = -sinc;
 	mcosc = -cosc;
@@ -1709,49 +2008,42 @@ void Polynomial<DATA_TYPE>::sin_taylor(Polynomial<DATA_TYPE> & result, const uns
 	{
 		k %= 4;
 
+		polyPowerF *= F;
+		polyPowerF.nctrunc(order);
+
+		Polynomial<DATA_TYPE> polyTmp2 = polyPowerF;
+
 		switch(k)
 		{
 		case 0:
 		{
-			polyPowerF *= F;
-			polyPowerF.nctrunc(order);
-			polyPowerF.cutoff(cutoff_threshold);
-			polyPowerF *= (sinc / i);
-
-			result += polyPowerF;
+			DATA_TYPE tmp = sinc / i;
+			polyTmp2 *= tmp;
+			result += polyTmp2;
 
 			break;
 		}
 		case 1:
 		{
-			polyPowerF *= F;
-			polyPowerF.nctrunc(order);
-			polyPowerF.cutoff(cutoff_threshold);
-			polyPowerF *= (cosc / i);
-
-			result += polyPowerF;
+			DATA_TYPE tmp = cosc / i;
+			polyTmp2 *= tmp;
+			result += polyTmp2;
 
 			break;
 		}
 		case 2:
 		{
-			polyPowerF *= F;
-			polyPowerF.nctrunc(order);
-			polyPowerF.cutoff(cutoff_threshold);
-			polyPowerF *= (msinc / i);
-
-			result += polyPowerF;
+			DATA_TYPE tmp = msinc / i;
+			polyTmp2 *= tmp;
+			result += polyTmp2;
 
 			break;
 		}
 		case 3:
 		{
-			polyPowerF *= F;
-			polyPowerF.nctrunc(order);
-			polyPowerF.cutoff(cutoff_threshold);
-			polyPowerF *= (mcosc / i);
-
-			result += polyPowerF;
+			DATA_TYPE tmp = mcosc / i;
+			polyTmp2 *= tmp;
+			result += polyTmp2;
 
 			break;
 		}
@@ -1781,8 +2073,8 @@ void Polynomial<DATA_TYPE>::cos_taylor(Polynomial<DATA_TYPE> & result, const uns
 	}
 
 	DATA_TYPE sinc, cosc, msinc, mcosc;
-	const_part.sin(sinc);
-	const_part.cos(cosc);
+	sinc = const_part.sin();
+	cosc = const_part.cos();
 
 	msinc = -sinc;
 	mcosc = -cosc;
@@ -1798,49 +2090,42 @@ void Polynomial<DATA_TYPE>::cos_taylor(Polynomial<DATA_TYPE> & result, const uns
 	{
 		k %= 4;
 
+		polyPowerF *= F;
+		polyPowerF.nctrunc(order);
+
+		Polynomial<DATA_TYPE> polyTmp2 = polyPowerF;
+
 		switch(k)
 		{
 		case 0:
 		{
-			polyPowerF *= F;
-			polyPowerF.nctrunc(order);
-			polyPowerF.cutoff(cutoff_threshold);
-			polyPowerF *= (cosc / i);
-
-			result += polyPowerF;
+			DATA_TYPE tmp = cosc / i;
+			polyTmp2 *= tmp;
+			result += polyTmp2;
 
 			break;
 		}
 		case 1:
 		{
-			polyPowerF *= F;
-			polyPowerF.nctrunc(order);
-			polyPowerF.cutoff(cutoff_threshold);
-			polyPowerF *= (msinc / i);
-
-			result += polyPowerF;
+			DATA_TYPE tmp = msinc / i;
+			polyTmp2 *= tmp;
+			result += polyTmp2;
 
 			break;
 		}
 		case 2:
 		{
-			polyPowerF *= F;
-			polyPowerF.nctrunc(order);
-			polyPowerF.cutoff(cutoff_threshold);
-			polyPowerF *= (mcosc / i);
-
-			result += polyPowerF;
+			DATA_TYPE tmp = mcosc / i;
+			polyTmp2 *= tmp;
+			result += polyTmp2;
 
 			break;
 		}
 		case 3:
 		{
-			polyPowerF *= F;
-			polyPowerF.nctrunc(order);
-			polyPowerF.cutoff(cutoff_threshold);
-			polyPowerF *= (sinc / i);
-
-			result += polyPowerF;
+			DATA_TYPE tmp = sinc / i;
+			polyTmp2 *= tmp;
+			result += polyTmp2;
 
 			break;
 		}
