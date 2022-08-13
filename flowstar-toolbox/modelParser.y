@@ -32,7 +32,7 @@
 	std::string														*identifier;
 	flowstar::UnivariatePolynomial<flowstar::Real>					*uniPoly;
 	flowstar::Polynomial<flowstar::Interval>						*intPoly;
-	flowstar::Expression<flowstar::Interval>					*pIntExpression;
+	flowstar::Expression<flowstar::Interval>						*pIntExpression;
 }
 
 
@@ -307,7 +307,7 @@ IDENT
 |
 NUM
 {
-	$$ = new flowstar::Expression<flowstar::Interval>($1);
+	$$ = new flowstar::Expression<flowstar::Interval>((Interval)$1);
 }
 |
 expression '/' expression
