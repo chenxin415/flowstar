@@ -5,9 +5,9 @@ LIBS = -lmpfr -lgmp -lgsl -lgslcblas -lm -lglpk -lflowstar
 CFLAGS = -I . -I $(HOME) -g -O3 -std=c++11
 LINK_FLAGS = -g -L$(LIB_HOME) -L/usr/local/lib
 
-all: simple
+all: spring_pendulum
 
-simple: simple.o
+spring_pendulum: spring_pendulum.o
 	g++ -O3 -w $(LINK_FLAGS) -o $@ $^ $(LIBS)
 
 
@@ -20,4 +20,4 @@ simple: simple.o
 
 
 clean: 
-	rm -f *.o simple
+	rm -f *.o *.eps *.plt spring_pendulum
