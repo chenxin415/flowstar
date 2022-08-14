@@ -49,6 +49,17 @@ The following GNU open-source libraries should be pre-installed: M4, GMP, MPFR, 
 
 Flow\* does not require an installation. You may simply run **make** to compile the source code and a static library file libflowstar.a will be generated. The compilation should be done by GCC 8.0 or a later version. You may need to rename 'g++' in the makefile to ensure that an appropriate compiler is called.
 
+### *Simple Example*
+
+We present a very simple nonlinear ODE which only has a single state variable:
+
+$$\dot{x} = 1 - \sin(x) \ \frac{\sqrt{\log(x)}}{\exp(\cos(x))}$$
+
+We want to compute its reachable set from the initial state set $x(0)\in [4.8,5.2]$.
+
+The above reachability problem can be described by the following C++ program using the Flow\* library.
+
+[Simple Example](benchmarks/continuous/simple/)
 
 --
 **More content will be added.**
