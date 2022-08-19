@@ -190,7 +190,7 @@ public:
 
 	friend std::ostream & operator << <DATA_TYPE> (std::ostream & os, const Matrix<DATA_TYPE> & A);
 
-	friend TaylorModelVec<DATA_TYPE> operator * (const Matrix<DATA_TYPE> & A, const TaylorModelVec<DATA_TYPE> & tmv);
+//	friend TaylorModelVec<DATA_TYPE> operator * (const Matrix<DATA_TYPE> & A, const TaylorModelVec<DATA_TYPE> & tmv);
 
 	friend void evaluate(Matrix<UnivariateTaylorModel<Real> > & result, const Matrix<Expression<Real> > & A, const UnivariateTaylorModel<Real> & t, const unsigned int order, const Global_Setting & setting);
 
