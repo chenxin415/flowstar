@@ -13,4 +13,4 @@ Time horizon: $[0,5]$
 
 ### Result
 
-<img src='../../../images/simple.png' width='400'>
+<img src='../../../images/benchmarks/simple.png' width='400'>
