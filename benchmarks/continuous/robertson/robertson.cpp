@@ -22,34 +22,33 @@ int main()
 	// set the reachability parameters
 	Computational_Setting setting(vars);
 
-	// set the stepsize and the order
-	setting.setAdaptiveStepsize(0.00001, 0.05, 4);
 
-	// set the cutoff threshold
+	setting.setAdaptiveStepsize(0.00001, 0.1, 3);
 	setting.setCutoffThreshold(1e-15);
-
-	// set up the remainder estimation
-	Interval I(-1e-10, 1e-10);
+	Interval I(-1e-8, 1e-8);
 	vector<Interval> remainder_estimation(vars.size(), I);
 	setting.setRemainderEstimation(remainder_estimation);
+
+
 
 	double w = 0;
 
 	// a larger initial set
-//	double w = 1e-3;
+//	double w = 1e-5;
 
-	Interval init_x(1-w, 1+w);
+	Interval init_x(1-w, 1+w), init_y(-w, w), init_z(-w, w);
 
 	// define the initial set
 	vector<Interval> box(vars.size());
 	box[x_id] = init_x;
+	box[y_id] = init_y;
+	box[z_id] = init_z;
 
 
 	Flowpipe initialSet(box);
 
 
-	// unsafe set
-	vector<Constraint> unsafeSet;
+	vector<Constraint> safeSet;
 
 	/*
 	 * The structure of the class Result_of_Reachability is defined as below:
@@ -63,7 +62,7 @@ int main()
 	clock_t begin, end;
 	begin = clock();
 
-	ode.reach(result, initialSet, 40, setting, unsafeSet);
+	ode.reach(result, initialSet, 40, setting, safeSet);
 
 	end = clock();
 	printf("time cost: %lf\n", (double)(end - begin) / CLOCKS_PER_SEC);
