@@ -43,7 +43,7 @@ int main()
 	setting.setRemainderEstimation(remainder_estimation);
 
 
-	double w = 0.2;	// radius of the initial set
+	double w = 0.3;	// radius of the initial set
 
 	// define the initial set which is a box
 	Interval init_x1(1.2-w, 1.2+w), init_x2(1.05-w, 1.05+w), init_x3(1.5-w, 1.5+w), init_x4(2.4-w, 2.4+w),
@@ -63,7 +63,7 @@ int main()
 	Flowpipe initialSet(initial_box);
 
 
-	vector<Constraint> safeSet;
+	vector<Constraint> safeSet = {Constraint("x4 - 5.2", vars)};
 
 	Result_of_Reachability result;
 
