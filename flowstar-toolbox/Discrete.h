@@ -66,6 +66,7 @@ protected:
 
 public:
 	DDE(const Variables & vars);
+	DDE(const std::vector<std::string> & str_dde, Variables & vars);
 	DDE(const DDE<DATA_TYPE> & dde);
 	virtual ~DDE() {} ;
 
@@ -102,6 +103,29 @@ template <class DATA_TYPE>
 DDE<DATA_TYPE>::DDE(const Variables & vars)
 {
 	stateVars = vars;
+}
+
+template <class DATA_TYPE>
+DDE<DATA_TYPE>::DDE(const std::vector<std::string> & str_dde, Variables & vars)
+{
+	if(str_dde.size() > vars.size())
+	{
+		printf("DDE: There are more derivatives than the state variables.\n");
+
+		Expression<DATA_TYPE> zero(DATA_TYPE(0));
+		expressions.resize(vars.size(), zero);
+	}
+	else
+	{
+		Expression<DATA_TYPE> zero(DATA_TYPE(0));
+		expressions.resize(vars.size(), zero);
+
+		for(int i=0; i<str_dde.size(); ++i)
+		{
+			Expression<DATA_TYPE> next_state(str_dde[i], vars);
+			expressions[i] = next_state;
+		}
+	}
 }
 
 template <class DATA_TYPE>
