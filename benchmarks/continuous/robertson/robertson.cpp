@@ -93,13 +93,13 @@ int main()
 	Plot_Setting plot_setting(vars);
 	plot_setting.printOn();
 	plot_setting.setOutputDims("t", "x");
-	plot_setting.plot_2D_interval_GNUPLOT("./", "robertson_t_x", result.tmv_flowpipes);
+	plot_setting.plot_2D_interval_GNUPLOT("./", "robertson_t_x", result.tmv_flowpipes, setting);
 
 	plot_setting.setOutputDims("t", "y");
-	plot_setting.plot_2D_interval_GNUPLOT("./", "robertson_t_y", result.tmv_flowpipes);
+	plot_setting.plot_2D_interval_GNUPLOT("./", "robertson_t_y", result.tmv_flowpipes, setting);
 
 	plot_setting.setOutputDims("t", "z");
-	plot_setting.plot_2D_interval_GNUPLOT("./", "robertson_t_z", result.tmv_flowpipes);
+	plot_setting.plot_2D_interval_GNUPLOT("./", "robertson_t_z", result.tmv_flowpipes, setting);
 
 
 
