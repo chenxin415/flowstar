@@ -89,10 +89,10 @@ int main()
 	plot_setting.printOn();
 	plot_setting.discreteOutput();	// only plotting the overapproximations at the end of time steps
 	plot_setting.setOutputDims("x", "y");
-	plot_setting.plot_2D_octagon_GNUPLOT("./", "lorenz_x_y", result.tmv_flowpipes);
+	plot_setting.plot_2D_octagon_GNUPLOT("./", "lorenz_x_y", result.tmv_flowpipes, setting);
 
 	plot_setting.setOutputDims("y", "z");
-	plot_setting.plot_2D_octagon_GNUPLOT("./", "lorenz_y_z", result.tmv_flowpipes);
+	plot_setting.plot_2D_octagon_GNUPLOT("./", "lorenz_y_z", result.tmv_flowpipes, setting);
 
 	return 0;
 }
