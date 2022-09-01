@@ -107,7 +107,7 @@ int main()
 	plot_setting.printOn();
 	plot_setting.setOutputDims("t", "x4");
 
-	plot_setting.plot_2D_interval_GNUPLOT("./", "laubloomis", result.tmv_flowpipes);
+	plot_setting.plot_2D_interval_GNUPLOT("./", "laubloomis", result.tmv_flowpipes, setting);
 
 	return 0;
 }
