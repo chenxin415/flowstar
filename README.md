@@ -55,7 +55,7 @@ We present a very simple nonlinear ODE which only has a single state variable:
 
 $$\dot{x} = 1 - \sin(x) \ \frac{\sqrt{\log(x)}}{\exp(\cos(x))}$$
 
-We want to compute its reachable set from the initial state set $x(0)\in [4.8,5.2]$.
+We want to compute its reachable set from the initial state set $x(0)\in {[4.8,5.2]}$.
 
 The above reachability problem can be described by the following C++ program using the Flow\* library.
 
