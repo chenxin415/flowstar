@@ -116,8 +116,8 @@ int main()
 	Plot_Setting plot_setting(vars);
 	plot_setting.printOn();
 	plot_setting.setOutputDims("t", "x");
-	plot_setting.plot_2D_interval_GNUPLOT("./", "simple", result.tmv_flowpipes);	// producing a GNUPLOT file
-//	plot_setting.plot_2D_interval_MATLAB("./", "simple", result.tmv_flowpipes);		// producing a MATLAB file
+	plot_setting.plot_2D_interval_GNUPLOT("./", "simple", result.tmv_flowpipes, setting);	// producing a GNUPLOT file
+//	plot_setting.plot_2D_interval_MATLAB("./", "simple", result.tmv_flowpipes, setting);	// producing a MATLAB file
 
 	return 0;
 }
