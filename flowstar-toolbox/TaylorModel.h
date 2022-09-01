@@ -1335,6 +1335,8 @@ void TaylorModel<DATA_TYPE>::rec_taylor(TaylorModel<DATA_TYPE> & result, std::li
 	tmF.constant(const_part);
 	tmF.rmConstant();			// F = tm - c
 
+	Interval c_f = const_part;
+
 	if(tmF.isZero())			// tm = c
 	{
 		if(tmF.remainder.isZero())
@@ -1367,6 +1369,7 @@ void TaylorModel<DATA_TYPE>::rec_taylor(TaylorModel<DATA_TYPE> & result, std::li
 	Polynomial<DATA_TYPE> polyOne(1, numVars);
 	TaylorModel<DATA_TYPE> tmF_c = tmF * const_part;
 
+	ranges.push_back(c_f);
 	ranges.push_back(const_part);			// keep the unchanged part
 
 
@@ -1399,7 +1402,7 @@ void TaylorModel<DATA_TYPE>::rec_taylor(TaylorModel<DATA_TYPE> & result, std::li
 	ranges.push_back(tmF_cPolyRange);		// keep the unchanged part
 	tmF_cRange = tmF_cPolyRange + tmF_c.remainder;
 
-	rec_taylor_remainder(rem, tmF_cRange, order+1, setting);
+	rec_taylor_remainder(rem, c_f, tmF_cRange * c_f, order+1, setting);
 
 	result.remainder += rem * const_part;
 }
@@ -1954,6 +1957,8 @@ void TaylorModel<DATA_TYPE>::rec_taylor(TaylorModel<DATA_TYPE> & result, const s
 	tmF.constant(const_part);
 	tmF.rmConstant();			// F = tm - c
 
+	Interval c_f = const_part;
+
 	unsigned int numVars = domain.size();
 
 	if(tmF.isZero())			// tm = c
@@ -2009,7 +2014,7 @@ void TaylorModel<DATA_TYPE>::rec_taylor(TaylorModel<DATA_TYPE> & result, const s
 	Interval rem, tmF_cRange;
 	tmF_cRange = tmF_cPolyRange + tmF_c.remainder;
 
-	rec_taylor_remainder(rem, tmF_cRange, order+1, setting);
+	rec_taylor_remainder(rem, c_f, tmF_cRange, order+1, setting);
 
 	result.remainder += rem * const_part;
 }

@@ -323,33 +323,40 @@ inline void exp_taylor_remainder(Interval & result, const Interval & tmRange, co
 {
 	Interval intProd = tmRange.pow(order);
 
-	Interval J(0,1);
-	J *= tmRange;
+	Interval J = tmRange;
 	J.exp_assign();
 
 	result = setting.factorial_rec[order] * intProd * J;
 }
 
-inline void rec_taylor_remainder(Interval & result, const Interval & tmRange, const unsigned int order, const Global_Setting & setting)
+inline void rec_taylor_remainder(Interval & result, const Interval & const_part, const Interval & tmRange, const unsigned int order, const Global_Setting & setting)
 {
-	Interval J(0,1);
-	J *= tmRange;
-	J += 1;
-	J.rec_assign();
+	Interval original_range = const_part + tmRange;
 
-	Interval intProd = J;
-	intProd *= tmRange;
-	intProd *= -1;
+	Interval dom = original_range;
+	Interval nom = tmRange;
 
-	result = intProd.pow(order);
-	result *= J;
+	result = nom / dom;
+	result.pow_assign(order);
+
+	result /= dom;
+/*
+	Interval dom = original_range.pow(order + 1);
+
+	Interval nom = tmRange.pow(order);
+
+	result = nom / dom;
+*/
+	if(order % 2 == 1)
+	{
+		result *= -1;
+	}
 }
 
 inline void sin_taylor_remainder(Interval & result, const Interval & C, const Interval & tmRange, const unsigned int order, const Global_Setting & setting)
 {
 	Interval intProd = tmRange.pow(order);
 
-//	Interval J(0,1);
 	Interval J = tmRange;
 	J += C;
 
@@ -380,8 +387,7 @@ inline void cos_taylor_remainder(Interval & result, const Interval & C, const In
 {
 	Interval intProd = tmRange.pow(order);
 
-	Interval J(0,1);
-	J *= tmRange;
+	Interval J = tmRange;
 	J += C;
 
 	int k = order % 4;
@@ -409,15 +415,13 @@ inline void cos_taylor_remainder(Interval & result, const Interval & C, const In
 
 inline void log_taylor_remainder(Interval & result, const Interval & tmRange, const int order)
 {
-	Interval J(0,1);
-	J *= tmRange;
-	J += 1;
-	J.rec_assign();
+	result = tmRange;
+	result += 1;
+	result.rec_assign();
 
-	Interval I = tmRange;
-	I *= J;
+	result *= tmRange;
 
-	result = I.pow(order);
+	result.pow_assign(order);
 
 	result /= order;
 
@@ -429,24 +433,17 @@ inline void log_taylor_remainder(Interval & result, const Interval & tmRange, co
 
 inline void sqrt_taylor_remainder(Interval & result, const Interval & tmRange, const int order, const Global_Setting & setting)
 {
-	Interval I(0,1);
-	I *= tmRange;
+	Interval I = tmRange;
 	I += 1;
 	I.rec_assign();
-
-	Interval intTemp;
-	I.sqrt(intTemp);
+	I.sqrt_assign();
 
 	I *= tmRange;
 	I /= 2;
 
-	Interval intProd = I.pow(order-1);
+	result = I.pow(order);
 
-	intProd /= intTemp;
-	intProd *= tmRange;
-	intProd /= 2;
-
-	result = setting.double_factorial[2*order-3] * setting.factorial_rec[order] * intProd;
+	result *= setting.double_factorial[2*order-3] * setting.factorial_rec[order];
 
 	if(order % 2 == 0)
 	{

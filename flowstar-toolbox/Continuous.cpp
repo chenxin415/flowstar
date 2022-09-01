@@ -8934,6 +8934,7 @@ Plot_Setting::Plot_Setting(const Plot_Setting & setting)
 {
 	variables		= setting.variables;
 	outputDims		= setting.outputDims;
+	labels			= setting.labels;
 	type_of_file	= setting.type_of_file;
 	type_of_object	= setting.type_of_object;
 	num_of_pieces	= setting.num_of_pieces;
@@ -8953,6 +8954,7 @@ Plot_Setting & Plot_Setting::operator = (const Plot_Setting & setting)
 
 	variables		= setting.variables;
 	outputDims		= setting.outputDims;
+	labels			= setting.labels;
 	type_of_file	= setting.type_of_file;
 	type_of_object	= setting.type_of_object;
 	num_of_pieces	= setting.num_of_pieces;
@@ -8966,6 +8968,17 @@ void Plot_Setting::setOutputDims(const std::string & x, const std::string & y)
 {
 	outputDims.clear();
 
+	Expression<Real> expr_x(x, variables);
+	outputDims.push_back(expr_x);
+
+	Expression<Real> expr_y(y, variables);
+	outputDims.push_back(expr_y);
+
+	labels.clear();
+	labels.push_back(x);
+	labels.push_back(y);
+
+/*
 	int x_id = variables.getIDForVar(x);
 
 	if(x_id < 0)
@@ -8983,7 +8996,8 @@ void Plot_Setting::setOutputDims(const std::string & x, const std::string & y)
 	}
 
 	outputDims.push_back(x_id);
-	outputDims.push_back(y_id);
+	outputDims.push_back(y_id);*/
+
 }
 
 void Plot_Setting::setFileType(const unsigned int type)
@@ -9021,36 +9035,23 @@ void Plot_Setting::continuousOutput()
 	bDiscrete = false;
 }
 
-void Plot_Setting::plot_2D(const std::string & path, const std::string & fileName, const TaylorModelFlowpipes & flowpipes) const
-{
-	switch(type_of_file)
-	{
-	case PLOT_GNUPLOT:
-		plot_2D_GNUPLOT(path, fileName, flowpipes);
-		break;
-	case PLOT_MATLAB:
-		plot_2D_MATLAB(path, fileName, flowpipes);
-		break;
-	}
-}
-
-void Plot_Setting::plot_2D_MATLAB(const std::string & path, const std::string & fileName, const TaylorModelFlowpipes & flowpipes) const
+void Plot_Setting::plot_2D_MATLAB(const std::string & path, const std::string & fileName, const TaylorModelFlowpipes & flowpipes, Computational_Setting & setting) const
 {
 	switch(type_of_object)
 	{
 	case PLOT_INTERVAL:
-		plot_2D_interval_MATLAB(path, fileName, flowpipes);
+		plot_2D_interval_MATLAB(path, fileName, flowpipes, setting);
 		break;
 	case PLOT_OCTAGON:
-		plot_2D_octagon_MATLAB(path, fileName, flowpipes);
+		plot_2D_octagon_MATLAB(path, fileName, flowpipes, setting);
 		break;
 	case PLOT_GRID:
-		plot_2D_grids_MATLAB(path, fileName, num_of_pieces, flowpipes);
+		plot_2D_grids_MATLAB(path, fileName, num_of_pieces, flowpipes, setting);
 		break;
 	}
 }
 
-void Plot_Setting::plot_2D_interval_MATLAB(const std::string & path, const std::string & fileName, const TaylorModelFlowpipes & flowpipes) const
+void Plot_Setting::plot_2D_interval_MATLAB(const std::string & path, const std::string & fileName, const TaylorModelFlowpipes & flowpipes, Computational_Setting & setting) const
 {
 	if(bPrint)
 	{
@@ -9066,40 +9067,38 @@ void Plot_Setting::plot_2D_interval_MATLAB(const std::string & path, const std::
 		exit(1);
 	}
 
-	std::vector<unsigned int> varIDs;
-	if(bProjected)
-	{
-		varIDs.push_back(0);
-		varIDs.push_back(1);
-	}
-	else
-	{
-		varIDs.push_back(outputDims[0]);
-		varIDs.push_back(outputDims[1]);
-	}
-
 	unsigned int prog = 0;
 
 	std::list<TaylorModelFlowpipe>::const_iterator fpIter = flowpipes.tmv_flowpipes.begin();
 
 	unsigned int total_size = flowpipes.tmv_flowpipes.size();
 
+	unsigned int order = setting.tm_setting.order > setting.tm_setting.order_max ? setting.tm_setting.order : setting.tm_setting.order_max;
+
 	if(total_size > 0)
 	{
 		for(; fpIter != flowpipes.tmv_flowpipes.end() ; ++fpIter)
 		{
 			std::vector<Interval> box;
+			std::vector<Interval> newDomain = fpIter->domain;
 
 			if(bDiscrete)
 			{
-				std::vector<Interval> newDomain = fpIter->domain;
 				newDomain[0] = (fpIter->domain)[0].sup();
-				fpIter->tmv_flowpipe.intEval(box, newDomain, varIDs);
 			}
-			else
-			{
-				fpIter->tmv_flowpipe.intEval(box, fpIter->domain, varIDs);
-			}
+
+			TaylorModel<Real> tmTemp;
+			outputDims[0].evaluate(tmTemp, fpIter->tmv_flowpipe.tms, order, newDomain, setting.tm_setting.cutoff_threshold, setting.g_setting);
+
+			Interval I;
+			tmTemp.intEval(I, newDomain);
+			box.push_back(I);
+
+
+			outputDims[1].evaluate(tmTemp, fpIter->tmv_flowpipe.tms, order, newDomain, setting.tm_setting.cutoff_threshold, setting.g_setting);
+
+			tmTemp.intEval(I, newDomain);
+			box.push_back(I);
 
 			Interval X = box[0], Y = box[1];
 
@@ -9144,7 +9143,7 @@ void Plot_Setting::plot_2D_interval_MATLAB(const std::string & path, const std::
 	}
 }
 
-void Plot_Setting::plot_2D_octagon_MATLAB(const std::string & path, const std::string & fileName, const TaylorModelFlowpipes & flowpipes) const
+void Plot_Setting::plot_2D_octagon_MATLAB(const std::string & path, const std::string & fileName, const TaylorModelFlowpipes & flowpipes, Computational_Setting & setting) const
 {
 	if(bPrint)
 	{
@@ -9160,8 +9159,12 @@ void Plot_Setting::plot_2D_octagon_MATLAB(const std::string & path, const std::s
 		exit(1);
 	}
 
-	int x, y;
+	int x = 0, y = 1;
 
+	unsigned int order = setting.tm_setting.order > setting.tm_setting.order_max ? setting.tm_setting.order : setting.tm_setting.order_max;
+
+
+/*
 	int rangeDim;
 
 	if(bProjected)
@@ -9176,8 +9179,8 @@ void Plot_Setting::plot_2D_octagon_MATLAB(const std::string & path, const std::s
 		y = outputDims[1];
 		rangeDim = variables.size();
 	}
-
-	std::vector<std::vector<Real> > output_poly_temp(8, std::vector<Real>(rangeDim, 0));
+*/
+	std::vector<std::vector<Real> > output_poly_temp(8, std::vector<Real>(2, 0));
 
 	output_poly_temp[0][x] = 1;
 	output_poly_temp[1][y] = 1;
@@ -9194,7 +9197,7 @@ void Plot_Setting::plot_2D_octagon_MATLAB(const std::string & path, const std::s
 
 	// Construct the 2D template matrix.
 	int rows = 8;
-	int cols = rangeDim;
+	int cols = 2;
 
 	std::vector<std::vector<Real> > sortedTemplate(rows, std::vector<Real>(cols, 0));
 	std::vector<double> rowVec(cols);
@@ -9271,7 +9274,16 @@ void Plot_Setting::plot_2D_octagon_MATLAB(const std::string & path, const std::s
 				newDomain[0] = (fpIter->domain)[0].sup();
 			}
 
-			Polyhedron polyTemplate(sortedTemplate, fpIter->tmv_flowpipe, newDomain);
+			TaylorModelVec<Real> tmvRange;
+
+			TaylorModel<Real> tmTemp;
+			outputDims[0].evaluate(tmTemp, fpIter->tmv_flowpipe.tms, order, newDomain, setting.tm_setting.cutoff_threshold, setting.g_setting);
+			tmvRange.tms.push_back(tmTemp);
+
+			outputDims[1].evaluate(tmTemp, fpIter->tmv_flowpipe.tms, order, newDomain, setting.tm_setting.cutoff_threshold, setting.g_setting);
+			tmvRange.tms.push_back(tmTemp);
+
+			Polyhedron polyTemplate(sortedTemplate, tmvRange, newDomain);
 
 			double f1, f2;
 
@@ -9391,7 +9403,7 @@ void Plot_Setting::plot_2D_octagon_MATLAB(const std::string & path, const std::s
 	}
 }
 
-void Plot_Setting::plot_2D_grids_MATLAB(const std::string & path, const std::string & fileName, const unsigned int num, const TaylorModelFlowpipes & flowpipes) const
+void Plot_Setting::plot_2D_grids_MATLAB(const std::string & path, const std::string & fileName, const unsigned int num, const TaylorModelFlowpipes & flowpipes, Computational_Setting & setting) const
 {
 	if(bPrint)
 	{
@@ -9407,6 +9419,10 @@ void Plot_Setting::plot_2D_grids_MATLAB(const std::string & path, const std::str
 		exit(1);
 	}
 
+	unsigned int order = setting.tm_setting.order > setting.tm_setting.order_max ? setting.tm_setting.order : setting.tm_setting.order_max;
+
+
+/*
 	int x, y;
 	if(bProjected)
 	{
@@ -9418,7 +9434,7 @@ void Plot_Setting::plot_2D_grids_MATLAB(const std::string & path, const std::str
 		x = outputDims[0];
 		y = outputDims[1];
 	}
-
+*/
 	unsigned int prog = 0;
 
 	std::list<TaylorModelFlowpipe>::const_iterator fpIter = flowpipes.tmv_flowpipes.begin();
@@ -9431,30 +9447,33 @@ void Plot_Setting::plot_2D_grids_MATLAB(const std::string & path, const std::str
 		{
 			// decompose the domain
 			std::list<std::vector<Interval> > grids;
+			std::vector<Interval> newDomain = fpIter->domain;
 
 			if(bDiscrete)
 			{
-				std::vector<Interval> newDomain = fpIter->domain;
 				newDomain[0] = (fpIter->domain)[0].sup();
-				gridBox(grids, newDomain, num);
 			}
-			else
-			{
-				gridBox(grids, fpIter->domain, num);
-			}
+
 
 			// we only consider the output dimensions
 			HornerForm<Real> hfOutputX;
 			Interval remainderX;
 
-			fpIter->tmv_flowpipe.tms[x].toHornerForm(hfOutputX, remainderX);
+			TaylorModel<Real> tmTemp;
+			outputDims[0].evaluate(tmTemp, fpIter->tmv_flowpipe.tms, order, newDomain, setting.tm_setting.cutoff_threshold, setting.g_setting);
 
+			tmTemp.toHornerForm(hfOutputX, remainderX);
+
+
+			outputDims[1].evaluate(tmTemp, fpIter->tmv_flowpipe.tms, order, newDomain, setting.tm_setting.cutoff_threshold, setting.g_setting);
 
 			HornerForm<Real> hfOutputY;
 			Interval remainderY;
 
-			fpIter->tmv_flowpipe.tms[y].toHornerForm(hfOutputY, remainderY);
+			tmTemp.toHornerForm(hfOutputY, remainderY);
 
+
+			gridBox(grids, newDomain, num);
 
 			// evaluate the images from all of the grids
 			std::list<std::vector<Interval> >::const_iterator gIter = grids.begin();
@@ -9516,23 +9535,23 @@ void Plot_Setting::plot_2D_grids_MATLAB(const std::string & path, const std::str
 	}
 }
 
-void Plot_Setting::plot_2D_GNUPLOT(const std::string & path, const std::string & fileName, const TaylorModelFlowpipes & flowpipes) const
+void Plot_Setting::plot_2D_GNUPLOT(const std::string & path, const std::string & fileName, const TaylorModelFlowpipes & flowpipes, Computational_Setting & setting) const
 {
 	switch(type_of_object)
 	{
 	case PLOT_INTERVAL:
-		plot_2D_interval_GNUPLOT(path, fileName, flowpipes);
+		plot_2D_interval_GNUPLOT(path, fileName, flowpipes, setting);
 		break;
 	case PLOT_OCTAGON:
-		plot_2D_octagon_GNUPLOT(path, fileName, flowpipes);
+		plot_2D_octagon_GNUPLOT(path, fileName, flowpipes, setting);
 		break;
 	case PLOT_GRID:
-		plot_2D_grids_GNUPLOT(path, fileName, num_of_pieces, flowpipes);
+		plot_2D_grids_GNUPLOT(path, fileName, num_of_pieces, flowpipes, setting);
 		break;
 	}
 }
 
-void Plot_Setting::plot_2D_interval_GNUPLOT(const std::string & path, const std::string & fileName, const TaylorModelFlowpipes & flowpipes) const
+void Plot_Setting::plot_2D_interval_GNUPLOT(const std::string & path, const std::string & fileName, const TaylorModelFlowpipes & flowpipes, Computational_Setting & setting) const
 {
 	if(bPrint)
 	{
@@ -9559,10 +9578,10 @@ void Plot_Setting::plot_2D_interval_GNUPLOT(const std::string & path, const std:
 	fprintf(plotFile, "unset label\n");
 	fprintf(plotFile, "set xtic auto\n");
 	fprintf(plotFile, "set ytic auto\n");
-	fprintf(plotFile, "set xlabel \"%s\"\n", variables.varNames[outputDims[0]].c_str());
-	fprintf(plotFile, "set ylabel \"%s\"\n", variables.varNames[outputDims[1]].c_str());
+	fprintf(plotFile, "set xlabel \"%s\"\n", labels[0].c_str());
+	fprintf(plotFile, "set ylabel \"%s\"\n", labels[1].c_str());
 	fprintf(plotFile, "plot '-' notitle with lines ls 1\n");
-
+/*
 	std::vector<unsigned int> varIDs;
 	if(bProjected)
 	{
@@ -9574,28 +9593,38 @@ void Plot_Setting::plot_2D_interval_GNUPLOT(const std::string & path, const std:
 		varIDs.push_back(outputDims[0]);
 		varIDs.push_back(outputDims[1]);
 	}
-
+*/
 	unsigned int prog = 0;
 
 	std::list<TaylorModelFlowpipe>::const_iterator fpIter = flowpipes.tmv_flowpipes.begin();
 	unsigned int total_size = flowpipes.tmv_flowpipes.size();
+
+	unsigned int order = setting.tm_setting.order > setting.tm_setting.order_max ? setting.tm_setting.order : setting.tm_setting.order_max;
 
 	if(total_size > 0)
 	{
 		for(; fpIter != flowpipes.tmv_flowpipes.end(); ++fpIter)
 		{
 			std::vector<Interval> box;
+			std::vector<Interval> newDomain = fpIter->domain;
 
 			if(bDiscrete)
 			{
-				std::vector<Interval> newDomain = fpIter->domain;
 				newDomain[0] = (fpIter->domain)[0].sup();
-				fpIter->tmv_flowpipe.intEval(box, newDomain, varIDs);
 			}
-			else
-			{
-				fpIter->tmv_flowpipe.intEval(box, fpIter->domain, varIDs);
-			}
+
+			TaylorModel<Real> tmTemp;
+			outputDims[0].evaluate(tmTemp, fpIter->tmv_flowpipe.tms, order, newDomain, setting.tm_setting.cutoff_threshold, setting.g_setting);
+
+			Interval I;
+			tmTemp.intEval(I, newDomain);
+			box.push_back(I);
+
+
+			outputDims[1].evaluate(tmTemp, fpIter->tmv_flowpipe.tms, order, newDomain, setting.tm_setting.cutoff_threshold, setting.g_setting);
+
+			tmTemp.intEval(I, newDomain);
+			box.push_back(I);
 
 
 			// output the vertices
@@ -9638,7 +9667,7 @@ void Plot_Setting::plot_2D_interval_GNUPLOT(const std::string & path, const std:
 	}
 }
 
-void Plot_Setting::plot_2D_octagon_GNUPLOT(const std::string & path, const std::string & fileName, const TaylorModelFlowpipes & flowpipes) const
+void Plot_Setting::plot_2D_octagon_GNUPLOT(const std::string & path, const std::string & fileName, const TaylorModelFlowpipes & flowpipes, Computational_Setting & setting) const
 {
 	if(bPrint)
 	{
@@ -9654,8 +9683,8 @@ void Plot_Setting::plot_2D_octagon_GNUPLOT(const std::string & path, const std::
 		exit(1);
 	}
 
-	int x, y;
-
+	int x = 0, y = 1;
+/*
 	int rangeDim;
 
 	if(bProjected)
@@ -9670,8 +9699,10 @@ void Plot_Setting::plot_2D_octagon_GNUPLOT(const std::string & path, const std::
 		y = outputDims[1];
 		rangeDim = variables.size();
 	}
+*/
+	unsigned int order = setting.tm_setting.order > setting.tm_setting.order_max ? setting.tm_setting.order : setting.tm_setting.order_max;
 
-	std::vector<std::vector<Real> > output_poly_temp(8, std::vector<Real>(rangeDim, 0));
+	std::vector<std::vector<Real> > output_poly_temp(8, std::vector<Real>(2, 0));
 
 	output_poly_temp[0][x] = 1;
 	output_poly_temp[1][y] = 1;
@@ -9688,7 +9719,7 @@ void Plot_Setting::plot_2D_octagon_GNUPLOT(const std::string & path, const std::
 
 	// Construct the 2D template matrix.
 	int rows = 8;
-	int cols = rangeDim;
+	int cols = 2;
 
 	std::vector<std::vector<Real> > sortedTemplate(rows, std::vector<Real>(cols, 0));
 	std::vector<Real> rowVec(cols);
@@ -9752,8 +9783,8 @@ void Plot_Setting::plot_2D_octagon_GNUPLOT(const std::string & path, const std::
 	fprintf(plotFile, "unset label\n");
 	fprintf(plotFile, "set xtic auto\n");
 	fprintf(plotFile, "set ytic auto\n");
-	fprintf(plotFile, "set xlabel \"%s\"\n", variables.varNames[outputDims[0]].c_str());
-	fprintf(plotFile, "set ylabel \"%s\"\n", variables.varNames[outputDims[1]].c_str());
+	fprintf(plotFile, "set xlabel \"%s\"\n", labels[0].c_str());
+	fprintf(plotFile, "set ylabel \"%s\"\n", labels[1].c_str());
 	fprintf(plotFile, "plot '-' notitle with lines ls 1\n");
 
 	// Compute the intersections of two facets.
@@ -9780,7 +9811,16 @@ void Plot_Setting::plot_2D_octagon_GNUPLOT(const std::string & path, const std::
 				newDomain[0] = (fpIter->domain)[0].sup();
 			}
 
-			Polyhedron polyTemplate(sortedTemplate, fpIter->tmv_flowpipe, newDomain);
+			TaylorModelVec<Real> tmvRange;
+
+			TaylorModel<Real> tmTemp;
+			outputDims[0].evaluate(tmTemp, fpIter->tmv_flowpipe.tms, order, newDomain, setting.tm_setting.cutoff_threshold, setting.g_setting);
+			tmvRange.tms.push_back(tmTemp);
+
+			outputDims[1].evaluate(tmTemp, fpIter->tmv_flowpipe.tms, order, newDomain, setting.tm_setting.cutoff_threshold, setting.g_setting);
+			tmvRange.tms.push_back(tmTemp);
+
+			Polyhedron polyTemplate(sortedTemplate, tmvRange, newDomain);
 
 			double f1, f2;
 
@@ -9869,7 +9909,7 @@ void Plot_Setting::plot_2D_octagon_GNUPLOT(const std::string & path, const std::
 	}
 }
 
-void Plot_Setting::plot_2D_grids_GNUPLOT(const std::string & path, const std::string & fileName, const unsigned int num, const TaylorModelFlowpipes & flowpipes) const
+void Plot_Setting::plot_2D_grids_GNUPLOT(const std::string & path, const std::string & fileName, const unsigned int num, const TaylorModelFlowpipes & flowpipes, Computational_Setting & setting) const
 {
 	if(bPrint)
 	{
@@ -9885,6 +9925,9 @@ void Plot_Setting::plot_2D_grids_GNUPLOT(const std::string & path, const std::st
 		exit(1);
 	}
 
+	unsigned int order = setting.tm_setting.order > setting.tm_setting.order_max ? setting.tm_setting.order : setting.tm_setting.order_max;
+
+/*
 	int x, y;
 	if(bProjected)
 	{
@@ -9896,7 +9939,7 @@ void Plot_Setting::plot_2D_grids_GNUPLOT(const std::string & path, const std::st
 		x = outputDims[0];
 		y = outputDims[1];
 	}
-
+*/
 	std::string image_file_name = fileName + ".eps";
 
 	fprintf(plotFile, "set terminal postscript enhanced color\n");
@@ -9908,8 +9951,8 @@ void Plot_Setting::plot_2D_grids_GNUPLOT(const std::string & path, const std::st
 	fprintf(plotFile, "unset label\n");
 	fprintf(plotFile, "set xtic auto\n");
 	fprintf(plotFile, "set ytic auto\n");
-	fprintf(plotFile, "set xlabel \"%s\"\n", variables.varNames[outputDims[0]].c_str());
-	fprintf(plotFile, "set ylabel \"%s\"\n", variables.varNames[outputDims[1]].c_str());
+	fprintf(plotFile, "set xlabel \"%s\"\n", labels[0].c_str());
+	fprintf(plotFile, "set ylabel \"%s\"\n", labels[1].c_str());
 	fprintf(plotFile, "plot '-' notitle with lines ls 1\n");
 
 	unsigned int prog = 0;
@@ -9923,29 +9966,32 @@ void Plot_Setting::plot_2D_grids_GNUPLOT(const std::string & path, const std::st
 		{
 			// decompose the domain
 			std::list<std::vector<Interval> > grids;
+			std::vector<Interval> newDomain = fpIter->domain;
 
 			if(bDiscrete)
 			{
-				std::vector<Interval> newDomain = fpIter->domain;
 				newDomain[0] = (fpIter->domain)[0].sup();
-				gridBox(grids, newDomain, num);
 			}
-			else
-			{
-				gridBox(grids, fpIter->domain, num);
-			}
-
 
 			// we only consider the output dimensions
 			HornerForm<Real> hfOutputX;
 			Interval remainderX;
 
-			fpIter->tmv_flowpipe.tms[x].toHornerForm(hfOutputX, remainderX);
+			TaylorModel<Real> tmTemp;
+			outputDims[0].evaluate(tmTemp, fpIter->tmv_flowpipe.tms, order, newDomain, setting.tm_setting.cutoff_threshold, setting.g_setting);
+
+			tmTemp.toHornerForm(hfOutputX, remainderX);
+
+
+			outputDims[1].evaluate(tmTemp, fpIter->tmv_flowpipe.tms, order, newDomain, setting.tm_setting.cutoff_threshold, setting.g_setting);
 
 			HornerForm<Real> hfOutputY;
 			Interval remainderY;
 
-			fpIter->tmv_flowpipe.tms[y].toHornerForm(hfOutputY, remainderY);
+			tmTemp.toHornerForm(hfOutputY, remainderY);
+
+
+			gridBox(grids, newDomain, num);
 
 			// evaluate the images from all of the grids
 			std::list<std::vector<Interval> >::const_iterator gIter = grids.begin();

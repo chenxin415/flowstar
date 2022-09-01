@@ -712,6 +712,8 @@ void UnivariateTaylorModel<DATA_TYPE>::rec_taylor(UnivariateTaylorModel<DATA_TYP
 
 	tmRange.remove_midpoint(const_part);
 
+	Interval c_f = const_part;
+
 	utmF -= const_part;
 
 	const_part.rec_assign();	// 1/c
@@ -746,7 +748,7 @@ void UnivariateTaylorModel<DATA_TYPE>::rec_taylor(UnivariateTaylorModel<DATA_TYP
 
 	Interval rem;
 
-	rec_taylor_remainder(rem, tmRange, order+1, setting);
+	rec_taylor_remainder(rem, c_f, tmRange, order+1, setting);
 
 	result.remainder += rem * const_part;
 }

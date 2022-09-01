@@ -107,6 +107,9 @@ inline void rec_taylor_only_remainder(Interval & result, const Interval & remain
 		return;
 	}
 
+	Interval c_f = *iterRange;
+	++iterRange;
+
 	Interval const_part = *iterRange;
 	++iterRange;
 
@@ -134,7 +137,7 @@ inline void rec_taylor_only_remainder(Interval & result, const Interval & remain
 	tmF_cRange = (*iterRange) + tmF_c_remainder;
 	++iterRange;
 
-	rec_taylor_remainder(rem, tmF_cRange, order+1, setting);
+	rec_taylor_remainder(rem, c_f, tmF_cRange * c_f, order+1, setting);
 
 	result += rem * const_part;
 }

@@ -2816,7 +2816,8 @@ class Plot_Setting
 {
 public:
 	Variables variables;
-	std::vector<unsigned int> outputDims;
+	std::vector<Expression<Real> > outputDims;
+	std::vector<std::string> labels;
 	unsigned int type_of_file;
 	unsigned int type_of_object;
 	unsigned int num_of_pieces;
@@ -2833,6 +2834,7 @@ public:
 	Plot_Setting & operator = (const Plot_Setting & setting);
 
 	void setOutputDims(const std::string & x, const std::string & y);
+
 	void setFileType(const unsigned int type);
 	void setObjectType(const unsigned int type);
 	void setNumOfPieces(const unsigned int n);
@@ -2843,17 +2845,17 @@ public:
 	void discreteOutput();
 	void continuousOutput();
 
-	void plot_2D(const std::string & path, const std::string & fileName, const TaylorModelFlowpipes & flowpipes) const;
+//	void plot_2D(const std::string & path, const std::string & fileName, const TaylorModelFlowpipes & flowpipes, Computational_Setting & setting) const;
 
-	void plot_2D_MATLAB(const std::string & path, const std::string & fileName, const TaylorModelFlowpipes & flowpipes) const;
-	void plot_2D_interval_MATLAB(const std::string & path, const std::string & fileName, const TaylorModelFlowpipes & flowpipes) const;
-	void plot_2D_octagon_MATLAB(const std::string & path, const std::string & fileName, const TaylorModelFlowpipes & flowpipes) const;
-	void plot_2D_grids_MATLAB(const std::string & path, const std::string & fileName, const unsigned int num, const TaylorModelFlowpipes & flowpipes) const;
+	void plot_2D_MATLAB(const std::string & path, const std::string & fileName, const TaylorModelFlowpipes & flowpipes, Computational_Setting & setting) const;
+	void plot_2D_interval_MATLAB(const std::string & path, const std::string & fileName, const TaylorModelFlowpipes & flowpipes, Computational_Setting & setting) const;
+	void plot_2D_octagon_MATLAB(const std::string & path, const std::string & fileName, const TaylorModelFlowpipes & flowpipes, Computational_Setting & setting) const;
+	void plot_2D_grids_MATLAB(const std::string & path, const std::string & fileName, const unsigned int num, const TaylorModelFlowpipes & flowpipes, Computational_Setting & setting) const;
 
-	void plot_2D_GNUPLOT(const std::string & path, const std::string & fileName, const TaylorModelFlowpipes & flowpipes) const;
-	void plot_2D_interval_GNUPLOT(const std::string & path, const std::string & fileName, const TaylorModelFlowpipes & flowpipes) const;
-	void plot_2D_octagon_GNUPLOT(const std::string & path, const std::string & fileName, const TaylorModelFlowpipes & flowpipes) const;
-	void plot_2D_grids_GNUPLOT(const std::string & path, const std::string & fileName, const unsigned int num, const TaylorModelFlowpipes & flowpipes) const;
+	void plot_2D_GNUPLOT(const std::string & path, const std::string & fileName, const TaylorModelFlowpipes & flowpipes, Computational_Setting & setting) const;
+	void plot_2D_interval_GNUPLOT(const std::string & path, const std::string & fileName, const TaylorModelFlowpipes & flowpipes, Computational_Setting & setting) const;
+	void plot_2D_octagon_GNUPLOT(const std::string & path, const std::string & fileName, const TaylorModelFlowpipes & flowpipes, Computational_Setting & setting) const;
+	void plot_2D_grids_GNUPLOT(const std::string & path, const std::string & fileName, const unsigned int num, const TaylorModelFlowpipes & flowpipes, Computational_Setting & setting) const;
 };
 
 
