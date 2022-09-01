@@ -122,12 +122,12 @@ int main()
 	Plot_Setting plot_setting(vars);
 	plot_setting.printOn();
 	plot_setting.setOutputDims("t", "x");
-	plot_setting.plot_2D_interval_GNUPLOT("./", "vanderpol_t_x", result.tmv_flowpipes); // GNUPLOT file
-//	plot_setting.plot_2D_interval_MATLAB("./", "vanderpol_t_x", result.tmv_flowpipes);  // MATLAB file
+	plot_setting.plot_2D_interval_GNUPLOT("./", "vanderpol_t_x", result.tmv_flowpipes, setting); // GNUPLOT file
+//	plot_setting.plot_2D_interval_MATLAB("./", "vanderpol_t_x", result.tmv_flowpipes, setting);  // MATLAB file
 
 	plot_setting.setOutputDims("t", "y");
-	plot_setting.plot_2D_interval_GNUPLOT("./", "vanderpol_t_y", result.tmv_flowpipes); // GNUPLOT file
-//	plot_setting.plot_2D_interval_MATLAB("./", "vanderpol_t_y", result.tmv_flowpipes);  // MATLAB file
+	plot_setting.plot_2D_interval_GNUPLOT("./", "vanderpol_t_y", result.tmv_flowpipes, setting); // GNUPLOT file
+//	plot_setting.plot_2D_interval_MATLAB("./", "vanderpol_t_y", result.tmv_flowpipes, setting);  // MATLAB file
 
 	return 0;
 }
