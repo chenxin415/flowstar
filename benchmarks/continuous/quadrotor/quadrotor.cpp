@@ -106,7 +106,7 @@ int main()
 	plot_setting.printOn();
 	plot_setting.setOutputDims("t", "x3");
 
-	plot_setting.plot_2D_interval_GNUPLOT("./", "quadrotor", result.tmv_flowpipes);
+	plot_setting.plot_2D_interval_GNUPLOT("./", "quadrotor", result.tmv_flowpipes, setting);
 
 	return 0;
 }
