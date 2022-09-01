@@ -66,7 +66,7 @@ int main()
 	plot_setting.printOn();
 	plot_setting.setOutputDims("S", "P");
 
-	plot_setting.plot_2D_octagon_GNUPLOT("./", "higgins_selkov", result.tmv_flowpipes);
+	plot_setting.plot_2D_octagon_GNUPLOT("./", "higgins_selkov", result.tmv_flowpipes, setting);
 
 	return 0;
 }
