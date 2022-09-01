@@ -85,10 +85,10 @@ int main()
 	Plot_Setting plot_setting(vars);
 	plot_setting.printOn();
 	plot_setting.setOutputDims("theta", "r");
-	plot_setting.plot_2D_octagon_GNUPLOT("./", "spring_pendulum_1", result.tmv_flowpipes);
+	plot_setting.plot_2D_octagon_GNUPLOT("./", "spring_pendulum_1", result.tmv_flowpipes, setting);
 
 	plot_setting.setOutputDims("dtheta", "dr");
-	plot_setting.plot_2D_octagon_GNUPLOT("./", "spring_pendulum_2", result.tmv_flowpipes);
+	plot_setting.plot_2D_octagon_GNUPLOT("./", "spring_pendulum_2", result.tmv_flowpipes, setting);
 
 	return 0;
 }
