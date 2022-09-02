@@ -88,7 +88,18 @@ The above reachability problem can be described by the following C++ program usi
 - **_Symbolic remainder._** An integer to indicate the complexity of the symbolic remainders. Symbolic remainders are introduced to avoid the wrapping effect from all linear transformations on TM remainders. Using symbolic remainders can greatly reduce the accumulation of errors. We give the following example to show the effectiveness.
 
 
+<table>
+  <tr>
+    <td> <img src='images/benchmarks/quadrotor_0.png' width='350'> </td>
+    <td> <img src='images/benchmarks/quadrotor_20.png' width='350'> </td>
+  </tr> 
+  <tr>
+    <td> Symbolic remainder size: 0 <br> Time cost: 5.3 seconds (M1 Mac mini) </td>
+    <td> Symbolic remainder size: 20 <br> Time cost: 3.9 seconds (M1 Mac mini) </td>
+  </tr>
+</table>
 
+[Quadrotor Model](benchmarks/continuous/quadrotor/)
 
 <br>
 <br>
