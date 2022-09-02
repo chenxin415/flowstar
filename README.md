@@ -5,6 +5,8 @@
 
 This is the homepage of the toolbox version of Flow\*. The first version of Flow\* was released in the year of 2013, and improved in 2015 (version 1.2.0) and 2017 (version 2.1.0). The purpose of releasing a toolbox version is to provide a more flexible way to model and analyze cyber-physical systems (CPS), and expose the key functions to the tools for verifying more complex systems, such as the CPS with machine learning components. The main data structures in the toolbox version are completely re-designed and implemented such that the performance is **at least 10x faster** than the version 2.1.0.
 
+**Flow\* is mainly used to compute reachable set overapproximations which are guranteed to contain all approximation and numerical errors.**
+
 
 ### How does the toolbox work?
 
@@ -60,6 +62,24 @@ We want to compute its reachable set from the initial state set $x(0)\in {[4.8,5
 The above reachability problem can be described by the following C++ program using the Flow\* library.
 
 [Simple Example](benchmarks/continuous/simple/)
+
+### *Main Hyperparameters*
+
+- **_Stepsize._** The time interval for a single TM flowpipe. A smaller stepsize produces TM flowpipes with smaller remainders.
+
+- **_TM order._** The degree bound for TM flowpipes. A higher TM order in one time step produces a TM flowpipe with a smaller remainder.
+
+- **_Cutoff threshold._** A small value for moving the small terms in the polynomial part of a TM to its remainder. Higher cutoff threshold may greatly simplify a TM but lead to a heavier error accumulation. We give the following comparison to show its impact on the time cost and overapproximation quality.
+
+
+
+<img src='images/laubloomis_6.png' width='300'>   <img src='images/laubloomis_7.png' width='300'>
+
+
+[Laub-Loomis Model](benchmarks/continuous/laubloomis/)
+
+- **_Symbolic remainder._**
+
 
 --
 **More content will be added.**
