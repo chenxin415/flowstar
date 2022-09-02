@@ -87,7 +87,7 @@ The above reachability problem can be described by the following C++ program usi
   </tr>
 </table>
 
-[Laub-Loomis Model](benchmarks/continuous/laubloomis/)
+[Laub-Loomis Model (radius 0.2)](benchmarks/continuous/laubloomis/)
 
 <br>
 
