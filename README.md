@@ -72,14 +72,28 @@ The above reachability problem can be described by the following C++ program usi
 - **_Cutoff threshold._** A small value for moving the small terms in the polynomial part of a TM to its remainder. Higher cutoff threshold may greatly simplify a TM but lead to a heavier error accumulation. We give the following comparison to show its impact on the time cost and overapproximation quality.
 
 
-
-<img src='images/laubloomis_6.png' width='300'>   <img src='images/laubloomis_7.png' width='300'>
-
+<table>
+  <tr>
+    <td> <img src='images/benchmarks/laubloomis_6.png' width='350'> </td>
+    <td> <img src='images/benchmarks/laubloomis_7.png' width='350'> </td>
+  </tr> 
+  <tr>
+    <td> Cutoff threshold: 1e-6 <br> Time cost: 10 seconds (M1 Mac mini) </td>
+    <td> Cutoff threshold: 1e-7 <br> Time cost: 14 seconds (M1 Mac mini) </td>
+  </tr>
+</table>
 
 [Laub-Loomis Model](benchmarks/continuous/laubloomis/)
 
-- **_Symbolic remainder._**
+- **_Symbolic remainder._** An integer to indicate the complexity of the symbolic remainders. Symbolic remainders are introduced to avoid the wrapping effect from all linear transformations on TM remainders. Using symbolic remainders can greatly reduce the accumulation of errors. We give the following example to show the effectiveness.
 
+
+
+
+<br>
+<br>
+<br>
+<br>
 
 --
 **More content will be added.**
