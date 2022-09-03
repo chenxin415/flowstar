@@ -67,7 +67,11 @@ The above reachability problem can be described by the following C++ program usi
 
 - **_Stepsize._** The time interval for a single TM flowpipe. A smaller stepsize produces TM flowpipes with smaller remainders.
 
+<br>
+
 - **_TM order._** The degree bound for TM flowpipes. A higher TM order in one time step produces a TM flowpipe with a smaller remainder.
+
+<br>
 
 - **_Cutoff threshold._** A small value for moving the small terms in the polynomial part of a TM to its remainder. Higher cutoff threshold may greatly simplify a TM but lead to a heavier error accumulation. We give the following comparison to show its impact on the time cost and overapproximation quality.
 
@@ -83,11 +87,28 @@ The above reachability problem can be described by the following C++ program usi
   </tr>
 </table>
 
-[Laub-Loomis Model](benchmarks/continuous/laubloomis/)
+[Laub-Loomis Model (radius 0.2)](benchmarks/continuous/laubloomis/)
+
+<br>
+
 
 - **_Symbolic remainder._** An integer to indicate the complexity of the symbolic remainders. Symbolic remainders are introduced to avoid the wrapping effect from all linear transformations on TM remainders. Using symbolic remainders can greatly reduce the accumulation of errors. We give the following example to show the effectiveness.
 
 
+<table>
+  <tr>
+    <td> <img src='images/benchmarks/quadrotor_0.png' width='350'> </td>
+    <td> <img src='images/benchmarks/quadrotor_20.png' width='350'> </td>
+  </tr> 
+  <tr>
+    <td> Symbolic remainder size: 0 <br> Time cost: 5.3 seconds (M1 Mac mini) </td>
+    <td> Symbolic remainder size: 20 <br> Time cost: 3.9 seconds (M1 Mac mini) </td>
+  </tr>
+</table>
+
+[Quadrotor Model](benchmarks/continuous/quadrotor/)
+
+<br>
 
 
 <br>
