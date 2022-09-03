@@ -24,6 +24,7 @@ Safe Set: $y_1,y_2\leq 4$
 
 ### Result
 
+Octagon overapproximations of the TM flowpipes are in red, 500 simulations computed by Matlab ode45 are in blue.
 
 <img src='../../../images/benchmarks/coupled_vanderpol_t_x1.png' width='400'>
 
