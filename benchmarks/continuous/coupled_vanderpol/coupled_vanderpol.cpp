@@ -83,7 +83,7 @@ int main()
 		Symbolic_Remainder sr(initial_sets[i], 1000);
 		ode.reach(result, initial_sets[i], T, setting, safeSet, sr);
 
-		if(!result.isCompleted()) // if the flowpipes are successfully computed
+		if(!result.isCompleted()) // if the flowpipes are not successfully computed
 		{
 			safety = -1;
 			break;
@@ -94,7 +94,7 @@ int main()
 			safety = UNSAFE;
 			break;
 		}
-		else if(!result.isSafe())// there is no unsafe flowpipe found, but some of the flowpipes intersect the unsafe set
+		else if(!result.isSafe()) // there is no unsafe flowpipe found, but some of the flowpipes intersect the unsafe set
 		{
 			safety = UNKNOWN;
 		}
