@@ -22,3 +22,13 @@ Safe Set: $y_1,y_2\leq 4$
 
 
 
+### Result
+
+
+<img src='../../../images/benchmarks/coupled_vanderpol_t_x1.png' width='400'>
+
+<img src='../../../images/benchmarks/coupled_vanderpol_t_y1.png' width='400'>
+
+<img src='../../../images/benchmarks/coupled_vanderpol_t_x2.png' width='400'>
+
+<img src='../../../images/benchmarks/coupled_vanderpol_t_y2.png' width='400'>
