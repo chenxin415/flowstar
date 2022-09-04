@@ -78,16 +78,16 @@ The above reachability problem can be described by the following C++ program usi
 
 <table>
   <tr>
+    <td> <img src='images/benchmarks/laubloomis_5.png' width='350'> </td>
     <td> <img src='images/benchmarks/laubloomis_6.png' width='350'> </td>
-    <td> <img src='images/benchmarks/laubloomis_7.png' width='350'> </td>
   </tr> 
   <tr>
+    <td> Cutoff threshold: 1e-5 </td>
     <td> Cutoff threshold: 1e-6 </td>
-    <td> Cutoff threshold: 1e-7 </td>
   </tr>
 </table>
 
-[Laub-Loomis Model (radius 0.2)](benchmarks/continuous/laubloomis/)
+[Laub-Loomis Model (radius 0.1)](benchmarks/continuous/laubloomis/)
 
 <br>
 
