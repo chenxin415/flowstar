@@ -82,8 +82,8 @@ The above reachability problem can be described by the following C++ program usi
     <td> <img src='images/benchmarks/laubloomis_7.png' width='350'> </td>
   </tr> 
   <tr>
-    <td> Cutoff threshold: 1e-6 <br> Time cost: 10 seconds (M1 Mac mini) </td>
-    <td> Cutoff threshold: 1e-7 <br> Time cost: 14 seconds (M1 Mac mini) </td>
+    <td> Cutoff threshold: 1e-6 </td>
+    <td> Cutoff threshold: 1e-7 </td>
   </tr>
 </table>
 
