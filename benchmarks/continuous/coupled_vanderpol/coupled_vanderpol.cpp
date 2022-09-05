@@ -20,84 +20,137 @@ int main()
 
 	Computational_Setting setting(vars);
 
-	setting.setAdaptiveStepsize(0.001, 0.03, 5);
-
-	setting.setCutoffThreshold(2e-8);
-
-	Interval remainder(-5e-6,5e-6);
-	vector<Interval> estimation(vars.size(), remainder);
-	setting.setRemainderEstimation(estimation);
+	setting.setCutoffThreshold(1e-8);
 
 	setting.printOff();	// do not display information during the reachability analysis
+
+	// safety: y1 <= 4 and y2 <= 4
+	vector<Constraint> safeSet = {Constraint("y1 - 4", vars), Constraint("y2 - 4", vars)};
 
 	// define the initial set which is a box
 	Interval init_x(1.55, 1.85), init_y(2.35, 2.45);
 
+	vector<Interval> global_box(vars.size());
+	global_box[x1_id] = init_x;
+	global_box[y1_id] = init_y;
+	global_box[x2_id] = init_x;
+	global_box[y2_id] = init_y;
 
-	// subdividing the initial set to smaller boxes
-	// we only subdivide the set to 8 pieces in the dimensions of x1 and x2
-	list<Interval> subdiv_x1;
-	init_x.split(subdiv_x1, 8);
-
-	list<Interval> subdiv_x2 = subdiv_x1;
-
-	list<Interval>::iterator iter1 = subdiv_x1.begin();
-
-	vector<Flowpipe> initial_sets;
-
-	for(; iter1 != subdiv_x1.end(); ++iter1)
-	{
-		list<Interval>::iterator iter2 = subdiv_x2.begin();
-
-		for(; iter2 != subdiv_x2.end(); ++iter2)
-		{
-			vector<Interval> box(vars.size());
-			box[x1_id] = *iter1;
-			box[y1_id] = init_y;
-			box[x2_id] = *iter2;
-			box[y2_id] = init_y;
-
-			Flowpipe initialSet(box);
-
-			initial_sets.push_back(initialSet);
-		}
-	}
-
-
-	// safety: y1 <= 4 and y2 <= 4
-	vector<Constraint> safeSet = {Constraint("y1 - 4", vars), Constraint("y2 - 4", vars)};
 
 
 	Result_of_Reachability result;	// data structure to keep the reachability analysis result
 
 
+	// subdividing the initial set to smaller boxes 15 x 1 x 15 x 1
+	list<Interval> subdiv_x0;
+	global_box[0].split(subdiv_x0, 15);
+
+	list<Interval> subdiv_x1;
+	global_box[1].split(subdiv_x1, 1);
+
+	list<Interval> subdiv_x2;
+	global_box[2].split(subdiv_x2, 15);
+
+	list<Interval> subdiv_x3;
+	global_box[3].split(subdiv_x3, 1);
+
+	list<Interval>::iterator iter0 = subdiv_x0.begin();
+
+	vector<Flowpipe> initial_sets;
+	vector<vector<Interval> > initial_boxes;
+
+	for(; iter0 != subdiv_x0.end(); ++iter0)
+	{
+		list<Interval>::iterator iter1 = subdiv_x1.begin();
+
+		for(; iter1 != subdiv_x1.end(); ++iter1)
+		{
+			list<Interval>::iterator iter2 = subdiv_x2.begin();
+
+			for(; iter2 != subdiv_x2.end(); ++iter2)
+			{
+				list<Interval>::iterator iter3 = subdiv_x3.begin();
+
+				for(; iter3 != subdiv_x3.end(); ++iter3)
+				{
+					vector<Interval> box(vars.size());
+					box[0] = *iter0;
+					box[1] = *iter1;
+					box[2] = *iter2;
+					box[3] = *iter3;
+					box[4] = 0;
+
+					Flowpipe initialSet(box);
+
+					initial_sets.push_back(initialSet);
+					initial_boxes.push_back(box);
+				}
+			}
+		}
+	}
+
 	clock_t begin, end;
 	begin = clock();
-
-	double T = 8;	// time horizon
 
 	int safety = SAFE;
 
 	for(int i=0; i<initial_sets.size(); ++i)
 	{
-		Symbolic_Remainder sr(initial_sets[i], 1000);
-		ode.reach(result, initial_sets[i], T, setting, safeSet, sr);
+		double T = 7.4;
 
-		if(!result.isCompleted()) // if the flowpipes are not successfully computed
+		Flowpipe local_init = initial_sets[i];
+
+		for(int j=0; j<2; ++j, T = 0.6)
 		{
-			safety = -1;
-			break;
+			Symbolic_Remainder sr(local_init, 5000);
+
+			if(j == 0)
+			{
+				setting.setAdaptiveStepsize(0.0001, 0.05, 5);
+
+				Interval remainder(-3e-6,3e-6);
+				vector<Interval> estimation(vars.size(), remainder);
+				setting.setRemainderEstimation(estimation);
+
+				ode.reach(result, local_init, T, setting, safeSet, sr);
+			}
+			else
+			{
+				setting.setFixedStepsize(0.004, 4);
+
+				Interval remainder(-1e-3,1e-3);
+				vector<Interval> estimation(vars.size(), remainder);
+				setting.setRemainderEstimation(estimation);
+
+				ode.reach(result, local_init, T, setting, safeSet, sr);
+			}
+
+
+			if(!result.isCompleted()) // if the flowpipes are successfully computed
+			{
+				safety = -1;
+
+				cout << "Failed: " << initial_boxes[i][0] << "\t" << initial_boxes[i][1] << initial_boxes[i][2] << "\t" << initial_boxes[i][3] << endl;
+
+				break;
+			}
+
+			if(result.isUnsafe()) // if there is an unsafe flowpipe detected, the computation terminates immediately
+			{
+				safety = UNSAFE;
+				break;
+			}
+			else if(!result.isSafe())// there is no unsafe flowpipe found, but some of the flowpipes intersect the unsafe set
+			{
+				cout << "Unknown: " << initial_boxes[i][0] << "\t" << initial_boxes[i][1] << initial_boxes[i][2] << "\t" << initial_boxes[i][3] << endl;
+
+				safety = UNKNOWN;
+			}
+
+			local_init = result.fp_end_of_time;
 		}
 
-		if(result.isUnsafe()) // if there is an unsafe flowpipe detected, the computation terminates immediately
-		{
-			safety = UNSAFE;
-			break;
-		}
-		else if(!result.isSafe()) // there is no unsafe flowpipe found, but some of the flowpipes intersect the unsafe set
-		{
-			safety = UNKNOWN;
-		}
+		cout << "Partition " << i+1 << " completed." << endl;
 	}
 
 
@@ -122,6 +175,25 @@ int main()
 		printf("The safety is unknown.\n");
 	}
 
+
+	result.transformToTaylorModels(setting);
+
+
+	setting.printOn();
+	Plot_Setting plot_setting(vars);
+	plot_setting.printOn();
+
+	plot_setting.setOutputDims("t", "x1");
+	plot_setting.plot_2D_interval_MATLAB("./", "coupled_vanderpol_t_x1", result.tmv_flowpipes, setting);
+
+	plot_setting.setOutputDims("t", "x2");
+	plot_setting.plot_2D_interval_MATLAB("./", "coupled_vanderpol_t_x2", result.tmv_flowpipes, setting);
+
+	plot_setting.setOutputDims("t", "y1");
+	plot_setting.plot_2D_interval_MATLAB("./", "coupled_vanderpol_t_y1", result.tmv_flowpipes, setting);
+
+	plot_setting.setOutputDims("t", "y2");
+	plot_setting.plot_2D_interval_MATLAB("./", "coupled_vanderpol_t_y2", result.tmv_flowpipes, setting);
 
 	return 0;
 }
