@@ -30,13 +30,13 @@ int main()
 
 	Computational_Setting setting(vars);
 
-	setting.setFixedStepsize(0.1, 5);
+	setting.setFixedStepsize(0.05, 4);
 
 	// set the cutoff threshold
-	setting.setCutoffThreshold(5e-6);
+	setting.setCutoffThreshold(1e-7);
 
 	// set up the remainder estimation
-	Interval I(-1e-2, 1e-2);
+	Interval I(-1e-1, 1e-1);
 	vector<Interval> remainder_estimation(vars.size(), I);
 	setting.setRemainderEstimation(remainder_estimation);
 
@@ -103,10 +103,28 @@ int main()
 
 	Plot_Setting plot_setting(vars);
 	plot_setting.printOn();
+	
+		plot_setting.setOutputDims("t", "x1");
+	plot_setting.plot_2D_octagon_MATLAB("./", "laubloomis_t_x1", result.tmv_flowpipes, setting);
+
+	plot_setting.setOutputDims("t", "x2");
+	plot_setting.plot_2D_octagon_MATLAB("./", "laubloomis_t_x2", result.tmv_flowpipes, setting);
+
+	plot_setting.setOutputDims("t", "x3");
+	plot_setting.plot_2D_octagon_MATLAB("./", "laubloomis_t_x3", result.tmv_flowpipes, setting);
+
 	plot_setting.setOutputDims("t", "x4");
+	plot_setting.plot_2D_octagon_MATLAB("./", "laubloomis_t_x4", result.tmv_flowpipes, setting);
 
-	plot_setting.plot_2D_interval_GNUPLOT("./", "laubloomis", result.tmv_flowpipes, setting);
+	plot_setting.setOutputDims("t", "x5");
+	plot_setting.plot_2D_octagon_MATLAB("./", "laubloomis_t_x5", result.tmv_flowpipes, setting);
 
+	plot_setting.setOutputDims("t", "x6");
+	plot_setting.plot_2D_octagon_MATLAB("./", "laubloomis_t_x6", result.tmv_flowpipes, setting);
+
+	plot_setting.setOutputDims("t", "x7");
+	plot_setting.plot_2D_octagon_MATLAB("./", "laubloomis_t_x7", result.tmv_flowpipes, setting);
+	
 	return 0;
 }
 
