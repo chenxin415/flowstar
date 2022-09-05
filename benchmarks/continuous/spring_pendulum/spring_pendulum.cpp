@@ -18,7 +18,7 @@ int main()
 
 	Computational_Setting setting(vars);
 
-	setting.setFixedStepsize(0.05, 5);	// fixed stepsize is 0.05, fixed order is 5
+	setting.setFixedStepsize(0.03, 5);	// fixed stepsize is 0.05, fixed order is 5
 
 
 	double w = 0.01; //radius of the initial set
