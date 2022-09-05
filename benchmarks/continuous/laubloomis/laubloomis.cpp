@@ -19,21 +19,21 @@ int main()
 
 
 	ODE<Real> ode({	"1.4 * x3 - 0.9 * x1",
-					"2.5 * x5 - 1.5 * x2",
-					"0.6 * x7 - 0.8 * x3 * x2",
-					"2 - 1.3 * x4 * x3",
-					"0.7 * x1 - x4 * x5",
-					"0.3 * x1 - 3.1 * x6",
-					"1.8 * x6 - 1.5 * x7 * x2",
-					"1"}, vars);
+			"2.5 * x5 - 1.5 * x2",
+			"0.6 * x7 - 0.8 * x3 * x2",
+			"2 - 1.3 * x4 * x3",
+			"0.7 * x1 - x4 * x5",
+			"0.3 * x1 - 3.1 * x6",
+			"1.8 * x6 - 1.5 * x7 * x2",
+			"1"}, vars);
 
 
 	Computational_Setting setting(vars);
 
-	setting.setFixedStepsize(0.05, 4);
+	setting.setFixedStepsize(0.1, 5);
 
 	// set the cutoff threshold
-	setting.setCutoffThreshold(1e-7);
+	setting.setCutoffThreshold(1e-6);
 
 	// set up the remainder estimation
 	Interval I(-1e-1, 1e-1);
