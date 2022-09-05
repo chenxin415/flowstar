@@ -23,7 +23,7 @@ Safe Set: $y_1,y_2\leq 4$
 
 ### Remark
 
-This is a difficult reachability problem especially for the techniques ensuring numerical conservativeness. Flow\* subdivides the initial set in the dimesnion $x_1$ and $x_2$ independently to $15$ pieces. We find that cutting off even a small error of the size 1e-9 to a flowpipe remainder may make the safety property not verified.
+This is a difficult reachability problem especially for the techniques ensuring numerical conservativeness. Flow\* subdivides the initial set in the dimesnion $x_1$ and $x_2$ independently to $15$ pieces. We find that cutting off even a small error of the size 1e-9 to the flowpipe remainder may make the safety property not verified.
 
 
 ### Result
