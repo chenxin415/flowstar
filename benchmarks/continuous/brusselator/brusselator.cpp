@@ -34,7 +34,7 @@ int main()
 	// fixed TM order: 4
 
 	// using the following statement to specify the stepsize as 0.02 and the order as 5
-	setting.setFixedStepsize(0.02, 5);
+	setting.setFixedStepsize(0.02, 6);
 
 
 
