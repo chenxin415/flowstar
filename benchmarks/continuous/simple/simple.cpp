@@ -87,7 +87,7 @@ int main()
 	end = clock();
 	printf("time cost: %lf\n", (double)(end - begin) / CLOCKS_PER_SEC);
 
-	if(!result.isCompleted()) // if the flowpipes are successfully computed
+	if(!result.isCompleted()) // if the flowpipes are not successfully computed
 	{
 		printf("Flowpipe computation is terminated due to the large overestimation.\n");
 	}
