@@ -30,5 +30,23 @@ Time horizon: $[0,20]$
 
 ### Result
 
-<img src='../../../images/benchmarks/laubloomis.png' width='400'>
+<img src='../../../images/benchmarks/laubloomis_t_x1.png' width='400'>
+
+
+<img src='../../../images/benchmarks/laubloomis_t_x2.png' width='400'>
+
+
+<img src='../../../images/benchmarks/laubloomis_t_x3.png' width='400'>
+
+
+<img src='../../../images/benchmarks/laubloomis_t_x4.png' width='400'>
+
+
+<img src='../../../images/benchmarks/laubloomis_t_x5.png' width='400'>
+
+
+<img src='../../../images/benchmarks/laubloomis_t_x6.png' width='400'>
+
+
+<img src='../../../images/benchmarks/laubloomis_t_x7.png' width='400'>
 

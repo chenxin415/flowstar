@@ -17,8 +17,8 @@ Time horizon: $[0,7]$
 
 
 ### Result
-10*(y - x)
-To see how Flow* controls the growth of overestimation, it is better to only plot the reachable set overapproximations at discrete times.
+
+To see how Flow* controls the growth of overestimation, we only plot the reachable set overapproximations at discrete times.
 
 <img src='../../../images/benchmarks/lorenz_x_y.png' width='400'>
 
