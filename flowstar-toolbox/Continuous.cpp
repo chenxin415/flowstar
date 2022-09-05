@@ -14,10 +14,9 @@ Symbolic_Remainder::Symbolic_Remainder()
 	max_size = 0;
 }
 
-Symbolic_Remainder::Symbolic_Remainder(const Flowpipe & initial_set, const unsigned int s)
+Symbolic_Remainder::Symbolic_Remainder(const Flowpipe & initialSet, const unsigned int s)
 {
-	scalars.resize(initial_set.tmv.tms.size(), 1);
-	initial_set.tmv.Expansion(polynomial_of_initial_set);
+	scalars.resize(initialSet.tmvPre.tms.size(), 1);
 	max_size = s;
 }
 
@@ -26,7 +25,6 @@ Symbolic_Remainder::Symbolic_Remainder(const Symbolic_Remainder & symbolic_remai
 	J							= symbolic_remainder.J;
 	Phi_L						= symbolic_remainder.Phi_L;
 	scalars						= symbolic_remainder.scalars;
-	polynomial_of_initial_set	= symbolic_remainder.polynomial_of_initial_set;
 	max_size					= symbolic_remainder.max_size;
 }
 
@@ -34,12 +32,10 @@ Symbolic_Remainder::~Symbolic_Remainder()
 {
 }
 
-void Symbolic_Remainder::reset(const Flowpipe & initial_set)
+void Symbolic_Remainder::reset(const unsigned int dim)
 {
 	scalars.clear();
-	scalars.resize(initial_set.tmv.tms.size(), 1);
-
-	initial_set.tmv.Expansion(polynomial_of_initial_set);
+	scalars.resize(dim, 1);
 
 	J.clear();
 	Phi_L.clear();
@@ -53,7 +49,6 @@ Symbolic_Remainder & Symbolic_Remainder::operator = (const Symbolic_Remainder & 
 	J							= symbolic_remainder.J;
 	Phi_L						= symbolic_remainder.Phi_L;
 	scalars						= symbolic_remainder.scalars;
-	polynomial_of_initial_set	= symbolic_remainder.polynomial_of_initial_set;
 	max_size					= symbolic_remainder.max_size;
 
 	return *this;
@@ -78,7 +73,7 @@ Computational_Setting::Computational_Setting(const Variables & vars)
 
 
 	// default remainder estimation
-	Interval I(-0.001,0.001);
+	Interval I(-1e-4,1e-4);
 	std::vector<Interval> estimation(vars.size(), I);
 	setRemainderEstimation(estimation);
 }
@@ -873,14 +868,14 @@ int Flowpipe::advance(Flowpipe & result, const std::vector<Expression<Real> > & 
 	// the center point of x0's polynomial part
 	std::vector<Real> const_of_x0;
 	tmv_of_x0.constant(const_of_x0);
-
+/*
 	for(unsigned int i=0; i<rangeDim; ++i)
 	{
 		Real c;
 		tmv_of_x0.tms[i].remainder.remove_midpoint(c);
 		const_of_x0[i] += c;
 	}
-
+*/
 	TaylorModelVec<Real> tmv_c0(const_of_x0, rangeDimExt);
 
 	// introduce a new variable r0 such that x0 = c0 + A*r0, then r0 is origin-centered
@@ -1061,14 +1056,14 @@ int Flowpipe::advance(Flowpipe & result, const std::vector<Expression<Interval> 
 	// the center point of x0's polynomial part
 	std::vector<Real> const_of_x0;
 	tmv_of_x0.constant(const_of_x0);
-
+/*
 	for(unsigned int i=0; i<rangeDim; ++i)
 	{
 		Real c;
 		tmv_of_x0.tms[i].remainder.remove_midpoint(c);
 		const_of_x0[i] += c;
 	}
-
+*/
 	TaylorModelVec<Real> tmv_c0(const_of_x0, rangeDimExt);
 
 	// introduce a new variable r0 such that x0 = c0 + A*r0, then r0 is origin-centered
@@ -1249,14 +1244,14 @@ int Flowpipe::advance_adaptive_stepsize(Flowpipe & result, const std::vector<Exp
 	// the center point of x0's polynomial part
 	std::vector<Real> const_of_x0;
 	tmv_of_x0.constant(const_of_x0);
-
+/*
 	for(unsigned int i=0; i<rangeDim; ++i)
 	{
 		Real c;
 		tmv_of_x0.tms[i].remainder.remove_midpoint(c);
 		const_of_x0[i] += c;
 	}
-
+*/
 	TaylorModelVec<Real> tmv_c0(const_of_x0, rangeDimExt);
 
 	// introduce a new variable r0 such that x0 = c0 + A*r0, then r0 is origin-centered
@@ -1468,14 +1463,14 @@ int Flowpipe::advance_adaptive_stepsize(Flowpipe & result, const std::vector<Exp
 	// the center point of x0's polynomial part
 	std::vector<Real> const_of_x0;
 	tmv_of_x0.constant(const_of_x0);
-
+/*
 	for(unsigned int i=0; i<rangeDim; ++i)
 	{
 		Real c;
 		tmv_of_x0.tms[i].remainder.remove_midpoint(c);
 		const_of_x0[i] += c;
 	}
-
+*/
 	TaylorModelVec<Real> tmv_c0(const_of_x0, rangeDimExt);
 
 	// introduce a new variable r0 such that x0 = c0 + A*r0, then r0 is origin-centered
@@ -1686,14 +1681,14 @@ int Flowpipe::advance_adaptive_order(Flowpipe & result, const std::vector<Expres
 	// the center point of x0's polynomial part
 	std::vector<Real> const_of_x0;
 	tmv_of_x0.constant(const_of_x0);
-
+/*
 	for(unsigned int i=0; i<rangeDim; ++i)
 	{
 		Real c;
 		tmv_of_x0.tms[i].remainder.remove_midpoint(c);
 		const_of_x0[i] += c;
 	}
-
+*/
 	TaylorModelVec<Real> tmv_c0(const_of_x0, rangeDimExt);
 
 	// introduce a new variable r0 such that x0 = c0 + A*r0, then r0 is origin-centered
@@ -1910,14 +1905,14 @@ int Flowpipe::advance_adaptive_order(Flowpipe & result, const std::vector<Expres
 	// the center point of x0's polynomial part
 	std::vector<Real> const_of_x0;
 	tmv_of_x0.constant(const_of_x0);
-
+/*
 	for(unsigned int i=0; i<rangeDim; ++i)
 	{
 		Real c;
 		tmv_of_x0.tms[i].remainder.remove_midpoint(c);
 		const_of_x0[i] += c;
 	}
-
+*/
 	TaylorModelVec<Real> tmv_c0(const_of_x0, rangeDimExt);
 
 	// introduce a new variable r0 such that x0 = c0 + A*r0, then r0 is origin-centered
@@ -2139,14 +2134,14 @@ int Flowpipe::advance(Flowpipe & result, const std::vector<Expression<Real> > & 
 	// the center point of x0's polynomial part
 	std::vector<Real> const_of_x0;
 	tmv_of_x0.constant(const_of_x0);
-
+/*
 	for(unsigned int i=0; i<rangeDim; ++i)
 	{
 		Real c;
 		tmv_of_x0.tms[i].remainder.remove_midpoint(c);
 		const_of_x0[i] += c;
 	}
-
+*/
 	TaylorModelVec<Real> tmv_c0(const_of_x0, rangeDimExt);
 
 	// introduce a new variable r0 such that x0 = c0 + A*r0, then r0 is origin-centered
@@ -2161,13 +2156,15 @@ int Flowpipe::advance(Flowpipe & result, const std::vector<Expression<Real> > & 
 
 	x0_linear.linearCoefficients(Phi_L_i);
 
+	Matrix<Real> linear_x0 = Phi_L_i;
+
 	Phi_L_i.right_scale_assign(symbolic_remainder.scalars);
 
 
 	// compute the remainder part under the linear transformation
 	Matrix<Interval> J_i(rangeDim, 1);
 
-	for(unsigned int i=0; i<symbolic_remainder.Phi_L.size(); ++i)
+	for(unsigned int i=1; i<symbolic_remainder.Phi_L.size(); ++i)
 	{
 		symbolic_remainder.Phi_L[i] = Phi_L_i * symbolic_remainder.Phi_L[i];
 	}
@@ -2186,9 +2183,6 @@ int Flowpipe::advance(Flowpipe & result, const std::vector<Expression<Real> > & 
 	// compute the local initial set
 	if(symbolic_remainder.J.size() > 0)
 	{
-		// compute the polynomial part under the linear transformation
-		std::vector<Polynomial<Real> > initial_linear = symbolic_remainder.Phi_L[0] * symbolic_remainder.polynomial_of_initial_set;
-
 		// compute the other part
 		std::vector<Interval> tmvPolyRange;
 		tmv.polyRangeNormal(tmvPolyRange, tm_setting.step_end_exp_table);
@@ -2196,9 +2190,14 @@ int Flowpipe::advance(Flowpipe & result, const std::vector<Expression<Real> > & 
 
 		result.tmv.Remainder(J_ip1);
 
+		std::vector<Polynomial<Real> > poly_tmv;
+		tmv.Expansion(poly_tmv);
+		std::vector<Polynomial<Real> > linear_part = linear_x0 * poly_tmv;
+
 		for(int i=0; i<rangeDim; ++i)
 		{
-			result.tmv.tms[i].expansion += initial_linear[i];
+			linear_part[i].nctrunc(2);
+			result.tmv.tms[i].expansion += linear_part[i];
 		}
 
 		// contract J_ip1 and J_i
@@ -2429,14 +2428,14 @@ int Flowpipe::advance(Flowpipe & result, const std::vector<Expression<Interval> 
 	// the center point of x0's polynomial part
 	std::vector<Real> const_of_x0;
 	tmv_of_x0.constant(const_of_x0);
-
+/*
 	for(unsigned int i=0; i<rangeDim; ++i)
 	{
 		Real c;
 		tmv_of_x0.tms[i].remainder.remove_midpoint(c);
 		const_of_x0[i] += c;
 	}
-
+*/
 	TaylorModelVec<Real> tmv_c0(const_of_x0, rangeDimExt);
 
 	// introduce a new variable r0 such that x0 = c0 + A*r0, then r0 is origin-centered
@@ -2451,13 +2450,15 @@ int Flowpipe::advance(Flowpipe & result, const std::vector<Expression<Interval> 
 
 	x0_linear.linearCoefficients(Phi_L_i);
 
+	Matrix<Real> linear_x0 = Phi_L_i;
+
 	Phi_L_i.right_scale_assign(symbolic_remainder.scalars);
 
 
 	// compute the remainder part under the linear transformation
 	Matrix<Interval> J_i(rangeDim, 1);
 
-	for(unsigned int i=0; i<symbolic_remainder.Phi_L.size(); ++i)
+	for(unsigned int i=1; i<symbolic_remainder.Phi_L.size(); ++i)
 	{
 		symbolic_remainder.Phi_L[i] = Phi_L_i * symbolic_remainder.Phi_L[i];
 	}
@@ -2476,9 +2477,6 @@ int Flowpipe::advance(Flowpipe & result, const std::vector<Expression<Interval> 
 	// compute the local initial set
 	if(symbolic_remainder.J.size() > 0)
 	{
-		// compute the polynomial part under the linear transformation
-		std::vector<Polynomial<Real> > initial_linear = symbolic_remainder.Phi_L[0] * symbolic_remainder.polynomial_of_initial_set;
-
 		// compute the other part
 		std::vector<Interval> tmvPolyRange;
 		tmv.polyRangeNormal(tmvPolyRange, tm_setting.step_end_exp_table);
@@ -2486,9 +2484,14 @@ int Flowpipe::advance(Flowpipe & result, const std::vector<Expression<Interval> 
 
 		result.tmv.Remainder(J_ip1);
 
+		std::vector<Polynomial<Real> > poly_tmv;
+		tmv.Expansion(poly_tmv);
+		std::vector<Polynomial<Real> > linear_part = linear_x0 * poly_tmv;
+
 		for(int i=0; i<rangeDim; ++i)
 		{
-			result.tmv.tms[i].expansion += initial_linear[i];
+			linear_part[i].nctrunc(2);
+			result.tmv.tms[i].expansion += linear_part[i];
 		}
 
 		// contract J_ip1 and J_i
@@ -2719,14 +2722,14 @@ int Flowpipe::advance_adaptive_stepsize(Flowpipe & result, const std::vector<Exp
 	// the center point of x0's polynomial part
 	std::vector<Real> const_of_x0;
 	tmv_of_x0.constant(const_of_x0);
-
+/*
 	for(unsigned int i=0; i<rangeDim; ++i)
 	{
 		Real c;
 		tmv_of_x0.tms[i].remainder.remove_midpoint(c);
 		const_of_x0[i] += c;
 	}
-
+*/
 	TaylorModelVec<Real> tmv_c0(const_of_x0, rangeDimExt);
 
 	// introduce a new variable r0 such that x0 = c0 + A*r0, then r0 is origin-centered
@@ -2741,13 +2744,15 @@ int Flowpipe::advance_adaptive_stepsize(Flowpipe & result, const std::vector<Exp
 
 	x0_linear.linearCoefficients(Phi_L_i);
 
+	Matrix<Real> linear_x0 = Phi_L_i;
+
 	Phi_L_i.right_scale_assign(symbolic_remainder.scalars);
 
 
 	// compute the remainder part under the linear transformation
 	Matrix<Interval> J_i(rangeDim, 1);
 
-	for(unsigned int i=0; i<symbolic_remainder.Phi_L.size(); ++i)
+	for(unsigned int i=1; i<symbolic_remainder.Phi_L.size(); ++i)
 	{
 		symbolic_remainder.Phi_L[i] = Phi_L_i * symbolic_remainder.Phi_L[i];
 	}
@@ -2766,9 +2771,6 @@ int Flowpipe::advance_adaptive_stepsize(Flowpipe & result, const std::vector<Exp
 	// compute the local initial set
 	if(symbolic_remainder.J.size() > 0)
 	{
-		// compute the polynomial part under the linear transformation
-		std::vector<Polynomial<Real> > initial_linear = symbolic_remainder.Phi_L[0] * symbolic_remainder.polynomial_of_initial_set;
-
 		// compute the other part
 		std::vector<Interval> tmvPolyRange;
 		tmv.polyRangeNormal(tmvPolyRange, tm_setting.step_end_exp_table);
@@ -2776,9 +2778,14 @@ int Flowpipe::advance_adaptive_stepsize(Flowpipe & result, const std::vector<Exp
 
 		result.tmv.Remainder(J_ip1);
 
+		std::vector<Polynomial<Real> > poly_tmv;
+		tmv.Expansion(poly_tmv);
+		std::vector<Polynomial<Real> > linear_part = linear_x0 * poly_tmv;
+
 		for(int i=0; i<rangeDim; ++i)
 		{
-			result.tmv.tms[i].expansion += initial_linear[i];
+			linear_part[i].nctrunc(2);
+			result.tmv.tms[i].expansion += linear_part[i];
 		}
 
 		// contract J_ip1 and J_i
@@ -3039,14 +3046,14 @@ int Flowpipe::advance_adaptive_stepsize(Flowpipe & result, const std::vector<Exp
 	// the center point of x0's polynomial part
 	std::vector<Real> const_of_x0;
 	tmv_of_x0.constant(const_of_x0);
-
+/*
 	for(unsigned int i=0; i<rangeDim; ++i)
 	{
 		Real c;
 		tmv_of_x0.tms[i].remainder.remove_midpoint(c);
 		const_of_x0[i] += c;
 	}
-
+*/
 	TaylorModelVec<Real> tmv_c0(const_of_x0, rangeDimExt);
 
 	// introduce a new variable r0 such that x0 = c0 + A*r0, then r0 is origin-centered
@@ -3061,13 +3068,15 @@ int Flowpipe::advance_adaptive_stepsize(Flowpipe & result, const std::vector<Exp
 
 	x0_linear.linearCoefficients(Phi_L_i);
 
+	Matrix<Real> linear_x0 = Phi_L_i;
+
 	Phi_L_i.right_scale_assign(symbolic_remainder.scalars);
 
 
 	// compute the remainder part under the linear transformation
 	Matrix<Interval> J_i(rangeDim, 1);
 
-	for(unsigned int i=0; i<symbolic_remainder.Phi_L.size(); ++i)
+	for(unsigned int i=1; i<symbolic_remainder.Phi_L.size(); ++i)
 	{
 		symbolic_remainder.Phi_L[i] = Phi_L_i * symbolic_remainder.Phi_L[i];
 	}
@@ -3086,9 +3095,6 @@ int Flowpipe::advance_adaptive_stepsize(Flowpipe & result, const std::vector<Exp
 	// compute the local initial set
 	if(symbolic_remainder.J.size() > 0)
 	{
-		// compute the polynomial part under the linear transformation
-		std::vector<Polynomial<Real> > initial_linear = symbolic_remainder.Phi_L[0] * symbolic_remainder.polynomial_of_initial_set;
-
 		// compute the other part
 		std::vector<Interval> tmvPolyRange;
 		tmv.polyRangeNormal(tmvPolyRange, tm_setting.step_end_exp_table);
@@ -3096,9 +3102,14 @@ int Flowpipe::advance_adaptive_stepsize(Flowpipe & result, const std::vector<Exp
 
 		result.tmv.Remainder(J_ip1);
 
+		std::vector<Polynomial<Real> > poly_tmv;
+		tmv.Expansion(poly_tmv);
+		std::vector<Polynomial<Real> > linear_part = linear_x0 * poly_tmv;
+
 		for(int i=0; i<rangeDim; ++i)
 		{
-			result.tmv.tms[i].expansion += initial_linear[i];
+			linear_part[i].nctrunc(2);
+			result.tmv.tms[i].expansion += linear_part[i];
 		}
 
 		// contract J_ip1 and J_i
@@ -3359,14 +3370,14 @@ int Flowpipe::advance_adaptive_order(Flowpipe & result, const std::vector<Expres
 	// the center point of x0's polynomial part
 	std::vector<Real> const_of_x0;
 	tmv_of_x0.constant(const_of_x0);
-
+/*
 	for(unsigned int i=0; i<rangeDim; ++i)
 	{
 		Real c;
 		tmv_of_x0.tms[i].remainder.remove_midpoint(c);
 		const_of_x0[i] += c;
 	}
-
+*/
 	TaylorModelVec<Real> tmv_c0(const_of_x0, rangeDimExt);
 
 	// introduce a new variable r0 such that x0 = c0 + A*r0, then r0 is origin-centered
@@ -3381,13 +3392,15 @@ int Flowpipe::advance_adaptive_order(Flowpipe & result, const std::vector<Expres
 
 	x0_linear.linearCoefficients(Phi_L_i);
 
+	Matrix<Real> linear_x0 = Phi_L_i;
+
 	Phi_L_i.right_scale_assign(symbolic_remainder.scalars);
 
 
 	// compute the remainder part under the linear transformation
 	Matrix<Interval> J_i(rangeDim, 1);
 
-	for(unsigned int i=0; i<symbolic_remainder.Phi_L.size(); ++i)
+	for(unsigned int i=1; i<symbolic_remainder.Phi_L.size(); ++i)
 	{
 		symbolic_remainder.Phi_L[i] = Phi_L_i * symbolic_remainder.Phi_L[i];
 	}
@@ -3406,9 +3419,6 @@ int Flowpipe::advance_adaptive_order(Flowpipe & result, const std::vector<Expres
 	// compute the local initial set
 	if(symbolic_remainder.J.size() > 0)
 	{
-		// compute the polynomial part under the linear transformation
-		std::vector<Polynomial<Real> > initial_linear = symbolic_remainder.Phi_L[0] * symbolic_remainder.polynomial_of_initial_set;
-
 		// compute the other part
 		std::vector<Interval> tmvPolyRange;
 		tmv.polyRangeNormal(tmvPolyRange, tm_setting.step_end_exp_table);
@@ -3416,9 +3426,14 @@ int Flowpipe::advance_adaptive_order(Flowpipe & result, const std::vector<Expres
 
 		result.tmv.Remainder(J_ip1);
 
+		std::vector<Polynomial<Real> > poly_tmv;
+		tmv.Expansion(poly_tmv);
+		std::vector<Polynomial<Real> > linear_part = linear_x0 * poly_tmv;
+
 		for(int i=0; i<rangeDim; ++i)
 		{
-			result.tmv.tms[i].expansion += initial_linear[i];
+			linear_part[i].nctrunc(2);
+			result.tmv.tms[i].expansion += linear_part[i];
 		}
 
 		// contract J_ip1 and J_i
@@ -3684,14 +3699,14 @@ int Flowpipe::advance_adaptive_order(Flowpipe & result, const std::vector<Expres
 	// the center point of x0's polynomial part
 	std::vector<Real> const_of_x0;
 	tmv_of_x0.constant(const_of_x0);
-
+/*
 	for(unsigned int i=0; i<rangeDim; ++i)
 	{
 		Real c;
 		tmv_of_x0.tms[i].remainder.remove_midpoint(c);
 		const_of_x0[i] += c;
 	}
-
+*/
 	TaylorModelVec<Real> tmv_c0(const_of_x0, rangeDimExt);
 
 	// introduce a new variable r0 such that x0 = c0 + A*r0, then r0 is origin-centered
@@ -3706,13 +3721,15 @@ int Flowpipe::advance_adaptive_order(Flowpipe & result, const std::vector<Expres
 
 	x0_linear.linearCoefficients(Phi_L_i);
 
+	Matrix<Real> linear_x0 = Phi_L_i;
+
 	Phi_L_i.right_scale_assign(symbolic_remainder.scalars);
 
 
 	// compute the remainder part under the linear transformation
 	Matrix<Interval> J_i(rangeDim, 1);
 
-	for(unsigned int i=0; i<symbolic_remainder.Phi_L.size(); ++i)
+	for(unsigned int i=1; i<symbolic_remainder.Phi_L.size(); ++i)
 	{
 		symbolic_remainder.Phi_L[i] = Phi_L_i * symbolic_remainder.Phi_L[i];
 	}
@@ -3731,9 +3748,6 @@ int Flowpipe::advance_adaptive_order(Flowpipe & result, const std::vector<Expres
 	// compute the local initial set
 	if(symbolic_remainder.J.size() > 0)
 	{
-		// compute the polynomial part under the linear transformation
-		std::vector<Polynomial<Real> > initial_linear = symbolic_remainder.Phi_L[0] * symbolic_remainder.polynomial_of_initial_set;
-
 		// compute the other part
 		std::vector<Interval> tmvPolyRange;
 		tmv.polyRangeNormal(tmvPolyRange, tm_setting.step_end_exp_table);
@@ -3741,9 +3755,14 @@ int Flowpipe::advance_adaptive_order(Flowpipe & result, const std::vector<Expres
 
 		result.tmv.Remainder(J_ip1);
 
+		std::vector<Polynomial<Real> > poly_tmv;
+		tmv.Expansion(poly_tmv);
+		std::vector<Polynomial<Real> > linear_part = linear_x0 * poly_tmv;
+
 		for(int i=0; i<rangeDim; ++i)
 		{
-			result.tmv.tms[i].expansion += initial_linear[i];
+			linear_part[i].nctrunc(2);
+			result.tmv.tms[i].expansion += linear_part[i];
 		}
 
 		// contract J_ip1 and J_i

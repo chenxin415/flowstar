@@ -186,14 +186,14 @@ int DDE<DATA_TYPE>::reach(std::list<Flowpipe> & flowpipes, const unsigned int n,
 		// the center point of x0's polynomial part
 		std::vector<Real> const_of_x0;
 		tmv_of_x0.constant(const_of_x0);
-
+/*
 		for(unsigned int i=0; i<rangeDim; ++i)
 		{
 			Real c;
 			tmv_of_x0.tms[i].remainder.remove_midpoint(c);
 			const_of_x0[i] += c;
 		}
-
+*/
 		TaylorModelVec<Real> tmv_c0(const_of_x0, rangeDim + 1);
 
 		// introduce a new variable r0 such that x0 = c0 + A*r0, then r0 is origin-centered
@@ -309,14 +309,14 @@ int DDE<DATA_TYPE>::reach_inv(TaylorModelFlowpipes & flowpipes, Flowpipe & last_
 		// the center point of x0's polynomial part
 		std::vector<Real> const_of_x0;
 		tmv_of_x0.constant(const_of_x0);
-
+/*
 		for(unsigned int i=0; i<rangeDim; ++i)
 		{
 			Real c;
 			tmv_of_x0.tms[i].remainder.remove_midpoint(c);
 			const_of_x0[i] += c;
 		}
-
+*/
 		TaylorModelVec<Real> tmv_c0(const_of_x0, rangeDim + 1);
 
 		// introduce a new variable r0 such that x0 = c0 + A*r0, then r0 is origin-centered
@@ -508,14 +508,14 @@ int DDE<DATA_TYPE>::reach_symbolic_remainder(std::list<Flowpipe> & flowpipes, co
 		// the center point of x0's polynomial part
 		std::vector<Real> const_of_x0;
 		tmv_of_x0.constant(const_of_x0);
-
+/*
 		for(unsigned int i=0; i<rangeDim; ++i)
 		{
 			Real c;
 			tmv_of_x0.tms[i].remainder.remove_midpoint(c);
 			const_of_x0[i] += c;
 		}
-
+*/
 		TaylorModelVec<Real> tmv_c0(const_of_x0, rangeDim + 1);
 
 		// introduce a new variable r0 such that x0 = c0 + A*r0, then r0 is origin-centered
@@ -538,7 +538,7 @@ int DDE<DATA_TYPE>::reach_symbolic_remainder(std::list<Flowpipe> & flowpipes, co
 		// compute the remainder part under the linear transformation
 		Matrix<Interval> J_i(rangeDim, 1);
 
-		for(unsigned int i=0; i<symbolic_remainder.Phi_L.size(); ++i)
+		for(unsigned int i=1; i<symbolic_remainder.Phi_L.size(); ++i)
 		{
 			symbolic_remainder.Phi_L[i] = Phi_L_i * symbolic_remainder.Phi_L[i];
 		}
@@ -558,9 +558,6 @@ int DDE<DATA_TYPE>::reach_symbolic_remainder(std::list<Flowpipe> & flowpipes, co
 		// compute the local initial set
 		if(symbolic_remainder.J.size() > 0)
 		{
-			// compute the polynomial part for the linear transformation
-			std::vector<Polynomial<Real> > initial_linear = symbolic_remainder.Phi_L[0] * symbolic_remainder.polynomial_of_initial_set;
-
 			// compute the other part
 			std::vector<Interval> tmvPolyRange;
 			current_flowpipe.tmv.polyRange(tmvPolyRange, current_flowpipe.domain);
@@ -568,11 +565,15 @@ int DDE<DATA_TYPE>::reach_symbolic_remainder(std::list<Flowpipe> & flowpipes, co
 
 			new_flowpipe.tmv.Remainder(J_ip1);
 
+			std::vector<Polynomial<Real> > poly_tmv;
+			current_flowpipe.tmv.Expansion(poly_tmv);
+			std::vector<Polynomial<Real> > linear_part = local_trans_linear * poly_tmv;
+
 			for(int i=0; i<rangeDim; ++i)
 			{
-				new_flowpipe.tmv.tms[i].expansion += initial_linear[i];
+				linear_part[i].nctrunc(2);
+				new_flowpipe.tmv.tms[i].expansion += linear_part[i];
 			}
-
 
 			for(int i=0; i<rangeDim; ++i)
 			{
@@ -666,7 +667,7 @@ int DDE<DATA_TYPE>::reach_symbolic_remainder(std::list<Flowpipe> & flowpipes, co
 
 		if(symbolic_remainder.J.size() >= symbolic_remainder.max_size)
 		{
-			symbolic_remainder.reset(current_flowpipe);
+			symbolic_remainder.reset(current_flowpipe.tmvPre.tms.size());
 		}
 	}
 
@@ -706,14 +707,14 @@ int DDE<DATA_TYPE>::reach_inv_symbolic_remainder(TaylorModelFlowpipes & flowpipe
 		// the center point of x0's polynomial part
 		std::vector<Real> const_of_x0;
 		tmv_of_x0.constant(const_of_x0);
-
+/*
 		for(unsigned int i=0; i<rangeDim; ++i)
 		{
 			Real c;
 			tmv_of_x0.tms[i].remainder.remove_midpoint(c);
 			const_of_x0[i] += c;
 		}
-
+*/
 		TaylorModelVec<Real> tmv_c0(const_of_x0, rangeDim + 1);
 
 		// introduce a new variable r0 such that x0 = c0 + A*r0, then r0 is origin-centered
@@ -728,6 +729,7 @@ int DDE<DATA_TYPE>::reach_inv_symbolic_remainder(TaylorModelFlowpipes & flowpipe
 
 		x0_linear.linearCoefficients(Phi_L_i);
 
+		Matrix<Real> local_trans_linear = Phi_L_i;
 
 		Phi_L_i.right_scale_assign(symbolic_remainder.scalars);
 
@@ -735,7 +737,7 @@ int DDE<DATA_TYPE>::reach_inv_symbolic_remainder(TaylorModelFlowpipes & flowpipe
 		// compute the remainder part under the linear transformation
 		Matrix<Interval> J_i(rangeDim, 1);
 
-		for(unsigned int i=0; i<symbolic_remainder.Phi_L.size(); ++i)
+		for(unsigned int i=1; i<symbolic_remainder.Phi_L.size(); ++i)
 		{
 			symbolic_remainder.Phi_L[i] = Phi_L_i * symbolic_remainder.Phi_L[i];
 		}
@@ -755,9 +757,6 @@ int DDE<DATA_TYPE>::reach_inv_symbolic_remainder(TaylorModelFlowpipes & flowpipe
 		// compute the local initial set
 		if(symbolic_remainder.J.size() > 0)
 		{
-			// compute the polynomial part for the linear transformation
-			std::vector<Polynomial<Real> > initial_linear = symbolic_remainder.Phi_L[0] * symbolic_remainder.polynomial_of_initial_set;
-
 			// compute the other part
 			std::vector<Interval> tmvPolyRange;
 			current_flowpipe.tmv.polyRange(tmvPolyRange, current_flowpipe.domain);
@@ -765,9 +764,14 @@ int DDE<DATA_TYPE>::reach_inv_symbolic_remainder(TaylorModelFlowpipes & flowpipe
 
 			new_flowpipe.tmv.Remainder(J_ip1);
 
+			std::vector<Polynomial<Real> > poly_tmv;
+			current_flowpipe.tmv.Expansion(poly_tmv);
+			std::vector<Polynomial<Real> > linear_part = local_trans_linear * poly_tmv;
+
 			for(int i=0; i<rangeDim; ++i)
 			{
-				new_flowpipe.tmv.tms[i].expansion += initial_linear[i];
+				linear_part[i].nctrunc(2);
+				new_flowpipe.tmv.tms[i].expansion += linear_part[i];
 			}
 
 			// contract J_ip1 and J_i
@@ -973,7 +977,7 @@ int DDE<DATA_TYPE>::reach_inv_symbolic_remainder(TaylorModelFlowpipes & flowpipe
 			new_flowpipe.domain = contracted_domain;
 			new_flowpipe.normalize(tm_setting.cutoff_threshold);
 
-			symbolic_remainder.reset(new_flowpipe);
+			symbolic_remainder.reset(new_flowpipe.tmvPre.tms.size());
 
 			if(bSafetyChecking)
 			{
@@ -1015,7 +1019,7 @@ int DDE<DATA_TYPE>::reach_inv_symbolic_remainder(TaylorModelFlowpipes & flowpipe
 
 		if(symbolic_remainder.J.size() >= symbolic_remainder.max_size)
 		{
-			symbolic_remainder.reset(current_flowpipe);
+			symbolic_remainder.reset(current_flowpipe.tmvPre.tms.size());
 		}
 	}
 

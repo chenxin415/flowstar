@@ -22,16 +22,15 @@ public:
 	std::vector<Matrix<Interval> > J;
 	std::vector<Matrix<Real> > Phi_L;
 	std::vector<Real> scalars;
-	std::vector<Polynomial<Real> > polynomial_of_initial_set;
 	unsigned int max_size;
 
 public:
 	Symbolic_Remainder();
-	Symbolic_Remainder(const Flowpipe & initial_set, const unsigned int s);
+	Symbolic_Remainder(const Flowpipe & initialSet, const unsigned int s);
 	Symbolic_Remainder(const Symbolic_Remainder & symbolic_remainder);
 	~Symbolic_Remainder();
 
-	void reset(const Flowpipe & initial_set);
+	void reset(const unsigned int dim);
 
 	Symbolic_Remainder & operator = (const Symbolic_Remainder & symbolic_remainder);
 };
@@ -891,7 +890,7 @@ int ODE<DATA_TYPE>::reach_symbolic_remainder(std::list<Flowpipe> & flowpipes, co
 
 			if(symbolic_remainder.J.size() >= symbolic_remainder.max_size)
 			{
-				symbolic_remainder.reset(currentFlowpipe);
+				symbolic_remainder.reset(currentFlowpipe.tmvPre.tms.size());
 			}
 		}
 		else
@@ -966,7 +965,7 @@ int ODE<DATA_TYPE>::reach_symbolic_remainder_adaptive_stepsize(std::list<Flowpip
 
 			if(symbolic_remainder.J.size() >= symbolic_remainder.max_size)
 			{
-				symbolic_remainder.reset(currentFlowpipe);
+				symbolic_remainder.reset(currentFlowpipe.tmvPre.tms.size());
 			}
 
 			t += current_stepsize;
@@ -1062,7 +1061,7 @@ int ODE<DATA_TYPE>::reach_symbolic_remainder_adaptive_order(std::list<Flowpipe> 
 
 			if(symbolic_remainder.J.size() >= symbolic_remainder.max_size)
 			{
-				symbolic_remainder.reset(currentFlowpipe);
+				symbolic_remainder.reset(currentFlowpipe.tmvPre.tms.size());
 			}
 
 			if(tm_setting.order > tm_setting.order_min)
@@ -2034,7 +2033,7 @@ int ODE<DATA_TYPE>::reach_inv_symbolic_remainder(TaylorModelFlowpipes & flowpipe
 				new_flowpipe.domain = contracted_domain;
 				new_flowpipe.normalize(tm_setting.cutoff_threshold);
 
-				symbolic_remainder.reset(new_flowpipe);
+				symbolic_remainder.reset(new_flowpipe.tmvPre.tms.size());
 
 				if(bSafetyChecking)
 				{
@@ -2092,7 +2091,7 @@ int ODE<DATA_TYPE>::reach_inv_symbolic_remainder(TaylorModelFlowpipes & flowpipe
 					new_flowpipe.domain = contracted_domain;
 					new_flowpipe.normalize(tm_setting.cutoff_threshold);
 
-					symbolic_remainder.reset(new_flowpipe);
+					symbolic_remainder.reset(new_flowpipe.tmvPre.tms.size());
 
 					if(bSafetyChecking)
 					{
@@ -2141,7 +2140,7 @@ int ODE<DATA_TYPE>::reach_inv_symbolic_remainder(TaylorModelFlowpipes & flowpipe
 
 			if(symbolic_remainder.J.size() >= symbolic_remainder.max_size)
 			{
-				symbolic_remainder.reset(current_flowpipe);
+				symbolic_remainder.reset(current_flowpipe.tmvPre.tms.size());
 			}
 
 			if(bPrint)
@@ -2281,7 +2280,7 @@ int ODE<DATA_TYPE>::reach_inv_symbolic_remainder_adaptive_stepsize(TaylorModelFl
 				new_flowpipe.domain = contracted_domain;
 				new_flowpipe.normalize(tm_setting.cutoff_threshold);
 
-				symbolic_remainder.reset(new_flowpipe);
+				symbolic_remainder.reset(new_flowpipe.tmvPre.tms.size());
 
 				if(bSafetyChecking)
 				{
@@ -2339,7 +2338,7 @@ int ODE<DATA_TYPE>::reach_inv_symbolic_remainder_adaptive_stepsize(TaylorModelFl
 					new_flowpipe.domain = contracted_domain;
 					new_flowpipe.normalize(tm_setting.cutoff_threshold);
 
-					symbolic_remainder.reset(new_flowpipe);
+					symbolic_remainder.reset(new_flowpipe.tmvPre.tms.size());
 
 					if(bSafetyChecking)
 					{
@@ -2400,7 +2399,7 @@ int ODE<DATA_TYPE>::reach_inv_symbolic_remainder_adaptive_stepsize(TaylorModelFl
 
 			if(symbolic_remainder.J.size() >= symbolic_remainder.max_size)
 			{
-				symbolic_remainder.reset(current_flowpipe);
+				symbolic_remainder.reset(current_flowpipe.tmvPre.tms.size());
 			}
 		}
 		else
@@ -2532,7 +2531,7 @@ int ODE<DATA_TYPE>::reach_inv_symbolic_remainder_adaptive_order(TaylorModelFlowp
 				new_flowpipe.domain = contracted_domain;
 				new_flowpipe.normalize(tm_setting.cutoff_threshold);
 
-				symbolic_remainder.reset(new_flowpipe);
+				symbolic_remainder.reset(new_flowpipe.tmvPre.tms.size());
 
 				if(bSafetyChecking)
 				{
@@ -2590,7 +2589,7 @@ int ODE<DATA_TYPE>::reach_inv_symbolic_remainder_adaptive_order(TaylorModelFlowp
 					new_flowpipe.domain = contracted_domain;
 					new_flowpipe.normalize(tm_setting.cutoff_threshold);
 
-					symbolic_remainder.reset(new_flowpipe);
+					symbolic_remainder.reset(new_flowpipe.tmvPre.tms.size());
 
 					if(bSafetyChecking)
 					{
@@ -2651,7 +2650,7 @@ int ODE<DATA_TYPE>::reach_inv_symbolic_remainder_adaptive_order(TaylorModelFlowp
 
 			if(symbolic_remainder.J.size() >= symbolic_remainder.max_size)
 			{
-				symbolic_remainder.reset(current_flowpipe);
+				symbolic_remainder.reset(current_flowpipe.tmvPre.tms.size());
 			}
 		}
 		else
