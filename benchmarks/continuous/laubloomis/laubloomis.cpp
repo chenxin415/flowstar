@@ -30,20 +30,18 @@ int main()
 
 	Computational_Setting setting(vars);
 
-	// adaptive stepsize from 0.001 to 0.2
-	// the TM order is fixed at 5
-	setting.setAdaptiveStepsize(0.001, 0.2, 5);
+	setting.setFixedStepsize(0.1, 5);
 
 	// set the cutoff threshold
-	setting.setCutoffThreshold(1e-7);
+	setting.setCutoffThreshold(5e-6);
 
 	// set up the remainder estimation
-	Interval I(-1e-4, 1e-4);
+	Interval I(-1e-2, 1e-2);
 	vector<Interval> remainder_estimation(vars.size(), I);
 	setting.setRemainderEstimation(remainder_estimation);
 
 
-	double w = 0.3;	// radius of the initial set
+	double w = 0.1;	// radius of the initial set
 
 	// define the initial set which is a box
 	Interval init_x1(1.2-w, 1.2+w), init_x2(1.05-w, 1.05+w), init_x3(1.5-w, 1.5+w), init_x4(2.4-w, 2.4+w),
@@ -63,14 +61,14 @@ int main()
 	Flowpipe initialSet(initial_box);
 
 
-	vector<Constraint> safeSet = {Constraint("x4 - 5.2", vars)};
+	vector<Constraint> safeSet;
 
 	Result_of_Reachability result;
 
 	clock_t begin, end;
 	begin = clock();
 
-	Symbolic_Remainder symbolic_remainder(initialSet, 500);
+	Symbolic_Remainder symbolic_remainder(initialSet, 200);
 
 	double T = 20;
 
