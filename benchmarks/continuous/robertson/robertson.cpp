@@ -15,9 +15,9 @@ int main()
 
 
 	ODE<Real> ode({	"-0.4*x + 1000*y*z",
-					"0.4*x - 1000*y*z - 1e7*y^2",
-					"1e7*y^2",
-					"1"}, vars);
+			"0.4*x - 1000*y*z - 1e7*y^2",
+			"1e7*y^2",
+			"1"}, vars);
 
 	// set the reachability parameters
 	Computational_Setting setting(vars);
@@ -67,7 +67,7 @@ int main()
 	end = clock();
 	printf("time cost: %lf\n", (double)(end - begin) / CLOCKS_PER_SEC);
 
-	if(!result.isCompleted()) // if the flowpipes are successfully computed
+	if(!result.isCompleted()) // if the flowpipes are not successfully computed
 	{
 		printf("Flowpipe computation is terminated due to the large overestimation.\n");
 	}
