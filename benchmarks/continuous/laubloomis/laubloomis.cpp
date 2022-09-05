@@ -104,7 +104,7 @@ int main()
 	Plot_Setting plot_setting(vars);
 	plot_setting.printOn();
 	
-		plot_setting.setOutputDims("t", "x1");
+	plot_setting.setOutputDims("t", "x1");
 	plot_setting.plot_2D_octagon_MATLAB("./", "laubloomis_t_x1", result.tmv_flowpipes, setting);
 
 	plot_setting.setOutputDims("t", "x2");
