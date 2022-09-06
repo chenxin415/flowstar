@@ -33,7 +33,7 @@ int main()
 	setting.setFixedStepsize(0.1, 5);
 
 	// set the cutoff threshold
-	setting.setCutoffThreshold(1e-6);
+	setting.setCutoffThreshold(5e-7);
 
 	// set up the remainder estimation
 	Interval I(-1e-1, 1e-1);
