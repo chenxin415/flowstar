@@ -1,6 +1,6 @@
 ### System Dynamics
 
-$\dot{x} = 1 - sin(x) \frac{\sqrt{\log(x)}}{e^{\cos(x)}}$
+$\dot{x} = 1 - \sin(x) \frac{\sqrt{\log(x)}}{e^{\cos(x)}}$
 
 
 
