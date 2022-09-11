@@ -5,11 +5,12 @@
 
 This is the homepage of the toolbox version of Flow\*. The first version of Flow\* was released in the year of 2013, and improved in 2015 (version 1.2.0) and 2017 (version 2.1.0). The purpose of releasing a toolbox version is to provide a more flexible way to model and analyze cyber-physical systems (CPS), and expose the key functions to the tools for verifying more complex systems, such as the CPS with machine learning components. The main data structures in the toolbox version are completely re-designed and implemented such that the performance is **at least 10x faster** than the version 2.1.0 on hybrid case studies.
 
-**Flow\* is mainly used to compute reachable set overapproximations which are guranteed to contain all approximation and numerical errors.**
+**Flow\* is mainly used to compute reachable set overapproximations which are guranteed to contain all approximation and numerical errors.** The following video shows an example of using Flow\* on a mobile device to online detect the future unsafety for the RC car. 
+<br>
 
+<img src='images/iros20.gif' width='500'>
 
-![Using Flow\* to overapproximate the reachable sets online.](images/iros20.gif)
-
+<br>
 
 ### How does the toolbox work?
 
