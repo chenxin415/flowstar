@@ -8,6 +8,9 @@ This is the homepage of the toolbox version of Flow\*. The first version of Flow
 **Flow\* is mainly used to compute reachable set overapproximations which are guranteed to contain all approximation and numerical errors.**
 
 
+![Using Flow\* to overapproximate the reachable sets online.](images/iros20.gif)
+
+
 ### How does the toolbox work?
 
 The Flow\* toolbox does not have a specific interface, it is compiled as a static library. A verification or reachability task should be described as a C++ file which can be compiled with the Flow\* libarary.
