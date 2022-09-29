@@ -124,3 +124,24 @@ The above reachability problem can be described by the following C++ program usi
 
 --
 **More content will be added.**
+
+
+# References
+
+[1] Xin Chen, Erika Abraham, Sriram Sankaranarayanan.
+*Taylor Model Flowpipe Construction for Non-linear Hybrid Systems.*
+In Real Time Systems Symposium (RTSS), pp. 183-192, 2012. ([link](https://ieeexplore.ieee.org/document/6424802))
+
+[2] Xin Chen, Erika Abraham, Sriram Sankaranarayanan.
+*Flow*: An Analyzer for Non-Linear Hybrid Systems.*
+In Computer-Aided Verification (CAV), volume 8044 of LNCS, pp. 258-263, 2013. ([link](https://link.springer.com/chapter/10.1007/978-3-642-39799-8_18))
+
+[3] Xin Chen. *Reachability Analysis of Non-Linear Hybrid Systems Using Taylor Models.* Ph.D. Thesis, RWTH Aachen University, 2015. ([link](https://shinchern.github.io/papers/PhD_Thesis.pdf))
+
+[4] Xin Chen, Sriram Sankaranarayanan.
+*Decomposed Reachability Analysis for Nonlinear Systems.*
+In Real-Time Systems Symposium (RTSS), 2016. ([link](https://ieeexplore.ieee.org/document/7809839))
+
+[5] Xin Chen, Sergio Mover, and Sriram Sankaranarayanan.
+*Compositional Relational Abstraction for Nonlinear Hybrid Systems.*
+In ACM Transactions on Embedded Computing Systems (TECS) 16(5): pp. 187:1-187:19, 2017. ([link](https://dl.acm.org/doi/10.1145/3126522))
