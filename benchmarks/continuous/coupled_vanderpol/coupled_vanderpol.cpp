@@ -17,10 +17,15 @@ int main()
 
 	ODE<Real> ode({"y1", "2*(1 - x1^2) * y1 - 2*x1 + x2", "y2", "2*(1 - x2^2) * y2 - 2*x2 + x1", "1"}, vars);
 
-
 	Computational_Setting setting(vars);
 
 	setting.setCutoffThreshold(1e-8);
+
+	setting.setAdaptiveStepsize(0.0001, 0.02, 4);
+
+	Interval remainder(-3e-5,3e-5);
+	vector<Interval> estimation(vars.size(), remainder);
+	setting.setRemainderEstimation(estimation);
 
 	setting.printOff();	// do not display information during the reachability analysis
 
@@ -41,15 +46,15 @@ int main()
 	Result_of_Reachability result;	// data structure to keep the reachability analysis result
 
 
-	// subdividing the initial set to smaller boxes 15 x 1 x 15 x 1
+	// subdividing the initial set to smaller boxes 16 x 1 x 16 x 1
 	list<Interval> subdiv_x0;
-	global_box[0].split(subdiv_x0, 15);
+	global_box[0].split(subdiv_x0, 16);
 
 	list<Interval> subdiv_x1;
 	global_box[1].split(subdiv_x1, 1);
 
 	list<Interval> subdiv_x2;
-	global_box[2].split(subdiv_x2, 15);
+	global_box[2].split(subdiv_x2, 16);
 
 	list<Interval> subdiv_x3;
 	global_box[3].split(subdiv_x3, 1);
@@ -93,61 +98,35 @@ int main()
 	begin = clock();
 
 	int safety = SAFE;
+	double T = 8;
 
 	for(int i=0; i<initial_sets.size(); ++i)
 	{
-		double T = 7.4;
-
 		Flowpipe local_init = initial_sets[i];
 
-		for(int j=0; j<2; ++j, T = 0.6)
+		Symbolic_Remainder sr(local_init, 400);
+
+		ode.reach(result, local_init, T, setting, safeSet, sr);
+
+		if(!result.isCompleted()) // if the flowpipes are successfully computed
 		{
-			Symbolic_Remainder sr(local_init, 5000);
+			safety = -1;
 
-			if(j == 0)
-			{
-				setting.setAdaptiveStepsize(0.0001, 0.05, 5);
+			cout << "Failed: " << initial_boxes[i][0] << "\t" << initial_boxes[i][1] << "\t" << initial_boxes[i][2] << "\t" << initial_boxes[i][3] << endl;
 
-				Interval remainder(-3e-6,3e-6);
-				vector<Interval> estimation(vars.size(), remainder);
-				setting.setRemainderEstimation(estimation);
+			break;
+		}
 
-				ode.reach(result, local_init, T, setting, safeSet, sr);
-			}
-			else
-			{
-				setting.setFixedStepsize(0.004, 4);
+		if(result.isUnsafe()) // if there is an unsafe flowpipe detected, the computation terminates immediately
+		{
+			safety = UNSAFE;
+			break;
+		}
+		else if(!result.isSafe())// there is no unsafe flowpipe found, but some of the flowpipes intersect the unsafe set
+		{
+			cout << "Unknown: " << initial_boxes[i][0] << "\t" << initial_boxes[i][1] << "\t" << initial_boxes[i][2] << "\t" << initial_boxes[i][3] << endl;
 
-				Interval remainder(-1e-3,1e-3);
-				vector<Interval> estimation(vars.size(), remainder);
-				setting.setRemainderEstimation(estimation);
-
-				ode.reach(result, local_init, T, setting, safeSet, sr);
-			}
-
-
-			if(!result.isCompleted()) // if the flowpipes are successfully computed
-			{
-				safety = -1;
-
-				cout << "Failed: " << initial_boxes[i][0] << "\t" << initial_boxes[i][1] << initial_boxes[i][2] << "\t" << initial_boxes[i][3] << endl;
-
-				break;
-			}
-
-			if(result.isUnsafe()) // if there is an unsafe flowpipe detected, the computation terminates immediately
-			{
-				safety = UNSAFE;
-				break;
-			}
-			else if(!result.isSafe())// there is no unsafe flowpipe found, but some of the flowpipes intersect the unsafe set
-			{
-				cout << "Unknown: " << initial_boxes[i][0] << "\t" << initial_boxes[i][1] << initial_boxes[i][2] << "\t" << initial_boxes[i][3] << endl;
-
-				safety = UNKNOWN;
-			}
-
-			local_init = result.fp_end_of_time;
+			safety = UNKNOWN;
 		}
 
 		cout << "Partition " << i+1 << " completed." << endl;
@@ -156,44 +135,6 @@ int main()
 
 	end = clock();
 	printf("time cost: %lf\n", (double)(end - begin) / CLOCKS_PER_SEC);
-
-
-	if(safety == -1)
-	{
-		printf("Flowpipe computation is terminated due to the large overestimation.\n");
-	}
-	else if(safety == SAFE) // if all of the flowpipes are safe
-	{
-		printf("All flowpipes are safe.\n");
-	}
-	else if(safety == UNSAFE) // if there is an unsafe flowpipe detected, the computation terminates immediately
-	{
-		printf("The last flowpipe is unsafe.\n");
-	}
-	else // there is no unsafe flowpipe found, but some of the flowpipes intersect the unsafe set
-	{
-		printf("The safety is unknown.\n");
-	}
-
-
-	result.transformToTaylorModels(setting);
-
-
-	setting.printOn();
-	Plot_Setting plot_setting(vars);
-	plot_setting.printOn();
-
-	plot_setting.setOutputDims("t", "x1");
-	plot_setting.plot_2D_interval_MATLAB("./", "coupled_vanderpol_t_x1", result.tmv_flowpipes, setting);
-
-	plot_setting.setOutputDims("t", "x2");
-	plot_setting.plot_2D_interval_MATLAB("./", "coupled_vanderpol_t_x2", result.tmv_flowpipes, setting);
-
-	plot_setting.setOutputDims("t", "y1");
-	plot_setting.plot_2D_interval_MATLAB("./", "coupled_vanderpol_t_y1", result.tmv_flowpipes, setting);
-
-	plot_setting.setOutputDims("t", "y2");
-	plot_setting.plot_2D_interval_MATLAB("./", "coupled_vanderpol_t_y2", result.tmv_flowpipes, setting);
 
 	return 0;
 }
