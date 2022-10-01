@@ -18,7 +18,7 @@ int main()
 
 	Computational_Setting setting(vars);
 
-	setting.setFixedStepsize(0.025, 6);
+	setting.setFixedStepsize(0.025, 8);
 
 	setting.setCutoffThreshold(1e-8);
 
