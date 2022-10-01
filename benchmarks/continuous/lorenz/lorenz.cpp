@@ -17,9 +17,9 @@ int main()
 	Computational_Setting setting(vars);
 
 	// using the following statement to specify the stepsize as 0.01 and the order as 7
-	setting.setFixedStepsize(0.01, 8);
+	setting.setFixedStepsize(0.007, 8);
 
-	setting.setCutoffThreshold(1e-10);
+	setting.setCutoffThreshold(1e-12);
 
 
 	double w = 0.001; // radius of the initial set
