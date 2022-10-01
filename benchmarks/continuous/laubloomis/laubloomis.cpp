@@ -30,18 +30,18 @@ int main()
 
 	Computational_Setting setting(vars);
 
-	setting.setFixedStepsize(0.1, 5);
+	setting.setFixedStepsize(0.02, 4);
 
 	// set the cutoff threshold
-	setting.setCutoffThreshold(5e-7);
+	setting.setCutoffThreshold(1e-8);
 
 	// set up the remainder estimation
-	Interval I(-1e-1, 1e-1);
+	Interval I(-1e-2, 1e-2);
 	vector<Interval> remainder_estimation(vars.size(), I);
 	setting.setRemainderEstimation(remainder_estimation);
 
 
-	double w = 0.1;	// radius of the initial set
+	double w = 0.2;	// radius of the initial set
 
 	// define the initial set which is a box
 	Interval init_x1(1.2-w, 1.2+w), init_x2(1.05-w, 1.05+w), init_x3(1.5-w, 1.5+w), init_x4(2.4-w, 2.4+w),
@@ -68,7 +68,7 @@ int main()
 	clock_t begin, end;
 	begin = clock();
 
-	Symbolic_Remainder symbolic_remainder(initialSet, 200);
+	Symbolic_Remainder symbolic_remainder(initialSet, 1000);
 
 	double T = 20;
 
