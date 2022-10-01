@@ -571,7 +571,6 @@ int DDE<DATA_TYPE>::reach_symbolic_remainder(std::list<Flowpipe> & flowpipes, co
 
 			for(int i=0; i<rangeDim; ++i)
 			{
-				linear_part[i].nctrunc(2);
 				new_flowpipe.tmv.tms[i].expansion += linear_part[i];
 			}
 
@@ -622,6 +621,9 @@ int DDE<DATA_TYPE>::reach_symbolic_remainder(std::list<Flowpipe> & flowpipes, co
 		range_of_x0.insert(range_of_x0.begin(), intZero);
 
 		new_flowpipe.tmv.scale_assign(invS);
+
+		Interval init_cft(-INITIAL_SIMP, INITIAL_SIMP);
+		new_flowpipe.tmv.cutoff_normal(tm_setting.step_end_exp_table, init_cft);
 
 		TaylorModelVec<Real> new_x0(S);
 		new_x0 += tmv_c0;
@@ -770,7 +772,6 @@ int DDE<DATA_TYPE>::reach_inv_symbolic_remainder(TaylorModelFlowpipes & flowpipe
 
 			for(int i=0; i<rangeDim; ++i)
 			{
-				linear_part[i].nctrunc(2);
 				new_flowpipe.tmv.tms[i].expansion += linear_part[i];
 			}
 
@@ -893,6 +894,9 @@ int DDE<DATA_TYPE>::reach_inv_symbolic_remainder(TaylorModelFlowpipes & flowpipe
 		range_of_x0.insert(range_of_x0.begin(), intZero);
 
 		new_flowpipe.tmv.scale_assign(invS);
+
+		Interval init_cft(-INITIAL_SIMP, INITIAL_SIMP);
+		new_flowpipe.tmv.cutoff_normal(tm_setting.step_end_exp_table, init_cft);
 
 		TaylorModelVec<Real> new_x0(S);
 		new_x0 += tmv_c0;

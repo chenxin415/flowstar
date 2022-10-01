@@ -2196,7 +2196,6 @@ int Flowpipe::advance(Flowpipe & result, const std::vector<Expression<Real> > & 
 
 		for(int i=0; i<rangeDim; ++i)
 		{
-			linear_part[i].nctrunc(2);
 			result.tmv.tms[i].expansion += linear_part[i];
 		}
 
@@ -2318,6 +2317,9 @@ int Flowpipe::advance(Flowpipe & result, const std::vector<Expression<Real> > & 
 	}
 
 	result.tmv.scale_assign(invS);
+
+	Interval init_cft(-INITIAL_SIMP, INITIAL_SIMP);
+	result.tmv.cutoff_normal(tm_setting.step_end_exp_table, init_cft);
 
 	TaylorModelVec<Real> new_x0(S);
 	new_x0 += tmv_c0;
@@ -2490,7 +2492,6 @@ int Flowpipe::advance(Flowpipe & result, const std::vector<Expression<Interval> 
 
 		for(int i=0; i<rangeDim; ++i)
 		{
-			linear_part[i].nctrunc(2);
 			result.tmv.tms[i].expansion += linear_part[i];
 		}
 
@@ -2612,6 +2613,9 @@ int Flowpipe::advance(Flowpipe & result, const std::vector<Expression<Interval> 
 	}
 
 	result.tmv.scale_assign(invS);
+
+	Interval init_cft(-INITIAL_SIMP, INITIAL_SIMP);
+	result.tmv.cutoff_normal(tm_setting.step_end_exp_table, init_cft);
 
 	TaylorModelVec<Real> new_x0(S);
 	new_x0 += tmv_c0;
@@ -2784,7 +2788,6 @@ int Flowpipe::advance_adaptive_stepsize(Flowpipe & result, const std::vector<Exp
 
 		for(int i=0; i<rangeDim; ++i)
 		{
-			linear_part[i].nctrunc(2);
 			result.tmv.tms[i].expansion += linear_part[i];
 		}
 
@@ -2906,6 +2909,9 @@ int Flowpipe::advance_adaptive_stepsize(Flowpipe & result, const std::vector<Exp
 	}
 
 	result.tmv.scale_assign(invS);
+
+	Interval init_cft(-INITIAL_SIMP, INITIAL_SIMP);
+	result.tmv.cutoff_normal(tm_setting.step_end_exp_table, init_cft);
 
 	TaylorModelVec<Real> new_x0(S);
 	new_x0 += tmv_c0;
@@ -3108,7 +3114,6 @@ int Flowpipe::advance_adaptive_stepsize(Flowpipe & result, const std::vector<Exp
 
 		for(int i=0; i<rangeDim; ++i)
 		{
-			linear_part[i].nctrunc(2);
 			result.tmv.tms[i].expansion += linear_part[i];
 		}
 
@@ -3230,6 +3235,9 @@ int Flowpipe::advance_adaptive_stepsize(Flowpipe & result, const std::vector<Exp
 	}
 
 	result.tmv.scale_assign(invS);
+
+	Interval init_cft(-INITIAL_SIMP, INITIAL_SIMP);
+	result.tmv.cutoff_normal(tm_setting.step_end_exp_table, init_cft);
 
 	TaylorModelVec<Real> new_x0(S);
 	new_x0 += tmv_c0;
@@ -3432,7 +3440,6 @@ int Flowpipe::advance_adaptive_order(Flowpipe & result, const std::vector<Expres
 
 		for(int i=0; i<rangeDim; ++i)
 		{
-			linear_part[i].nctrunc(2);
 			result.tmv.tms[i].expansion += linear_part[i];
 		}
 
@@ -3554,6 +3561,9 @@ int Flowpipe::advance_adaptive_order(Flowpipe & result, const std::vector<Expres
 	}
 
 	result.tmv.scale_assign(invS);
+
+	Interval init_cft(-INITIAL_SIMP, INITIAL_SIMP);
+	result.tmv.cutoff_normal(tm_setting.step_end_exp_table, init_cft);
 
 	TaylorModelVec<Real> new_x0(S);
 	new_x0 += tmv_c0;
@@ -3761,7 +3771,6 @@ int Flowpipe::advance_adaptive_order(Flowpipe & result, const std::vector<Expres
 
 		for(int i=0; i<rangeDim; ++i)
 		{
-			linear_part[i].nctrunc(2);
 			result.tmv.tms[i].expansion += linear_part[i];
 		}
 
@@ -3883,6 +3892,9 @@ int Flowpipe::advance_adaptive_order(Flowpipe & result, const std::vector<Expres
 	}
 
 	result.tmv.scale_assign(invS);
+
+	Interval init_cft(-INITIAL_SIMP, INITIAL_SIMP);
+	result.tmv.cutoff_normal(tm_setting.step_end_exp_table, init_cft);
 
 	TaylorModelVec<Real> new_x0(S);
 	new_x0 += tmv_c0;

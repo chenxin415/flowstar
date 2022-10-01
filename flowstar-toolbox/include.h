@@ -36,13 +36,15 @@
 const int normal_precision	=	53;
 const int high_precision	=	256;
 
-#define MAX_REFINEMENT_STEPS	49
+#define MAX_REFINEMENT_STEPS	490
 #define MAX_DYN_REF				49
 
 #define MAX_WIDTH				1e-12
 
 #define THRESHOLD_HIGH			1e-12
 #define THRESHOLD_LOW			1e-20
+
+#define INITIAL_SIMP			1e-4
 
 #define STOP_RATIO				0.99
 #define ABS_STOP_RATIO			0.99
