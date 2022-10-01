@@ -18,7 +18,7 @@ $\dot{x}_7 = 1.8 x_6 - 1.5 x_7 x_2$
 
 ### Reachability Problem
 
-Initial state set: The box centered at the following point of radius 0.1. 
+Initial state set: The box centered at the following point of radius 0.2. 
 
 $x_1(0) = 1.2$, $x_2(0) = 1.05$, $x_3(0) = 1.5$, $x_4(0) = 2.4$, $x_5(0) = 1$, $x_6(0) = 0.1$, $x_7(0) = 0.45$
 
