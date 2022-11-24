@@ -32,7 +32,7 @@ std::ostream & operator << (std::ostream & os, const Matrix<DATA_TYPE> & A);
 template <class DATA_TYPE>
 class Matrix
 {
-protected:
+public:
 	DATA_TYPE *data;
 	unsigned int size1;
 	unsigned int size2;
