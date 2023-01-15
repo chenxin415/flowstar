@@ -55,8 +55,8 @@ public:
 
 	unsigned int numOfVars() const;
 
-//	TaylorModel(const std::string & strPolynomial, const Variables & vars);
-//	TaylorModel(const std::string & strPolynomial, const Interval & rem, const Variables & vars);
+	TaylorModel(const std::string & strPolynomial, Variables & vars);
+	TaylorModel(const std::string & strPolynomial, const Interval & rem, Variables & vars);
 
 	void clear();
 	void output(std::ostream & os, const Variables & vars) const;
@@ -398,6 +398,21 @@ unsigned int TaylorModel<DATA_TYPE>::numOfVars() const
 template <class DATA_TYPE>
 TaylorModel<DATA_TYPE>::~TaylorModel()
 {
+}
+
+template <class DATA_TYPE>
+TaylorModel<DATA_TYPE>::TaylorModel(const std::string & strPolynomial, Variables & vars)
+{
+	Polynomial<DATA_TYPE> polynomial(strPolynomial, vars);
+	expansion = polynomial;
+}
+
+template <class DATA_TYPE>
+TaylorModel<DATA_TYPE>::TaylorModel(const std::string & strPolynomial, const Interval & rem, Variables & vars)
+{
+	Polynomial<DATA_TYPE> polynomial(strPolynomial, vars);
+	expansion = polynomial;
+	remainder = rem;
 }
 
 template <class DATA_TYPE>
