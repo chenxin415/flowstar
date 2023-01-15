@@ -18,8 +18,12 @@ int main()
 
 	Computational_Setting setting(vars);
 
-	setting.setFixedStepsize(0.03, 5);	// fixed stepsize is 0.05, fixed order is 5
+	setting.setFixedStepsize(0.05, 5);	// fixed stepsize is 0.05, fixed order is 5
 
+	// remainder estimation
+	Interval I(-1e-1, 1e-1);
+	vector<Interval> remainder_estimation(vars.size(), I);
+	setting.setRemainderEstimation(remainder_estimation);
 
 	double w = 0.01; //radius of the initial set
 

@@ -12,6 +12,10 @@ This is the homepage of the toolbox version of Flow\*. The first version of Flow
 
 <br>
 
+**Flow\* is also used to verify dynamical systems controlled by neural networks. Please check our tool [POLAR](https://github.com/ChaoHuang2018/POLAR_Tool).**
+
+<br>
+
 ### How does the toolbox work?
 
 The Flow\* toolbox does not have a specific interface, it is compiled as a static library. A verification or reachability task should be described as a C++ file which can be compiled with the Flow\* libarary.
@@ -77,7 +81,7 @@ The above reachability problem can be described by the following C++ program usi
 
 <br>
 
-- **_Cutoff threshold._** A small value for moving the small terms in the polynomial part of a TM to its remainder. Higher cutoff threshold may greatly simplify a TM but lead to a heavier error accumulation. We give the following comparison to show its impact on the time cost and overapproximation quality.
+- **_Cutoff threshold._** A small value for moving the small terms in the polynomial part of a TM to its remainder. Higher cutoff threshold may greatly simplify a TM but lead to a heavier error accumulation. We give the following comparison to show its impact on the time cost and overapproximation quality (tested on M1 Mac mini).
 
 
 <table>
@@ -87,9 +91,9 @@ The above reachability problem can be described by the following C++ program usi
     <td> <img src='images/benchmarks/laubloomis_7.png' width='300'> </td>
   </tr> 
   <tr>
-    <td> Cutoff threshold: 1e-5 <br> Time cost: 4.6 seconds (M1 Mac mini) </td>
-    <td> Cutoff threshold: 1e-6 <br> Time cost: 5.6 seconds (M1 Mac mini) </td>
-    <td> Cutoff threshold: 1e-7 <br> Time cost: 7.3 seconds (M1 Mac mini) </td>
+    <td> Cutoff threshold: 1e-5 <br> Time cost: 4.6 seconds </td>
+    <td> Cutoff threshold: 1e-6 <br> Time cost: 5.6 seconds </td>
+    <td> Cutoff threshold: 1e-7 <br> Time cost: 7.3 seconds </td>
   </tr>
 </table>
 
